@@ -45,3 +45,13 @@ for the upload is `CHANGELOG-0.1.0-beta.1.md` at the repo root. Below, the notes
   and S7. No hut blueprint yet (S5), so the hut cannot be built with the build tool until then. Probe `csdecorator`
   (three game days with a night and rain on a real colony, mode free) and `tools/restart.sh csdecorator`.
 - **S11, page and logo (drafts).** README, the CurseForge page text and one-line summary, the player-facing changelog, a 400x400 logo made by `tools/gen_logo.py` from our own textures (three variants in `docs/renders/s11/`), and `tools/check_public.py` (no personal names, user-folder paths or world names in tracked files, and no personal names or world names, forwards or backwards, in any commit of the history, no machine paths or hype words in public text, the summary at most 120 characters). Sentences that rest on chunks not built yet are listed in `release/VERIFY.md` for the final check after S9.
+- **S5, blueprints.** An own Structurize pack "Colony Seasons" (works with every colony style) in the jar: the
+  Decorator's hut, look "Workshop with shopfront" (the picked hut A) in five levels on one footprint
+  (`decorator/workshop1..5`: a one-storey stone workshop that gains its shopfront, upper floor, awning and roof detail,
+  level 5 the picked picture; racks for his stock, a ladder upstairs, lanterns inside, no bed), and the tree pieces the
+  Decorator places at the festival marker (`pieces/village_spruce_small`, `_full`, `_rich` from tree A, `grand_tree`
+  from tree B; drawn facing north, the marker's cell left as air, tags `gift_pile`, `firework_crate`, `star`, hidden
+  from the build tool). Built by `tools/build_pack.py` from `tools/decorator_hut.py` and `tools/tree_pieces.py`; its
+  checks (ids and properties, floating and unattached blocks, walking, the picked designs, read-back) are a step of
+  `tools/checks.sh`; probe `cspaste` pastes every file through Structurize and reads the world back; renders in
+  `docs/renders/s5/`.
