@@ -1,0 +1,8 @@
+modLoader="javafml"
+loaderVersion="[4,)"
+license="GPL-3.0-or-later"
+[[mods]]
+modId="sereneseasons"
+version="0.0.0-standin"
+displayName="Serene Seasons stand-in (Colony Seasons rig only)"
+description="A test stand-in written for the Colony Seasons rig: the few Serene Seasons API shapes the bridge calls. Not the real mod."

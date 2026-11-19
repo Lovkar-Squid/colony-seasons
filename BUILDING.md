@@ -41,11 +41,23 @@ bash tools/probe.sh csconfig defaults     # every getter equals the hand-written
 bash tools/probe.sh csconfig seeded       # a config file with a non-default value for every key is read back
 ```
 
+```bash
+bash tools/probe.sh cscalendar dates          # festival windows, seasons, saved data, the packet, the commands (fake clock)
+bash tools/probe.sh cscalendar bridge-absent  # Serene Seasons not installed: own calendar, one log line
+bash tools/probe.sh cscalendar bridge-present # a written-here stand-in jar (tools/sereneshim): the season follows it
+bash tools/probe.sh cscalendar bridge-throws  # a stand-in that throws: falls back, one WARN line, no error-level line
+bash tools/probe.sh cscalendar bridge-nonseasonal   # the stand-in's whitelist leaves the overworld out: falls back
+bash tools/probe.sh cscalendar bridge-off     # calendar.useSereneSeasons = false: own calendar, no log line
+bash tools/restart.sh cscalendar              # two server runs on one kept world: saved state is read back
+```
+
 `tools/probe.sh <probe> [mode]` builds the mod and the probe, then runs the rig. A probe folder may hold
-`res/` (its own `neoforge.mods.toml`), `rigjars.txt` (extra jars), `rigconfig/` (a config file seeded into the
+`res/` (its own `neoforge.mods.toml`), `rigjars.txt` / `rigjars-<mode>.txt` (extra jars for every mode or one; `%REPO%` is this repo), `prepare.sh` (builds them first), `rigconfig/` (a config file seeded into the
 fresh world) and `rigconfig-<mode>/` (the same for one mode). The run fails on a probe `FAIL` and on any `ERROR`
 or `Exception` line that names the mod or the probe. The rig runs one test server at a time, so a run may wait
-for another one to finish.
+for another one to finish. `tools/restart.sh <probe>` runs the probe's modes `restart-save` and `restart-load` on one kept world
+(through `tools/rig/run-rig-keep.ps1`, a copy of the rig's runner that wipes the world once and holds the lock across both runs).
+`tools/sereneshim/` is a few lines of our own that stand in for the Serene Seasons API in the bridge modes; its jar stays in `tools/out/`.
 
 If the server dies with `FAILED TO BIND TO PORT`, Windows has reserved the rig's port
 (`netsh interface ipv4 show excludedportrange protocol=tcp`). `bash tools/private-rig.sh` makes a copy of the

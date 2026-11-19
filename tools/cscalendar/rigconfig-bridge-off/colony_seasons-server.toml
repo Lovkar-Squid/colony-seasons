@@ -1,0 +1,7 @@
+# Seeded by tools/probe.sh cscalendar bridge-off: Serene Seasons is installed (the stand-in) but the config says not to use it.
+
+[calendar]
+	yearLengthDays = 48
+	startSeason = "spring"
+	useSereneSeasons = false
+	timeZone = "system"

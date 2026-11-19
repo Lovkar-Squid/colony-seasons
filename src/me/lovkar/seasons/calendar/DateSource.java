@@ -1,0 +1,48 @@
+package me.lovkar.seasons.calendar;
+
+import me.lovkar.seasons.SeasonsConfig;
+
+import java.time.Clock;
+import java.time.DateTimeException;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.util.function.Supplier;
+
+/**
+ * Today's real date. This is the ONLY place in the mod that reads the real clock (tools/check_clock.py
+ * checks it), so a test or a later chunk can replace it with {@link #fixed(LocalDate)} and nothing else
+ * has to know. The date is read in the zone of {@code calendar.timeZone}: {@code system} is the server's
+ * own zone, anything else a zone id.
+ */
+@FunctionalInterface
+public interface DateSource {
+
+    LocalDate today();
+
+    /** The real date, in the configured zone (read again on every call, so a config change applies at once). */
+    static DateSource system() {
+        return of(Clock.systemUTC(), SeasonsConfig::timeZone);
+    }
+
+    /** A date source over any clock and zone setting; the real one is {@link #system()}, the tests use a fixed clock. */
+    static DateSource of(final Clock clock, final Supplier<String> zoneSetting) {
+        return () -> LocalDate.now(clock.withZone(zone(zoneSetting.get())));
+    }
+
+    /** A date that never changes. */
+    static DateSource fixed(final LocalDate date) {
+        return () -> date;
+    }
+
+    /** The zone of a {@code calendar.timeZone} value: {@code system} (or anything unreadable) is the server's own zone. */
+    static ZoneId zone(final String setting) {
+        if (setting == null || SeasonsConfig.DEFAULT_TIME_ZONE.equals(setting)) {
+            return ZoneId.systemDefault();
+        }
+        try {
+            return ZoneId.of(setting);
+        } catch (final DateTimeException unknown) {
+            return ZoneId.systemDefault();
+        }
+    }
+}

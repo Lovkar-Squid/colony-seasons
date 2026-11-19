@@ -1,0 +1,2 @@
+# the Serene Seasons stand-in (tools/sereneshim, built by prepare.sh) joins the rig in this mode only
+%REPO%/tools/out/sereneshim.jar

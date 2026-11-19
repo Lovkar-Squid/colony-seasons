@@ -1,0 +1,8 @@
+# Seeded by tools/restart.sh cscalendar: a new world starts in summer. The first run sets winter and forces New Year;
+# the second run must find those in the saved world, not a fresh summer start.
+
+[calendar]
+	yearLengthDays = 48
+	startSeason = "summer"
+	useSereneSeasons = true
+	timeZone = "system"
