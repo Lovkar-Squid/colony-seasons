@@ -1,0 +1,19 @@
+{
+  "comment": "Citizen models that may wear the wool hat in winter, by MineColonies model id and gender. Models that already wear a cap, hood, sailor or baker's hat, horns, a feather or goggles on the forehead are left out, and so is the courier, whose hair layer sits off his head; so is the player-skin model (minecolonies:custom). A resource pack may replace this file.",
+  "models": {
+    "minecolonies:settler": ["male", "female"],
+    "minecolonies:citizen": ["female"],
+    "minecolonies:miner": ["male", "female"],
+    "minecolonies:composter": ["male", "female"],
+    "minecolonies:smelter": ["male", "female"],
+    "minecolonies:student": ["male"],
+    "minecolonies:blacksmith": ["male", "female"],
+    "minecolonies:child": ["female"],
+    "minecolonies:glassblower": ["male", "female"],
+    "minecolonies:concretemixer": ["male", "female"],
+    "minecolonies:rabbitherder": ["male", "female"],
+    "minecolonies:planter": ["male", "female"],
+    "minecolonies:netherworker": ["male", "female"],
+    "minecolonies:enchanter": ["male", "female"]
+  }
+}
