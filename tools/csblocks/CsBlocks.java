@@ -52,6 +52,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -334,6 +335,21 @@ public class CsBlocks {
                 f++;
             }
             k++;
+        }
+        // three lantern strings hung side by side by hand show the three colour orders, along an x and a z wall
+        for (final Direction facing : List.of(Direction.NORTH, Direction.EAST)) {
+            final List<Integer> orders = new ArrayList<>();
+            for (int i = 0; i < 3; i++) {
+                final BlockPos wall = (facing == Direction.NORTH ? spot(i, -4) : spot(-4, i)).above();
+                level.setBlock(wall, Blocks.STONE_BRICKS.defaultBlockState(), Block.UPDATE_ALL);
+                use(SeasonsBlocks.LANTERN_STRING_ITEM.get(), wall, facing, facing.getOpposite().toYRot(), 0);
+                final BlockState hung = level.getBlockState(wall.relative(facing));
+                orders.add(hung.is(SeasonsBlocks.LANTERN_STRING.get()) ? hung.getValue(LanternStringBlock.VARIANT) : -1);
+                level.setBlock(wall.relative(facing), Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+                level.setBlock(wall, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+            }
+            check("lantern string colour orders cycle along a wall facing " + facing,
+                    !orders.contains(-1) && new HashSet<>(orders).size() == 3, "variants " + orders);
         }
         // a wall block will not go where there is nothing to hang on: clicked on the ground, in the open
         final BlockPos open = spot(20, 0);
