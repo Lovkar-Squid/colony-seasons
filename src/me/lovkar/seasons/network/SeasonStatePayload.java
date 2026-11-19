@@ -7,6 +7,7 @@ import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.ByIdMap;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 import java.util.List;
@@ -30,8 +31,12 @@ public record SeasonStatePayload(Season season, int dayOfYear, int yearLength, L
     public static final CustomPacketPayload.Type<SeasonStatePayload> TYPE =
             new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(ColonySeasons.MODID, "season_state"));
 
-    private static final StreamCodec<io.netty.buffer.ByteBuf, Season> SEASON_CODEC =
-            ByteBufCodecs.idMapper(Season::byOrdinal, Season::ordinal);
+    /**
+     * The season as its ordinal. An id outside 0 to 3 (only a server of another version could send one) is clamped
+     * to the nearest season instead of decoding to null, so the client state always holds a real season.
+     */
+    private static final StreamCodec<io.netty.buffer.ByteBuf, Season> SEASON_CODEC = ByteBufCodecs.idMapper(
+            ByIdMap.continuous(Season::ordinal, Season.values(), ByIdMap.OutOfBoundsStrategy.CLAMP), Season::ordinal);
 
     public static final StreamCodec<RegistryFriendlyByteBuf, SeasonStatePayload> STREAM_CODEC = StreamCodec.composite(
             SEASON_CODEC, SeasonStatePayload::season,
