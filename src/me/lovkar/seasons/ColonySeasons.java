@@ -3,6 +3,9 @@ package me.lovkar.seasons;
 import com.minecolonies.api.colony.buildings.registry.BuildingEntry;
 import com.minecolonies.api.colony.jobs.registry.JobEntry;
 import com.minecolonies.apiimp.CommonMinecoloniesAPIImpl;
+import me.lovkar.seasons.calendar.CalendarEvents;
+import me.lovkar.seasons.command.SeasonsCommands;
+import me.lovkar.seasons.network.SeasonsNetwork;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -23,8 +26,9 @@ import java.util.List;
 /**
  * Colony Seasons: seasons and festivals for MineColonies.
  *
- * <p>This is the skeleton (chunk S0): the registries every later chunk fills, the two event buses and
- * the server config. It adds no block, item, job or building yet.</p>
+ * <p>The skeleton (chunk S0): the registries every later chunk fills, the two event buses and the server
+ * config. Chunk S1 adds the calendar: its poll and login events, the season packet and the commands. No
+ * block, item, job or building is registered yet.</p>
  *
  * <p>Registries are declared here and registered on the mod bus even while they are empty, so a later
  * chunk only has to {@code register(...)} an entry and never has to remember to hook a register up.
@@ -63,8 +67,11 @@ public class ColonySeasons {
         }
         // mod bus: lifecycle and registration events
         modEventBus.addListener(ColonySeasons::onCommonSetup);
+        modEventBus.addListener(SeasonsNetwork::registerPayloads);
         // game bus: everything that happens in a running world
         NeoForge.EVENT_BUS.addListener(ColonySeasons::onServerStarted);
+        CalendarEvents.register();
+        SeasonsCommands.register();
 
         LOGGER.info("Colony Seasons {} loaded", version(container));
     }

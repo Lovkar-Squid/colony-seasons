@@ -2,7 +2,9 @@
 # Builds the mod and one probe, then runs the probe on the shared test rig.
 #   bash tools/probe.sh <probe> [mode]
 # <probe> is a folder under tools/ (csboot, csconfig, ...). Optional files in that folder:
-#   rigjars.txt             extra jars for the rig, one per line (or comma separated)
+#   rigjars.txt             extra jars for the rig in every mode, one per line (%REPO% stands for this repo's folder)
+#   rigjars-<mode>.txt      the same, for -Mode <mode> only (the Serene Seasons stand-in joins only the bridge modes)
+#   prepare.sh              run as `bash tools/<probe>/prepare.sh <mode>` before the rig starts (builds extra jars)
 #   rigconfig-<mode>/       the config folder for -Mode <mode>
 #   rigconfig/              the config folder when no mode is given, and for a mode without its own folder
 #                           (except mode 'defaults', which never falls back to it); with neither, nothing is seeded
@@ -24,14 +26,18 @@ if [ -z "$version" ]; then echo "no version in resources/META-INF/neoforge.mods.
 
 powershell -NoProfile -ExecutionPolicy Bypass -File "$RIG_DIR/build-addon.ps1" -Repo "$repo" -Probe "$probe"
 
+if [ -f "tools/$probe/prepare.sh" ]; then bash "tools/$probe/prepare.sh" "$mode"; fi
+
 jars="$repo/colony_seasons-$version.jar,$RIG_DIR/probes/$probe.jar"
-if [ -f "tools/$probe/rigjars.txt" ]; then
-  while IFS= read -r line || [ -n "$line" ]; do
-    line="${line%$'\r'}"
-    case "$line" in ''|'#'*) continue ;; esac
-    jars="$jars,$line"
-  done < "tools/$probe/rigjars.txt"
-fi
+for list in "tools/$probe/rigjars.txt" ${mode:+"tools/$probe/rigjars-$mode.txt"}; do
+  if [ -f "$list" ]; then
+    while IFS= read -r line || [ -n "$line" ]; do
+      line="${line%$'\r'}"
+      case "$line" in ''|'#'*) continue ;; esac
+      jars="$jars,${line//%REPO%/$repo}"
+    done < "$list"
+  fi
+done
 
 args=(-Name "$probe" -Jars "$jars" -ErrorMatch "colony_seasons|me\.lovkar\.seasons|$probe")
 if [ -n "$mode" ]; then

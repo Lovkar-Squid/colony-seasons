@@ -1,0 +1,13 @@
+# Seeded by tools/probe.sh cscalendar for every bridge mode: the world starts in spring, and New Year is switched
+# off (so the probe can see that a festival switched off in the config cannot be forced). Everything else is a default.
+
+[calendar]
+	yearLengthDays = 48
+	startSeason = "spring"
+	useSereneSeasons = true
+	timeZone = "system"
+
+[festivals]
+
+	[festivals.new_year]
+		enabled = false

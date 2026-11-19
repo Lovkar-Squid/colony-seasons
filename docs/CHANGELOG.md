@@ -7,3 +7,13 @@
   a server config `colony_seasons-server.toml` with every key of the design (calendar, the two festivals'
   dates, the Decorator, the events, the effects, all effects off). Build, probe and check scripts in `tools/`;
   the probes `csboot` and `csconfig` (defaults and seeded) pass.
+- **S1, calendar.** The server knows the season and the active festivals, saves them with the world
+  (`colony_seasons_calendar`: the offset and a forced festival), tells every client at login and on each change
+  (`SeasonStatePayload`), and obeys `/colonyseasons status`, `season set <season>`, `festival force <id>` and
+  `festival clear` (permission 2). Festival windows come from the config dates (year turn and 29 Feb handled);
+  the season is `(day time / 24000 + offset) mod year length`; a new world starts in `calendar.startSeason`
+  (`auto`: the season of the real date). Serene Seasons is followed through a reflection-only bridge, polled every
+  20 ticks, with a one-line fall-back to the own calendar. The real clock is read in one class (`DateSource`).
+  The chat line to a colony's players when the season turns is not in S1 (it needs colony lookups). Probe `cscalendar`
+  (modes dates, bridge-absent, bridge-present, bridge-throws, bridge-nonseasonal, bridge-off), `tools/restart.sh`
+  (two server runs on one kept world), a written-here Serene Seasons stand-in for the rig in `tools/sereneshim`.

@@ -20,6 +20,7 @@ import sys
 # key prefixes that are completed at runtime, and the enum each one is completed from:
 # (prefix, source file, the regex that finds the ids in it)
 BUILT = [
+    ("com.colony_seasons.season.", "src/me/lovkar/seasons/calendar/Season.java"),
     # chunks that build keys from an enum add ("com.colony_seasons.<group>.", "src/me/lovkar/seasons/<path>/<Enum>.java") here
 ]
 

@@ -1,0 +1,23 @@
+{
+  "com.colony_seasons.season.spring": "Spring",
+  "com.colony_seasons.season.summer": "Summer",
+  "com.colony_seasons.season.autumn": "Autumn",
+  "com.colony_seasons.season.winter": "Winter",
+
+  "com.colony_seasons.festival.winter_festival": "Winter Festival",
+  "com.colony_seasons.festival.new_year": "New Year",
+
+  "com.colony_seasons.command.status.season": "Season: %1$s, day %2$s of %3$s (%4$s)",
+  "com.colony_seasons.command.status.source.own": "Colony Seasons calendar",
+  "com.colony_seasons.command.status.source.serene": "Serene Seasons calendar",
+  "com.colony_seasons.command.status.festivals": "Festivals on: %s",
+  "com.colony_seasons.command.status.festivals.none": "No festival is on.",
+  "com.colony_seasons.command.status.forced": "On by force: %s",
+  "com.colony_seasons.command.season.set": "The season is now %s.",
+  "com.colony_seasons.command.season.set.serene": "Serene Seasons is installed and decides the season, so nothing changed in the game (still day %s of its year). Use /season set for Serene Seasons.",
+  "com.colony_seasons.command.festival.force": "%s is on until you clear it.",
+  "com.colony_seasons.command.festival.force.unknown": "There is no festival called %1$s. Festivals: %2$s",
+  "com.colony_seasons.command.festival.force.disabled": "%s is switched off in the config.",
+  "com.colony_seasons.command.festival.clear": "%s is no longer on by force.",
+  "com.colony_seasons.command.festival.clear.none": "No festival is on by force."
+}
