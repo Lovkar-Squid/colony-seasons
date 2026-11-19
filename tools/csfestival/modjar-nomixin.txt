@@ -1,0 +1,2 @@
+# mode nomixin: the mod rebuilt without its mixin (prepare.sh), run instead of the real jar
+%REPO%/tools/out/csfestival-nomixin/colony_seasons-nomixin.jar

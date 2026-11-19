@@ -49,3 +49,10 @@ ordering="AFTER"
 side="BOTH"
 
 # Serene Seasons is deliberately NOT listed: the mod reads it by reflection when it is present (chunk S1).
+
+# Working colonists come to the Winter Festival gathering once per real day: MineColonies decides a colonist's next
+# state in CitizenAI.calculateNextState with no hook for it, so a small mixin answers "off duty" there in the festival
+# hours. It fails soft (require = 0, a non-required config): if the method moves, only off-duty colonists come.
+# See mixin/CitizenAIFestivalMixin.java.
+[[mixins]]
+config="colony_seasons.mixins.json"

@@ -67,6 +67,17 @@ public class JobDecorator extends AbstractJob<EntityAIWorkDecorator, JobDecorato
         decisions++;
     }
 
+    private int giftsHanded;
+
+    /** Gifts he handed to colonists at the gathering since the server started (hearts and a line, no item). */
+    public int giftsHanded() {
+        return giftsHanded;
+    }
+
+    public void countGiftHanded() {
+        giftsHanded++;
+    }
+
     /** What he is doing, in English, for anyone who asks (a later chunk shows it in the hut window). */
     public String status() {
         return status;
