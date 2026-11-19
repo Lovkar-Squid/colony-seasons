@@ -1,0 +1,16 @@
+{
+  "output": {
+    "item": "colony_seasons:tree_star",
+    "count": 1
+  },
+  "ingredients": [
+    {
+      "item": "minecraft:gold_nugget",
+      "count": 4
+    },
+    {
+      "item": "minecraft:glowstone_dust",
+      "count": 1
+    }
+  ]
+}

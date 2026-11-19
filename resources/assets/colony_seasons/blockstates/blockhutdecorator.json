@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "colony_seasons:block/blockhutdecorator"
+    },
+    "facing=east": {
+      "model": "colony_seasons:block/blockhutdecorator",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "colony_seasons:block/blockhutdecorator",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "colony_seasons:block/blockhutdecorator",
+      "y": 270
+    }
+  }
+}

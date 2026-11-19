@@ -1,0 +1,20 @@
+{
+  "output": {
+    "item": "colony_seasons:lantern_string",
+    "count": 4
+  },
+  "ingredients": [
+    {
+      "item": "minecraft:string",
+      "count": 2
+    },
+    {
+      "item": "minecraft:torch",
+      "count": 2
+    },
+    {
+      "item": "minecraft:paper",
+      "count": 1
+    }
+  ]
+}

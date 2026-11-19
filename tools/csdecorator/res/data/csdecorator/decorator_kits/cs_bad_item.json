@@ -1,0 +1,6 @@
+{
+  "output": {"item": "minecraft:name_tag", "count": 1},
+  "ingredients": [
+    {"item": "csdecorator:no_such_item", "count": 1}
+  ]
+}
