@@ -3,7 +3,8 @@
 Runs over the files git tracks (git ls-files) and fails on:
 
   1. a personal name, the Windows user name of whoever runs it, or a private term (a world name, say) in any
-     tracked text file or file name;
+     tracked text file or file name, also spelled backwards, and in every commit reachable from HEAD (its
+     message, its file names and its text files), because a push publishes the whole history, not the tip;
   2. a user-folder path (the Users folder of Windows or macOS, or /home on Linux) in any tracked text file;
   3. a machine path under D:/Claude in README.md, the changelogs or release/ (the build tooling may have them);
   4. in the public text (README.md, the changelogs, release/): hype words, emoji, em dashes, and the words of
@@ -94,8 +95,50 @@ def private_terms():
 
 
 def find_private(rel, text, terms):
+    """A private term in the text, forwards or backwards (a name spelled backwards is still the name)."""
     low = text.lower()
-    return [f"{rel}: contains the private term {term!r}" for term in terms if term in low]
+    problems = []
+    for term in terms:
+        if term in low:
+            problems.append(f"{rel}: contains the private term {term!r}")
+        elif term[::-1] in low:
+            problems.append(f"{rel}: contains the private term {term!r}, spelled backwards")
+    return problems
+
+
+def history_objects(rev="HEAD"):
+    """(kind, id, path, bytes) of every commit, tree and blob reachable from rev, each object once."""
+    git = ["git", "-C", str(ROOT)]
+    listing = subprocess.run(git + ["rev-list", "--objects", rev], capture_output=True, check=True).stdout
+    paths = {}
+    for line in listing.decode("utf-8", "replace").splitlines():
+        oid, _, path = line.partition(" ")
+        if oid:
+            paths.setdefault(oid, path)
+    if not paths:
+        return []
+    batch = subprocess.run(git + ["cat-file", "--batch"], input=("\n".join(paths) + "\n").encode(),
+                           capture_output=True, check=True).stdout
+    objects, pos = [], 0
+    while pos < len(batch):
+        end = batch.index(b"\n", pos)
+        oid, kind, size = batch[pos:end].decode().split()
+        body = batch[end + 1:end + 1 + int(size)]
+        pos = end + 1 + int(size) + 1
+        objects.append((kind, oid, paths.get(oid, ""), body))
+    return objects
+
+
+def find_private_in_history(objects, terms):
+    """Private terms in commit messages, file names and text files of the history (trees and binaries skipped)."""
+    problems = []
+    for kind, oid, path, body in objects:
+        where = f"history {kind} {oid[:10]}" + (f" ({path})" if path else "")
+        if path:
+            problems += find_private(where + " file name", path, terms)
+        if kind == "commit" or (kind == "blob" and b"\0" not in body[:8192]):
+            problems += find_private(where, body.decode("utf-8", "replace"), terms)
+    return problems
 
 
 def find_user_paths(rel, text):
@@ -189,6 +232,19 @@ def selftest():
 
     expect("private term hit", find_private("README.md", "Hi Zebedee", ["zebedee"]), True)
     expect("private term clean", find_private("README.md", "Made by Lovkar & Claude", ["zebedee"]), False)
+    expect("private term backwards", find_private("tools/x.py", 'NAMES = ("eedebez",)', ["zebedee"]), True)
+    expect("history commit message", find_private_in_history(
+        [("commit", "c" * 40, "", b"tree t\n\nthanks Zebedee\n")], ["zebedee"]), True)
+    expect("history old blob", find_private_in_history(
+        [("blob", "b" * 40, "tools/x.py", b'NAMES = ("eedebez",)')], ["zebedee"]), True)
+    expect("history file name", find_private_in_history(
+        [("blob", "b" * 40, "docs/zebedee.md", b"ok")], ["zebedee"]), True)
+    expect("history binary and tree skipped", find_private_in_history(
+        [("blob", "b" * 40, "a.png", b"\x89PNG\0zebedee"), ("tree", "t" * 40, "docs", b"100644 zebedee\0")],
+        ["zebedee"]), False)
+    expect("history clean", find_private_in_history(
+        [("commit", "c" * 40, "", b"tree t\n\nS11: pages\n"), ("blob", "b" * 40, "README.md", b"Lovkar & Claude")],
+        ["zebedee"]), False)
     expect("windows user path, lower case", find_user_paths("a.md", "see c:/" + "users/someone"), True)
     expect("windows user path", find_user_paths("a.md", "see C:/" + "Users/someone/x"), True)
     expect("unix user path", find_user_paths("a.md", "in /" + "home/someone/x"), True)
@@ -238,6 +294,7 @@ def main():
         problems += find_machine_paths(rel, text)
         problems += find_style(rel, text)
         problems += find_dead_links(rel, text, tracked)
+    problems += find_private_in_history(history_objects("HEAD"), terms)
 
     summary = ROOT / "release" / "summary.txt"
     problems += find_summary_problems(summary.read_text(encoding="utf-8") if summary.is_file() else None)
