@@ -1,0 +1,45 @@
+# Seeded by tools/probe.sh csdecorator free: the default config with one change, decorator.needsMaterials = false,
+# so the probe can check that free decorations ask for nothing, use nothing and make nothing.
+
+[calendar]
+	yearLengthDays = 48
+	startSeason = "auto"
+	useSereneSeasons = true
+	timeZone = "system"
+
+[festivals]
+
+	[festivals.winter_festival]
+		enabled = true
+		decorFrom = "12-01"
+		decorUntil = "01-06"
+		daysFrom = "12-24"
+		daysUntil = "12-26"
+
+	[festivals.new_year]
+		enabled = true
+		decorFrom = "12-31"
+		decorUntil = "01-01"
+		daysFrom = "12-31"
+		daysUntil = "01-01"
+
+[decorator]
+	needsMaterials = false
+	buildingsPerDayBase = 2
+	buildingsPerDayPerLevel = 2
+	maxPerSide = 6
+
+[events]
+	gatherFromTick = 8500
+	gatherUntilTick = 10500
+	whoComes = "everyone_once_a_day"
+	midnightShow = true
+	giftsPerPlayerPerDay = 1
+
+[effects]
+	festivalHappiness = false
+	festivalHappinessBonus = 1.0
+	winterCropSlowdown = false
+	winterCropSkipChance = 0.5
+	winterFoodNeed = false
+	winterFoodNeedFactor = 1.25

@@ -1,0 +1,20 @@
+modLoader="javafml"
+loaderVersion="[4,)"
+license="GPL-3.0-or-later"
+[[mods]]
+modId="colonyseasonsdecorator"
+version="1.0.0"
+displayName="Colony Seasons rig Decorator check"
+description="Headless test: the Decorator of Colony Seasons on a real colony (hut, job, requests, kits, stock cap, AI resets, restart)."
+[[dependencies.colonyseasonsdecorator]]
+modId="colony_seasons"
+type="required"
+versionRange="*"
+ordering="AFTER"
+side="SERVER"
+[[dependencies.colonyseasonsdecorator]]
+modId="minecolonies"
+type="required"
+versionRange="*"
+ordering="AFTER"
+side="SERVER"
