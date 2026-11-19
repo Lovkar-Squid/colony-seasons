@@ -8,6 +8,7 @@ import com.minecolonies.core.entity.ai.workers.AbstractEntityAIInteract;
 import me.lovkar.seasons.SeasonsConfig;
 import me.lovkar.seasons.calendar.CalendarManager;
 import me.lovkar.seasons.colony.BuildingDecorator;
+import me.lovkar.seasons.colony.DecoratorTexts;
 import me.lovkar.seasons.colony.JobDecorator;
 import me.lovkar.seasons.decor.DecorLedger;
 import me.lovkar.seasons.decor.DecorPhase;
@@ -136,7 +137,7 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
     private IAIState decide() {
         job.countDecision();
         if (building.getBuildingLevel() < 1) {
-            job.setStatus("waiting for the hut to be built");
+            job.setStatus(DecoratorTexts.HUT_UNBUILT);
             return AIWorkerState.IDLE;
         }
         final CalendarManager.Snapshot snapshot = CalendarManager.current();
@@ -161,12 +162,12 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
 
         if (!SeasonsConfig.needsMaterials()) {
             // decorations are free: nothing to ask for, nothing to assemble
-            job.setStatus("decorations need no materials on this server; nothing to prepare");
+            job.setStatus(DecoratorTexts.FREE);
             walkToBuilding();
             return AIWorkerState.START_WORKING;
         }
         if (!building.prepareAllYear() && !window) {
-            job.setStatus("the hut prepares only during a festival's window");
+            job.setStatus(DecoratorTexts.WINDOW_ONLY);
             walkToBuilding();
             return AIWorkerState.START_WORKING;
         }
@@ -187,7 +188,7 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
             }
         }
         if (wanted.isEmpty()) {
-            job.setStatus(Kits.all().isEmpty() ? "no decoration kits are loaded" : "stock is full: every kit is at the cap");
+            job.setStatus(Kits.all().isEmpty() ? DecoratorTexts.NO_KITS : DecoratorTexts.STOCK_FULL);
             walkToBuilding();
             return AIWorkerState.START_WORKING;
         }
@@ -200,11 +201,11 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
             if (Kits.hasBatch(pack, kit)) {
                 kitToAssemble = kit;
                 walkAttempts = 0;
-                job.setStatus("assembling " + kit.id());
+                job.setStatus(DecoratorTexts.ASSEMBLING, itemId(kit.output()));
                 return DecoratorState.ASSEMBLE;
             }
         }
-        job.setStatus("waiting for materials");
+        job.setStatus(DecoratorTexts.WAITING_MATERIALS);
         walkToBuilding();
         return AIWorkerState.START_WORKING;
     }
@@ -267,7 +268,7 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
         } else if (ItemHandlerHelper.insertItemStacked(pack, output.copy(), true).isEmpty()) {
             target = pack;
         } else {
-            job.setStatus("the hut and his pack are full; no room for " + kit.id());
+            job.setStatus(DecoratorTexts.NO_ROOM, itemId(kit.output()));
             setDelay(FULL_DELAY);
             return AIWorkerState.START_WORKING;
         }
@@ -295,7 +296,7 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
         putAway(output, target, target == hut ? pack : hut);
         building.addAssembled();
         incrementActionsDoneAndDecSaturation();
-        job.setStatus("assembled " + kit.count() + " x " + kit.id());
+        job.setStatus(DecoratorTexts.ASSEMBLED, kit.count(), itemId(kit.output()));
         setDelay(Math.max(ASSEMBLY_DELAY_MIN, ASSEMBLY_DELAY - ASSEMBLY_DELAY_PER_DEXTERITY * getSecondarySkillLevel()));
         return AIWorkerState.START_WORKING;
     }
@@ -312,6 +313,16 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
     }
 
     // ---------------------------------------------------------------- the phase states
+
+    /** An item as its id, for a status line (the hut window shows it as the item's name). */
+    private static String itemId(final Item item) {
+        return BuiltInRegistries.ITEM.getKey(item).toString();
+    }
+
+    /** A target's place, for a status line. */
+    private static String at(final DecorWork.Target target) {
+        return target.owner().pos().toShortString();
+    }
 
     private DecorLedger ledger() {
         return world instanceof ServerLevel server ? DecorLedger.get(server) : null;
@@ -352,6 +363,12 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
         if (ledger == null) {
             return AIWorkerState.START_WORKING;
         }
+        if (!building.decorateEnabled()) {
+            // the hut's "decorate" setting is off: nothing goes up and nothing is tended (taking down goes on)
+            target = null;
+            job.setStatus(DecoratorTexts.DECORATING_OFF);
+            return AIWorkerState.START_WORKING;
+        }
         final ServerLevel level = (ServerLevel) world;
         final long day = DecorWork.day(level);
         final int hutLevel = building.getBuildingLevel();
@@ -361,14 +378,14 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
             if (target == null) {
                 target = DecorWork.nextToTend(level, building.getColony(), building.getPosition(), ledger, day);
                 if (target != null) {
-                    job.setStatus("tending the decorations at " + target.owner());
+                    job.setStatus(DecoratorTexts.TENDING_AT, at(target));
                     return DecoratorState.TENDING;
                 }
                 job.setStatus(ledger.budgetUsed(building.getColony().getID(), day) >= DecorWork.quota(hutLevel)
-                        ? "decorated as many buildings as he can today" : "waiting for decorations (or every building is decorated)");
+                        ? DecoratorTexts.DAY_LIMIT_DECORATING : DecoratorTexts.NOTHING_TO_DECORATE);
                 return AIWorkerState.START_WORKING;
             }
-            job.setStatus("on his way to decorate " + target.owner());
+            job.setStatus(DecoratorTexts.ON_WAY_DECORATE, at(target));
         }
         if (!arrived()) {
             return DecoratorState.DECORATING;
@@ -379,7 +396,7 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
             building.setDecorationsUp(true);
             afterWork();
         }
-        job.setStatus("decorated " + target.owner() + ": " + outcome.status());
+        job.setStatus(DecoratorTexts.DECORATED_AT, at(target), outcome.placed(), outcome.open());
         target = null;
         return AIWorkerState.START_WORKING;
     }
@@ -418,7 +435,7 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
             building.setDecorationsUp(true);
             afterWork();
         }
-        job.setStatus("tended " + target.owner() + ": " + outcome.status());
+        job.setStatus(DecoratorTexts.TENDED_AT, at(target), outcome.placed(), outcome.open());
         target = null;
         return AIWorkerState.START_WORKING;
     }
@@ -440,27 +457,26 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
             if (!ledger.hasEntries(colony)) {
                 ledger.dropEmptyGroups(colony);
                 building.setDecorationsUp(false);
-                job.setStatus("the decorations are down");
+                job.setStatus(DecoratorTexts.DOWN_DONE);
                 return AIWorkerState.START_WORKING;
             }
             if (ledger.budgetUsed(colony, day) >= DecorWork.quota(building.getBuildingLevel())) {
-                job.setStatus("took down as many buildings as he can today");
+                job.setStatus(DecoratorTexts.DAY_LIMIT_DOWN);
                 return AIWorkerState.START_WORKING;
             }
             target = DecorWork.nextToTakeDown(level, building.getColony(), building.getPosition(), ledger);
             walkAttempts = 0;
             if (target == null) {
-                job.setStatus("waiting for the decorations' chunks to load");
+                job.setStatus(DecoratorTexts.WAITING_CHUNKS);
                 return AIWorkerState.START_WORKING;
             }
-            job.setStatus("on his way to take down " + target.owner());
+            job.setStatus(DecoratorTexts.ON_WAY_DOWN, at(target));
         }
         if (!arrived()) {
             return DecoratorState.TAKING_DOWN;
         }
         final DecorPlacer.Removed removed = DecorWork.takeDown(level, colony, target.owner(), stock(), day, ledger);
-        job.setStatus("took down " + target.owner() + ": " + removed.removed() + " removed, " + removed.forgotten()
-                + " changed by someone and left alone");
+        job.setStatus(DecoratorTexts.TOOK_DOWN_AT, at(target), removed.removed(), removed.forgotten());
         target = null;
         if (removed.touched() > 0) {
             afterWork();

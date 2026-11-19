@@ -81,6 +81,7 @@ public class ColonySeasons {
         CalendarEvents.register();
         DecoratorSetup.init(modEventBus);
         me.lovkar.seasons.decor.DecorEvents.init(modEventBus);
+        me.lovkar.seasons.effects.Effects.register();
         SeasonsCommands.register();
 
         LOGGER.info("Colony Seasons {} loaded", version(container));

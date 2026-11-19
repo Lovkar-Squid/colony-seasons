@@ -56,6 +56,36 @@ public final class DecorPlacer {
             return true;
         }
 
+        /** Which kinds of decoration may go up (the Decorator's hut settings); all of them for a stock with no hut behind it. */
+        default DecorKinds kinds() {
+            return DecorKinds.ALL;
+        }
+
+        /** The same stock with the kinds of {@code kinds}. */
+        static Stock withKinds(final Stock inner, final DecorKinds kinds) {
+            return new Stock() {
+                @Override
+                public boolean take(final Item item) {
+                    return inner.take(item);
+                }
+
+                @Override
+                public void give(final ItemStack stack) {
+                    inner.give(stack);
+                }
+
+                @Override
+                public boolean has(final Item item) {
+                    return inner.has(item);
+                }
+
+                @Override
+                public DecorKinds kinds() {
+                    return kinds;
+                }
+            };
+        }
+
         /** Decorations are free: everything is there, nothing comes back. */
         Stock FREE = new Stock() {
             @Override
