@@ -20,6 +20,7 @@ import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.Pose;
 import net.minecraft.world.item.ArmorItem;
+import net.minecraft.world.item.ItemStack;
 
 import java.io.Reader;
 import java.util.HashMap;
@@ -95,7 +96,7 @@ public final class ClothesLayer extends RenderLayer<AbstractEntityCitizen, Citiz
         final CitizenModel<AbstractEntityCitizen> model = getParentModel();
         final ClothesRules.Wearer wearer = new ClothesRules.Wearer(citizen.getCivilianID(),
                 citizen.getPose() == Pose.SLEEPING, hatModel(citizen, model), head(citizen),
-                citizen.getItemBySlot(EquipmentSlot.CHEST).getItem() instanceof ArmorItem);
+                chestArmour(citizen));
         final ClothesRules.Outfit outfit = ClothesRules.outfit(SeasonsClientConfig.showClothes(), state.season(),
                 state.festivals(), wearer);
         if (outfit.isEmpty()) {
@@ -140,6 +141,19 @@ public final class ClothesLayer extends RenderLayer<AbstractEntityCitizen, Citiz
         }
         final ResourceLocation id = citizen.getModelType();
         return id != null && hatModels.allows(id.toString(), citizen.isFemale());
+    }
+
+    /**
+     * He wears body armour as MineColonies' armour layer draws it (CitizenArmorLayer.renderArmorPiece): the data
+     * view's display armour for the chest first (the inventory's armour slot), else the entity's chest slot.
+     */
+    private static boolean chestArmour(final AbstractEntityCitizen citizen) {
+        final ICitizenDataView view = citizen.getCitizenDataView();
+        ItemStack chest = view == null ? ItemStack.EMPTY : view.getDisplayArmor(EquipmentSlot.CHEST);
+        if (chest.isEmpty()) {
+            chest = citizen.getItemBySlot(EquipmentSlot.CHEST);
+        }
+        return chest.getItem() instanceof ArmorItem;
     }
 
     /** What the head shows: the head slot, else MineColonies' own display armour (its holiday hat). */
