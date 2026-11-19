@@ -62,6 +62,11 @@ public class ColonySeasons {
      */
     public ColonySeasons(final IEventBus modEventBus, final ModContainer container) {
         container.registerConfig(ModConfig.Type.SERVER, SeasonsConfig.SPEC, SERVER_CONFIG_FILE);
+        // S6: the client config (loaded on the physical client only) and, there only, the clothes layer and models
+        container.registerConfig(ModConfig.Type.CLIENT, SeasonsClientConfig.SPEC, SeasonsClientConfig.FILE);
+        if (net.neoforged.fml.loading.FMLEnvironment.dist.isClient()) {
+            me.lovkar.seasons.client.SeasonsClient.init(modEventBus);
+        }
         for (final DeferredRegister<?> register : registers()) {
             register.register(modEventBus);
         }
