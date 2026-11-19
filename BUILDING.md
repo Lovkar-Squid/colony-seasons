@@ -63,10 +63,18 @@ bash tools/probe.sh csdecorgate styles        # only the pasted huts (with their
 bash tools/probe.sh csdecorgate square        # only the square
 bash tools/probe.sh csdecorgate lifecycle     # only the real colony and the AI
 bash tools/restart.sh csdecorgate             # half a building, the ledger file on disk, a restart, nothing placed twice
+bash tools/probe.sh csfestival                # the festival events on a real colony with the Decorator, a marker and the tree:
+                                              # lit by a player and by the Decorator, gifts, the gathering (the mixin's
+                                              # everyone day and the next), dusk fireworks, the midnight show, the season line,
+                                              # three game days of a forced Winter Festival
+bash tools/probe.sh csfestival nomixin        # the mod rebuilt without its mixin: it loads, the off-duty gathering works
+bash tools/probe.sh csfestival voyager        # Voyager 0.4.0 next to it: both mixins apply, the Astronomer works at night
+bash tools/restart.sh csfestival              # a gift taken and the tree lit, a restart: refused again, still lit, nothing repeated
 ```
 
 `tools/probe.sh <probe> [mode]` builds the mod and the probe, then runs the rig. A probe folder may hold
-`res/` (its own `neoforge.mods.toml`), `rigjars.txt` / `rigjars-<mode>.txt` (extra jars for every mode or one; `%REPO%` is this repo), `prepare.sh` (builds them first), `rigconfig/` (a config file seeded into the
+`res/` (its own `neoforge.mods.toml`), `rigjars.txt` / `rigjars-<mode>.txt` (extra jars for every mode or one; `%REPO%` is this repo),
+`modjar-<mode>.txt` (one jar run instead of the mod's own in that mode: csfestival nomixin), `prepare.sh` (builds them first), `rigconfig/` (a config file seeded into the
 fresh world) and `rigconfig-<mode>/` (the same for one mode). The run fails on a probe `FAIL` and on any `ERROR`
 or `Exception` line that names the mod or the probe. The rig runs one test server at a time, so a run may wait
 for another one to finish. `tools/restart.sh <probe>` runs the probe's modes `restart-save` and `restart-load` on one kept world
@@ -167,3 +175,19 @@ run (`tools/nbt.py` is a small NBT writer, so the scripts need no packages and r
   are in step. The probe lists the same cells once more and checks the placed tree against them in all four facings.
 - `tools/check_decor.py` (in `checks.sh`): every block the Decorator places tells the ledger from `onRemove`, only
   `DecorPlacer` sets blocks among the Decorator's code, and the festival marker registers itself.
+
+### Festival events (S7)
+
+- `python tools/sfx/chime.py` and `python tools/sfx/song.py` synthesize the festival's two sounds (the chime of the lit tree,
+  the short waltz of the gathering, both our own) into `resources/assets/colony_seasons/sounds/festival/` and a preview of
+  each into `docs/renders/s7/`; `tools/sfx/synth.py` holds the shared partials, envelopes and room. They need numpy, scipy
+  and ffmpeg on the PATH, and write the same bytes on every run.
+- `python -I tools/gen_gifts.py` writes the gift loot tables `data/colony_seasons/loot_table/gifts/{winter_daily,winter_festival,new_year}.json`
+  (`--check` says whether the committed files are in step). Pack makers replace them with a datapack file at the same path.
+- `tools/textures/gift.py` (run by `make_all.py`) draws the wrapped gift item.
+- `tools/check_festival.py` (in `checks.sh`): the mixin fails soft (a non-required config listed in the toml, `require = 0` on
+  every injection), every sound has its file and subtitle, the gift tables are in step and name real items, the gathering ends
+  before bedtime, and only `TreeLighting` sets blocks in the festival package.
+- `tools/csfestival/prepare.sh` makes the extra jars of the probe's modes: for `nomixin` the mod built again with `jar` from the
+  same `build/` and `resources/` without the mixin (`tools/out/csfestival-nomixin/`, run instead of the real jar, which stays as
+  it is), for `voyager` a copy of the Voyager 0.4.0 jar (its path is `VOYAGER_JAR` in `tools/rigpaths.sh`) in `tools/out/`.
