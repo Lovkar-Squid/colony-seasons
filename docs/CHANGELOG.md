@@ -36,3 +36,13 @@
   year comes from the calendar; the Decorating, Tending, Taking down, Hosting and Launching states are stubs for S4
   and S7. No hut blueprint yet (S5), so the hut cannot be built with the build tool until then. Probe `csdecorator`
   (three game days with a night and rain on a real colony, mode free) and `tools/restart.sh csdecorator`.
+- **S5, blueprints.** An own Structurize pack "Colony Seasons" (works with every colony style) in the jar: the
+  Decorator's hut, look "Workshop with shopfront" (the picked hut A) in five levels on one footprint
+  (`decorator/workshop1..5`: a one-storey stone workshop that gains its shopfront, upper floor, awning and roof detail,
+  level 5 the picked picture; racks for his stock, a ladder upstairs, lanterns inside, no bed), and the tree pieces the
+  Decorator places at the festival marker (`pieces/village_spruce_small`, `_full`, `_rich` from tree A, `grand_tree`
+  from tree B; drawn facing north, the marker's cell left as air, tags `gift_pile`, `firework_crate`, `star`, hidden
+  from the build tool). Built by `tools/build_pack.py` from `tools/decorator_hut.py` and `tools/tree_pieces.py`; its
+  checks (ids and properties, floating and unattached blocks, walking, the picked designs, read-back) are a step of
+  `tools/checks.sh`; probe `cspaste` pastes every file through Structurize and reads the world back; renders in
+  `docs/renders/s5/`.

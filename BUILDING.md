@@ -55,6 +55,8 @@ bash tools/restart.sh cscalendar              # two server runs on one kept worl
 bash tools/probe.sh csdecorator               # the Decorator on a real colony: 3 game days, a night, rain, AI resets
 bash tools/probe.sh csdecorator free          # decorator.needsMaterials = false: no request, nothing used, nothing made
 bash tools/restart.sh csdecorator             # stock, cs_assembled, cs_decorations_up and the setting survive a restart
+bash tools/probe.sh cspaste                   # every blueprint of the pack loaded and pasted through Structurize, the
+                                              # world read back against tools/cspaste/res/cspaste/manifest.json
 ```
 
 `tools/probe.sh <probe> [mode]` builds the mod and the probe, then runs the rig. A probe folder may hold
@@ -118,3 +120,36 @@ its default path or through `BLENDER`.
   `$MINECOLONIES_JAR` or the MineColonies jar in `$SEASONS_LIBS`) and his icons in all eight style folders;
   `python tools/preview_skin.py --sheet <png>` makes a flat front/back sheet of all eight.
 - `tools/check_kits.py` and `tools/check_skins.py` (run by `tools/checks.sh`) check the shipped kits and those textures.
+
+### Blueprints (S5)
+
+```bash
+python -I tools/build_pack.py "<mods folder>"          # writes the pack and the paste probe's manifest, then checks; ALL OK
+python -I tools/build_pack.py --check "<mods folder>"  # the same checks, and that the files on disk are what it writes
+bash tools/render_s5.sh                                # renders for the look check (docs/renders/s5/) and the pack icon
+```
+
+The pack is `resources/blueprints/colony_seasons/colony_seasons/` ("Colony Seasons", its own pack: it works with every
+colony style). `<mods folder>` holds the Structurize and MineColonies jars (`tools/checks.sh` passes the rig's
+`basemods/`); the client assets jar comes from `$SEASONS_LIBS`. Everything is written by scripts, the same bytes on every
+run (`tools/nbt.py` is a small NBT writer, so the scripts need no packages and run with `python -I`):
+
+- `tools/decorator_hut.py`: the Decorator's hut, look "Workshop with shopfront", `decorator/workshop1..5.blueprint`.
+  Level 5 is the picked hut A of `design/src/huts.py`; levels 1 to 4 grow towards it on the same plan. Not to be
+  confused with `tools/gen_decorator_hut.py` (S3), which writes the hut block's model.
+- `tools/tree_pieces.py`: the tree pieces the Decorator places at the festival marker, `pieces/village_spruce_small`,
+  `village_spruce_full`, `village_spruce_rich` (tree A) and `grand_tree` (tree B) of `design/src/trees.py`. A piece is
+  drawn facing north; its anchor is the marker's cell and stays air; tags `gift_pile`, `firework_crate`, `star`
+  (positions relative to the anchor, read with Structurize's `BlueprintTagUtils.getBlueprintTags`) and `invisible`
+  (the build tool does not list the pieces). Trunk cells are the spruce logs; decorations are unlit.
+- `tools/build_pack.py` (copied from Voyager's and adapted, with `tools/voxel.py`, `tools/floatcheck.py` and
+  `tools/walkcheck.py`): every block id against the client jar, our blockstates and the mod jars with real properties;
+  decorations unlit; no floating blocks; nothing that would drop (ladders and wall decorations need a whole block
+  behind, lanterns a block that holds them); no bed; the hut block reachable from the door and every floor cell
+  walkable (ladders climbed); one box and one anchor for the five levels; level 5 and the full and grand trees against
+  the picked designs (only the cells listed in `DESIGN_CHANGES` may differ); the piece contract; a read-back of every
+  file. A step of `tools/checks.sh`.
+- `tools/cspaste/` (from Voyager's paste test and `worldcheck.py`): the paste probe. Its manifest is written by
+  `build_pack.py`; the world is read back in the game, so the probe needs no region-file reader.
+- `tools/render_s5.py`: the shipped blueprints read back and drawn with the design renderer (`design/tools`) on the
+  design's ground and camera; MineColonies' jar (`$MINECOLONIES_JAR`) gives the racks' model.

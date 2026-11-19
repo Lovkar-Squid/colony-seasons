@@ -1,0 +1,20 @@
+modLoader="javafml"
+loaderVersion="[4,)"
+license="GPL-3.0-or-later"
+[[mods]]
+modId="colonyseasonspaste"
+version="1.0.0"
+displayName="Colony Seasons blueprint paste check"
+description="Headless test: every blueprint of the Colony Seasons pack is loaded and pasted through Structurize, and the world is read back against the design."
+[[dependencies.colonyseasonspaste]]
+modId="colony_seasons"
+type="required"
+versionRange="*"
+ordering="AFTER"
+side="SERVER"
+[[dependencies.colonyseasonspaste]]
+modId="structurize"
+type="required"
+versionRange="*"
+ordering="AFTER"
+side="SERVER"

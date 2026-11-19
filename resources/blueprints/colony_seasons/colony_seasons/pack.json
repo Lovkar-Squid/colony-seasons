@@ -1,0 +1,16 @@
+{
+  "icon": "colony_seasons.png",
+  "name": "Colony Seasons",
+  "authors": [
+    "Lovkar",
+    "Claude"
+  ],
+  "desc": "Works with every colony style",
+  "mods": [
+    "structurize",
+    "minecolonies",
+    "colony_seasons"
+  ],
+  "version": "1",
+  "pack-format": "1"
+}

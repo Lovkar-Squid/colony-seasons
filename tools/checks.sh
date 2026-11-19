@@ -18,6 +18,7 @@ step "clothes data" python -I tools/check_clothes.py "$RIG_DIR/basemods"
 step "block files" python -I tools/check_blocks.py
 step "kits"       python -I tools/check_kits.py
 step "skins"      python -I tools/check_skins.py
+step "blueprints" python -I tools/build_pack.py --check "$RIG_DIR/basemods"
 
 version="$(sed -n 's/^version="\([^"]*\)".*/\1/p' resources/META-INF/neoforge.mods.toml | head -1)"
 jar="colony_seasons-$version.jar"
