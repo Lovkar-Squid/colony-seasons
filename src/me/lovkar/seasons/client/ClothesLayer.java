@@ -106,27 +106,34 @@ public final class ClothesLayer extends RenderLayer<AbstractEntityCitizen, Citiz
 
         if (outfit.scarf() != null && model.body.visible) {
             poseStack.pushPose();
-            if (model.young) {
-                poseStack.scale(BABY_BODY_SCALE, BABY_BODY_SCALE, BABY_BODY_SCALE);
-                poseStack.translate(0.0F, BABY_BODY_Y, 0.0F);
+            try {
+                if (model.young) {
+                    poseStack.scale(BABY_BODY_SCALE, BABY_BODY_SCALE, BABY_BODY_SCALE);
+                    poseStack.translate(0.0F, BABY_BODY_Y, 0.0F);
+                }
+                model.body.translateAndRotate(poseStack);
+                moveOnto(poseStack, model.body, STANDARD_BODY_TOP);
+                final boolean chest = model.body.hasChild("breast") && model.body.getChild("breast").visible;
+                scarf.render(poseStack, buffers.getBuffer(renderType(ClothesRules.scarfTexture(outfit.scarf()))), light, overlay, chest);
+            } finally {
+                // the pose stack is shared across entities: keep it balanced even when drawing fails
+                poseStack.popPose();
             }
-            model.body.translateAndRotate(poseStack);
-            moveOnto(poseStack, model.body, STANDARD_BODY_TOP);
-            final boolean chest = model.body.hasChild("breast") && model.body.getChild("breast").visible;
-            scarf.render(poseStack, buffers.getBuffer(renderType(ClothesRules.scarfTexture(outfit.scarf()))), light, overlay, chest);
-            poseStack.popPose();
         }
 
         if (outfit.hat() != null && model.head.visible) {
             poseStack.pushPose();
-            if (model.young) {
-                poseStack.scale(BABY_HEAD_SCALE, BABY_HEAD_SCALE, BABY_HEAD_SCALE);
-                poseStack.translate(0.0F, BABY_HEAD_Y, 0.0F);
+            try {
+                if (model.young) {
+                    poseStack.scale(BABY_HEAD_SCALE, BABY_HEAD_SCALE, BABY_HEAD_SCALE);
+                    poseStack.translate(0.0F, BABY_HEAD_Y, 0.0F);
+                }
+                model.head.translateAndRotate(poseStack);
+                moveOnto(poseStack, model.head, STANDARD_HEAD_TOP);
+                hat.render(poseStack, buffers.getBuffer(renderType(ClothesRules.hatTexture(outfit.hat()))), light, overlay);
+            } finally {
+                poseStack.popPose();
             }
-            model.head.translateAndRotate(poseStack);
-            moveOnto(poseStack, model.head, STANDARD_HEAD_TOP);
-            hat.render(poseStack, buffers.getBuffer(renderType(ClothesRules.hatTexture(outfit.hat()))), light, overlay);
-            poseStack.popPose();
         }
     }
 
