@@ -135,6 +135,9 @@ public final class DecorPlacer {
         if (state.getBlock() instanceof WallDecorationBlock) {
             final Direction facing = state.getValue(WallDecorationBlock.FACING);
             final BlockPos wall = pos.relative(facing.getOpposite());
+            if (!level.hasChunkAt(wall)) {
+                return "unloaded";                    // the wall may sit across a chunk border: never load it to read it
+            }
             if (!level.getBlockState(wall).isFaceSturdy(level, wall, facing)) {
                 return "wall";
             }

@@ -84,7 +84,9 @@ public final class DecorEvents {
             bus.subscribe(ColonyManagerUnloadedModEvent.class, e -> MANAGER_LOADS.updateAndGet(n -> Math.max(0, n - 1)));
             subscribed = true;
         } catch (final RuntimeException unavailable) {
-            ColonySeasons.LOGGER.warn("MineColonies' event bus is not available; decorations of removed buildings go with the sweep");
+            // the sweep waits for ColonyManagerLoadedModEvent from this same bus, so it does not run either
+            ColonySeasons.LOGGER.warn("MineColonies' event bus is not available: decorations of removed buildings stay up and the server "
+                    + "sweep does not run; the Decorator and decor remove still take decorations down");
         }
     }
 
