@@ -63,7 +63,14 @@ bash tools/probe.sh csdecorgate styles        # only the pasted huts (with their
 bash tools/probe.sh csdecorgate square        # only the square
 bash tools/probe.sh csdecorgate lifecycle     # only the real colony and the AI
 bash tools/restart.sh csdecorgate             # half a building, the ledger file on disk, a restart, nothing placed twice
+bash tools/probe.sh cseffects off             # the three effects switched off: nothing changes (happiness, crop growth, food over a game day)
+bash tools/probe.sh cseffects on              # all three on: the happiness modifier and the client's total, half the growth steps inside a claim,
+                                              # a quarter more food; also the Decorator's hut window page, his kind settings and the planner
 ```
+
+`python -I tools/check_packets.py` (a step of `checks.sh`) reads the Decorator's info module and its view and compares, field
+by field, what the server writes with what the client reads; `tools/check_windows.py` checks that every pane a window class
+asks for is in its BlockUI layout.
 
 `tools/probe.sh <probe> [mode]` builds the mod and the probe, then runs the rig. A probe folder may hold
 `res/` (its own `neoforge.mods.toml`), `rigjars.txt` / `rigjars-<mode>.txt` (extra jars for every mode or one; `%REPO%` is this repo), `prepare.sh` (builds them first), `rigconfig/` (a config file seeded into the
