@@ -36,6 +36,7 @@ import me.lovkar.seasons.decor.DecorPlanner;
 import me.lovkar.seasons.decor.DecorWork;
 import me.lovkar.seasons.decor.DoorFinder;
 import me.lovkar.seasons.decor.PieceLoader;
+import net.minecraft.commands.CommandSource;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -46,6 +47,8 @@ import net.minecraft.nbt.NbtAccounter;
 import net.minecraft.nbt.NbtIo;
 import net.minecraft.nbt.NbtUtils;
 import net.minecraft.nbt.Tag;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -1365,6 +1368,12 @@ public class CsDecorGate {
                 check("each building is decorated at hut level 3 (wreath, 3 + 3 garland, 2 + 1 + 2 lights)",
                         size(townHall) == 12 && size(hut) == 12 && size(h1) == 12 && size(h2) == 12 && size(h3) == 12,
                         size(townHall) + ", " + size(hut) + ", " + size(h1) + ", " + size(h2) + ", " + size(h3));
+                // the same visit again finds nothing to do: the ledger does not change, so its file is not written
+                ledger.flush(level);
+                final int writes = ledger.writes();
+                final DecorWork.Outcome again = DecorWork.decorate(level, colonyId, DecorWork.Target.building(townHall), 3, DecorPlacer.Stock.FREE, day(), ledger);
+                check("a second visit to a decorated building changes nothing and writes no ledger file", again.placed() == 0 && again.complete()
+                        && ledger.writes() == writes, again.status() + ", " + (ledger.writes() - writes) + " writes");
                 invariant("decorated");
                 // the "player" swaps one of the garlands for a plank
                 final BlockPos garland = firstOf(h1, SeasonsBlocks.GARLAND.get());
@@ -1411,6 +1420,13 @@ public class CsDecorGate {
                 colony.getWorkManager().addWorkOrder(wo, false);
                 order = wo.getID();
                 check("a repair order makes the building pending construction", DecorWork.busy(colony, h2) && h2.isPendingConstruction(), "order " + order);
+                // he set out to tend it before the order opened: the visit is turned away and does not count as tended
+                final DecorLedger.GroupView before = ledger.group(colonyId, ownerOf(h2));
+                final DecorWork.Outcome turned = DecorWork.tend(level, colonyId, DecorWork.Target.building(h2), 3, DecorPlacer.Stock.FREE, day(), ledger);
+                final DecorLedger.GroupView after = ledger.group(colonyId, ownerOf(h2));
+                check("a tending visit turned away by the open order places nothing and is not noted as tended", before != null && after != null
+                        && turned.placed() == 0 && after.tendedDay() == before.tendedDay() && after.size() == before.size(),
+                        turned.status() + ", tended day " + (before == null ? "-" : before.tendedDay()) + " -> " + (after == null ? "-" : after.tendedDay()));
             }
 
             @Override
@@ -1445,12 +1461,22 @@ public class CsDecorGate {
                 check("none of our blocks is left on it", leftovers.isEmpty(), leftovers.size() + " left");
                 colony.getWorkManager().removeWorkOrder(order);
                 check("the order is gone, the building is free again", !DecorWork.busy(colony, h2), "");
+                // h2 was counted against today's budget before the order. The rest of the budget goes to other
+                // buildings now (in a full run the square's real pieces used it up already), so h2 must come back
+                // without a second slot: the day's count is the colony's, not the dropped group's.
+                note("today's building budget before the order is done: {} of {}", ledger.budgetUsed(colonyId, day()), DecorWork.quota(3));
+                while (ledger.budgetUsed(colonyId, day()) < DecorWork.quota(3)) {
+                    ledger.spendBudget(colonyId, day());
+                }
+                final int spent = ledger.budgetUsed(colonyId, day());
                 final DecorWork.Target next = DecorWork.nextToDecorate(level, colony, 3, hut.getPosition(), ledger, DecorPlacer.Stock.FREE, day());
-                check("decorated again after the order: it is the next target", next != null && next.owner().equals(ownerOf(h2)), String.valueOf(next == null ? null : next.owner()));
+                check("decorated again after the order, with the day's budget used up: it is the next target", next != null && next.owner().equals(ownerOf(h2)),
+                        String.valueOf(next == null ? null : next.owner()));
                 if (next != null) {
                     DecorWork.decorate(level, colonyId, next, 3, DecorPlacer.Stock.FREE, day(), ledger);
                 }
                 checkEq("its decorations are back", size(h2), 12);
+                checkEq("counted today already: putting it back up takes no second slot of the day's budget", ledger.budgetUsed(colonyId, day()), spent);
                 invariant("after the work order");
             }
         });
@@ -1877,8 +1903,53 @@ public class CsDecorGate {
                         more.placed() + " placed, " + added.size() + " new entries, " + size(h2) + " on the building");
                 checkEq("items used equal the new paid entries", plenty.taken, added.size());
                 invariant("after going on");
-                final int[] lost = new int[1];
-                final DecorPlacer.Removed removed = DecorPlacer.removeColony(level, ledger, colonyId, DecorWork.sinkOf(colony, lost));
+                // taken down with decor remove: this colony has no Decorator's hut, so the items of what comes down
+                // are lost, and the answer says how many (one paid item per entry that still stands as recorded)
+                int paid = 0;
+                for (final Map.Entry<BlockPos, DecorLedger.Entry> e : ledger.entries(colonyId).entrySet()) {
+                    if (e.getValue().paid() && level.getBlockState(e.getKey()) == e.getValue().state() && DecorPlacer.itemOf(e.getValue().state()) != null) {
+                        paid++;
+                    }
+                }
+                final int entriesBefore = ledger.count(colonyId);
+                final List<Component> said = new ArrayList<>();
+                final CommandSource listener = new CommandSource() {
+                    @Override
+                    public void sendSystemMessage(final Component message) {
+                        said.add(message);
+                    }
+
+                    @Override
+                    public boolean acceptsSuccess() {
+                        return true;
+                    }
+
+                    @Override
+                    public boolean acceptsFailure() {
+                        return true;
+                    }
+
+                    @Override
+                    public boolean shouldInformAdmins() {
+                        return false;
+                    }
+                };
+                int result;
+                try {
+                    result = server.getCommands().getDispatcher().execute("colonyseasons decor remove " + colonyId,
+                            server.createCommandSourceStack().withSource(listener));
+                } catch (final CommandSyntaxException denied) {
+                    result = -1;
+                }
+                String lostSaid = null;
+                for (final Component message : said) {
+                    if (message.getContents() instanceof TranslatableContents tc && tc.getKey().equals("com.colony_seasons.command.decor.remove.lost")
+                            && tc.getArgs().length > 0) {
+                        lostSaid = String.valueOf(tc.getArgs()[0]);
+                    }
+                }
+                check("decor remove in a colony with no Decorator's hut says how many items were lost", result > 0 && paid > 0
+                        && String.valueOf(paid).equals(lostSaid), "said " + lostSaid + ", " + paid + " paid entries");
                 int differ = 0;
                 String first = "";
                 for (final Tag t : savedFacts.getList("snapshot", Tag.TAG_COMPOUND)) {
@@ -1892,7 +1963,7 @@ public class CsDecorGate {
                     }
                 }
                 check("taking down after the restart gives back the snapshot saved before decorating", differ == 0 && ledger.count(colonyId) == 0,
-                        removed.removed() + " removed, " + differ + " cells differ " + first);
+                        entriesBefore + " entries before, " + differ + " cells differ " + first);
             }
         });
     }

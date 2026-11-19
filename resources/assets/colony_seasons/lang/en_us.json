@@ -27,6 +27,7 @@
   "com.colony_seasons.command.decor.kind.building": "Building",
   "com.colony_seasons.command.decor.kind.square": "Festival square",
   "com.colony_seasons.command.decor.remove": "Colony %1$s: %2$s decorations removed, %3$s left alone because they were changed since, %4$s wait for their chunks to load.",
+  "com.colony_seasons.command.decor.remove.lost": "%1$s decoration items were lost: colony %2$s has no Decorator's hut to keep them.",
   "com.colony_seasons.decor.no_room": "The Decorator: there is not enough room at the festival marker for the tree.",
 
   "com.colony_seasons.config.show_clothes": "Winter clothes on colonists",
