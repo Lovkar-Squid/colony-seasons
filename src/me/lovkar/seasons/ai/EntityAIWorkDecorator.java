@@ -183,8 +183,13 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
 
     /**
      * Async requests for one batch of every ingredient the pack is short of. Both calls also move matching items
-     * from the hut into the pack when the hut has them; their boolean is not trusted (the tag call wants one stack
-     * that holds the whole count), the pack is counted again afterwards.
+     * from the hut into the pack when the hut has them; their boolean is not trusted, the pack is counted again
+     * afterwards.
+     *
+     * <p>The tag call is always given the whole batch count, never only what is missing: MineColonies' tag call
+     * returns at once, doing nothing, when ONE stack in the pack holds the count it is given. Asked for the missing
+     * part, a pack with a partial batch (say 2 oak leaves of 4) would answer "there already" for ever and the kit
+     * would never be made. A whole batch more is at worst a few leaves too many in his pack.</p>
      */
     private void askFor(final Kits.Kit kit, final IItemHandler pack) {
         for (final Kits.Ingredient ingredient : kit.ingredients()) {
@@ -193,7 +198,7 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
                 continue;
             }
             if (ingredient.tag() != null) {
-                checkIfRequestForTagExistOrCreateAsync(ingredient.tag(), ingredient.count() - have);
+                checkIfRequestForTagExistOrCreateAsync(ingredient.tag(), ingredient.count());
             } else {
                 checkIfRequestForItemExistOrCreateAsync(new ItemStack(ingredient.item()), ingredient.count(), ingredient.count());
             }

@@ -79,7 +79,8 @@ import java.util.function.Predicate;
  *   <li>none: setup checks (voice lines, registrations, kits, the phase table, what the hut keeps), then the days:
  *       D1 requests from an empty hut, D1 materials in the hut become decorations up to the cap with the AI reset every
  *       300 ticks, N1 a night in bed, D2 three thousand ticks of rain, D2 a level-2 hut in the Decorating window, N2,
- *       D3 the Hosting and Taking-down stubs, the Off season with "prepare all year" off and on, N3. Every 100 ticks
+ *       D3 the Hosting and Taking-down stubs, the Off season with "prepare all year" off and on, part of a batch in
+ *       his pack (the tag request still fetches the rest from the hut), N3. Every 100 ticks
  *       the materials and decorations are counted everywhere (hut, pack, dropped items): nothing may appear or go;</li>
  *   <li>{@code free} (seeded config needsMaterials = false): no request, no material used, nothing made;</li>
  *   <li>{@code restart-save} then {@code restart-load} (tools/restart.sh): stock, the building's NBT and the setting
@@ -757,6 +758,35 @@ public class CsDecorator {
                 ledger.report();
                 checkEq("with the setting on again he prepares in the off season", hut.stock(Items.NAME_TAG), 28);
                 checkEq("batches assembled in all", hut.assembled(), 14);
+            }
+        });
+        step(new Step("D3 part of a batch in his pack", 3000) {
+            final Ledger ledger = new Ledger("D3 part of a batch");
+
+            @Override
+            void start() {
+                // 1 wool in his pack, the rest of a batch in the hut: the tag request must still fetch it
+                final ItemStack rest = ItemHandlerHelper.insertItemStacked(citizen.getInventory(), new ItemStack(Items.WHITE_WOOL, 1), false);
+                check("one wool fits in his pack", rest.isEmpty(), "");
+                woolIn += 1;
+                supply(2, 1);
+            }
+
+            @Override
+            boolean tick() {
+                if (t % 100 == 0) {
+                    ledger.look();
+                }
+                return hut.assembled() >= 15 && t % 20 == 0;
+            }
+
+            @Override
+            void end(final boolean done) {
+                ledger.report();
+                check("with part of a batch in his pack he fetches the rest from the hut", done && hut.assembled() == 15,
+                        "A " + hut.assembled() + " in " + t + " ticks");
+                checkEq("stock after the part batch", hut.stock(Items.NAME_TAG), 30);
+                checkEq("wool left over (the part he had)", everywhere(WOOL), 1);
             }
         });
         toDusk("D3");
