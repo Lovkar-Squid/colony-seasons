@@ -20,6 +20,14 @@
   "com.colony_seasons.command.festival.force.disabled": "%s is switched off in the config.",
   "com.colony_seasons.command.festival.clear": "%s is no longer on by force.",
   "com.colony_seasons.command.festival.clear.none": "No festival is on by force.",
+  "com.colony_seasons.command.decor.list.colony": "Colony %1$s: %2$s groups, %3$s decorations listed",
+  "com.colony_seasons.command.decor.list.group": "%1$s at %2$s: %3$s decorations (%4$s)",
+  "com.colony_seasons.command.decor.list.empty": "Colony %s has no decorations listed here.",
+  "com.colony_seasons.command.decor.list.none": "No decorations are listed in this dimension.",
+  "com.colony_seasons.command.decor.kind.building": "Building",
+  "com.colony_seasons.command.decor.kind.square": "Festival square",
+  "com.colony_seasons.command.decor.remove": "Colony %1$s: %2$s decorations removed, %3$s left alone because they were changed since, %4$s wait for their chunks to load.",
+  "com.colony_seasons.decor.no_room": "The Decorator: there is not enough room at the festival marker for the tree.",
 
   "com.colony_seasons.config.show_clothes": "Winter clothes on colonists",
   "com.colony_seasons.config.show_particles": "Festival particles",
@@ -43,7 +51,7 @@
   "com.colony_seasons.building.decorator.desc": "Home of the Decorator. All year he asks the warehouse for leaves, string, dye and lights and makes wreaths, garlands and strings of lights, so they are ready when a festival comes. A higher hut keeps more of each in stock.",
   "com.colony_seasons.job.decorator": "Decorator",
   "colony_seasons:decorator.job.desc": "Makes the colony's festival decorations from warehouse materials and keeps a stock of them at his workshop. When a festival's window opens he puts them up on the colony's buildings, and takes them down again afterwards.",
-  "colony_seasons:decorator.skills.desc": "Creativity decides how well he decorates, Dexterity how quickly he makes each batch.",
+  "colony_seasons:decorator.skills.desc": "Creativity decides how quickly he puts the decorations up, Dexterity how quickly he makes each batch.",
   "com.minecolonies.coremod.jei.decorator": "Makes wreaths, garlands and strings of lights from warehouse materials and decorates the colony for its festivals.",
   "com.minecolonies.coremod.setting.colony_seasons:prepare_all_year": "Prepare all year",
   "com.minecolonies.coremod.setting.tooltip.colony_seasons:prepare_all_year": "On: the Decorator makes decorations whenever his stock is low, all year round. Off: he starts only when a festival's decoration window opens."

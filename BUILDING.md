@@ -57,6 +57,12 @@ bash tools/probe.sh csdecorator free          # decorator.needsMaterials = false
 bash tools/restart.sh csdecorator             # stock, cs_assembled, cs_decorations_up and the setting survive a restart
 bash tools/probe.sh cspaste                   # every blueprint of the pack loaded and pasted through Structurize, the
                                               # world read back against tools/cspaste/res/cspaste/manifest.json
+bash tools/probe.sh csdecorgate               # placing, the ledger and taking down: real huts of six style packs, edge cases,
+                                              # the square with the probe's test piece, a real colony and the Decorator's AI
+bash tools/probe.sh csdecorgate styles        # only the pasted huts (with their per-style and per-door lines) and the edge cases
+bash tools/probe.sh csdecorgate square        # only the square
+bash tools/probe.sh csdecorgate lifecycle     # only the real colony and the AI
+bash tools/restart.sh csdecorgate             # half a building, the ledger file on disk, a restart, nothing placed twice
 ```
 
 `tools/probe.sh <probe> [mode]` builds the mod and the probe, then runs the rig. A probe folder may hold
@@ -153,3 +159,11 @@ run (`tools/nbt.py` is a small NBT writer, so the scripts need no packages and r
   `build_pack.py`; the world is read back in the game, so the probe needs no region-file reader.
 - `tools/render_s5.py`: the shipped blueprints read back and drawn with the design renderer (`design/tools`) on the
   design's ground and camera; MineColonies' jar (`$MINECOLONIES_JAR`) gives the racks' model.
+### Placing (S4)
+
+- `python -I tools/csdecorgate/make_piece.py` writes the `csdecorgate` probe's own square piece (a small asymmetric test tree
+  under the four piece names, in the probe's pack "Colony Seasons Test" in `tools/csdecorgate/res/blueprints/`) with a
+  hand-written NBT writer, the same bytes on every run; `--check` (a step of `checks.sh`) says whether the committed files
+  are in step. The probe lists the same cells once more and checks the placed tree against them in all four facings.
+- `tools/check_decor.py` (in `checks.sh`): every block the Decorator places tells the ledger from `onRemove`, only
+  `DecorPlacer` sets blocks among the Decorator's code, and the festival marker registers itself.
