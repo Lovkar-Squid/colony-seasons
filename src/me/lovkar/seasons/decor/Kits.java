@@ -5,6 +5,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import me.lovkar.seasons.ColonySeasons;
+import me.lovkar.seasons.colony.BuildingDecorator;
 import net.minecraft.core.HolderSet;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -156,6 +157,15 @@ public final class Kits {
         return total;
     }
 
+    /**
+     * Whether a kit is worth a batch at this stock and cap: while one batch still fits under the cap, and also when a
+     * single batch is larger than the whole cap (count 32 at a cap of 16), as long as the stock is below the cap, so
+     * such a kit is made once rather than never. The one rule for asking and for assembling.
+     */
+    public static boolean wanted(final int stock, final int count, final int cap) {
+        return stock + count <= cap || count > cap && stock < cap;
+    }
+
     /** True when the inventory holds one whole batch of every ingredient of the kit. */
     public static boolean hasBatch(final IItemHandler handler, final Kit kit) {
         for (final Ingredient ingredient : kit.ingredients()) {
@@ -253,6 +263,13 @@ public final class Kits {
             skipped = Collections.unmodifiableMap(new LinkedHashMap<>(skip));
             loaded = List.copyOf(kits);
             reloads++;
+            final int firstCap = BuildingDecorator.STOCK_CAP_BASE + BuildingDecorator.STOCK_CAP_PER_LEVEL;
+            for (final Kit kit : kits) {
+                if (kit.count() > firstCap) {
+                    ColonySeasons.LOGGER.warn("Decorator kit {} makes {} at a time, more than a level-1 hut keeps ({}): "
+                            + "it is made one batch at a time while the stock is below the cap", kit.id(), kit.count(), firstCap);
+                }
+            }
             ColonySeasons.LOGGER.info("Decorator kits: {} loaded, {} skipped", kits.size(), skip.size());
         }
     }
