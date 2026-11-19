@@ -49,6 +49,9 @@ bash tools/probe.sh cscalendar bridge-throws  # a stand-in that throws: falls ba
 bash tools/probe.sh cscalendar bridge-nonseasonal   # the stand-in's whitelist leaves the overworld out: falls back
 bash tools/probe.sh cscalendar bridge-off     # calendar.useSereneSeasons = false: own calendar, no log line
 bash tools/restart.sh cscalendar              # two server runs on one kept world: saved state is read back
+bash tools/probe.sh csdecorator               # the Decorator on a real colony: 3 game days, a night, rain, AI resets
+bash tools/probe.sh csdecorator free          # decorator.needsMaterials = false: no request, nothing used, nothing made
+bash tools/restart.sh csdecorator             # stock, cs_assembled, cs_decorations_up and the setting survive a restart
 ```
 
 `tools/probe.sh <probe> [mode]` builds the mod and the probe, then runs the rig. A probe folder may hold
@@ -65,4 +68,11 @@ rig on another port next to the repository; `tools/rigpaths.sh` then uses it aut
 
 ## Generated files
 
-None yet. Chunks that generate resources (blueprints, textures, sounds) document their scripts here.
+Chunks that generate resources (blueprints, textures, sounds) document their scripts here.
+
+- `python tools/gen_decorator_hut.py [--render <png>]`: the Decorator's hut block and item models (vanilla textures only);
+  `--render` draws it with the design renderer in `design/tools` (Blender, see `design/README.md`).
+- `python tools/gen_decorator_skin.py`: the Decorator's 8 citizen textures (faces cut from MineColonies' Florist skins in
+  `$MINECOLONIES_JAR` or the MineColonies jar in `$SEASONS_LIBS`) and his icons in all eight style folders;
+  `python tools/preview_skin.py --sheet <png>` makes a flat front/back sheet of all eight.
+- `tools/check_kits.py` and `tools/check_skins.py` (run by `tools/checks.sh`) check the shipped kits and those textures.
