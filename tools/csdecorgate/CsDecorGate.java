@@ -1169,6 +1169,11 @@ public class CsDecorGate {
             void end(final boolean done) {
                 check("the marker broken: its square comes down at the end of the tick", done && changed(snap).isEmpty(), "after " + t + " ticks, "
                         + changed(snap).size() + " cells differ");
+                // he was on his way to the square when the marker went: the visit itself puts nothing up
+                final DecorWork.Outcome late = DecorWork.decorate(level, colonyId, DecorWork.Target.square(m, Direction.WEST, TEST_PACK), 5,
+                        DecorPlacer.Stock.FREE, day(), ledger);
+                check("a visit to a square whose marker is gone places nothing", late.placed() == 0 && changed(snap).isEmpty()
+                        && ledger.group(colonyId, square) == null, late.status());
             }
         });
         step(new Step("square: the real pieces of the Colony Seasons pack", 400, true) {
@@ -1385,6 +1390,9 @@ public class CsDecorGate {
             void end(final boolean done) {
                 check("an open work order: the building's decorations are removed within 200 ticks", goneAt >= 0 && goneAt <= 200, "after " + goneAt + " ticks");
                 check("the building is skipped while the order is open", skipped && size(h2) == 0, "");
+                // he picked it before the order opened and walks in now: the visit itself refuses it
+                final DecorWork.Outcome late = DecorWork.decorate(level, colonyId, DecorWork.Target.building(h2), 3, DecorPlacer.Stock.FREE, day(), ledger);
+                check("a visit that arrives while the order is open places nothing", late.placed() == 0 && size(h2) == 0, late.status());
                 final List<BlockPos> leftovers = new ArrayList<>();
                 for (final BlockPos pos : BlockPos.betweenClosed(boxes.get("h2").grown(2).min(), boxes.get("h2").grown(2).max())) {
                     if (level.getBlockState(pos).getBlock() instanceof WallDecorationBlock) {

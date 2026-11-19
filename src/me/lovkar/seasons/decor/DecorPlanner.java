@@ -131,6 +131,9 @@ public final class DecorPlanner {
                 continue;
             }
             final BlockPos cell = wall.relative(out);
+            if (!level.hasChunkAt(cell)) {
+                continue;                             // never read (and so load) a chunk that is not loaded
+            }
             final BlockState there = level.getBlockState(cell);
             if (there.is(SeasonsBlocks.WREATH.get())) {
                 wreathWall = wall;
@@ -202,6 +205,9 @@ public final class DecorPlanner {
     private static boolean cell(final ServerLevel level, final BlockPos pos, final BlockState state, final DecorLedger ledger,
                                 final int colony, final DecorLedger.Owner owner, final boolean costs,
                                 final List<DecorPlacer.Slot> slots, final int[] counts, final int kind) {
+        if (!level.hasChunkAt(pos)) {
+            return false;                             // the walk ends at a chunk that is not loaded (never loads it)
+        }
         final BlockState wanted = DecorPlacer.normalise(state, pos);
         if (ledger.isOurs(colony, owner, pos, level.getBlockState(pos)) && level.getBlockState(pos).getBlock() == wanted.getBlock()) {
             counts[3]++;

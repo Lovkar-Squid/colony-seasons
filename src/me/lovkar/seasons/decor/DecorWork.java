@@ -335,6 +335,12 @@ public final class DecorWork {
 
     private static Outcome building(final ServerLevel level, final int colony, final Target target, final int hutLevel,
                                     final DecorPlacer.Stock stock, final long day, final DecorLedger ledger, final boolean charge) {
+        // checked again at the building itself: an order may have opened (or the building gone) while he walked here
+        final IBuilding building = target.building();
+        if (building != null && (building.getColony().getServerBuildingManager().getBuilding(building.getPosition()) != building
+                || busy(building.getColony(), building))) {
+            return Outcome.of(0, 0, false, "the building is gone or under construction: skipped");
+        }
         final DecorPlanner.Plan plan = DecorPlanner.plan(level, target.box(), hutLevel, SeasonsConfig.maxPerSide(), ledger, colony,
                 target.owner(), SeasonsConfig.needsMaterials());
         if (!plan.loaded()) {
@@ -367,6 +373,14 @@ public final class DecorWork {
             final DecorPlacer.Removed removed = DecorPlacer.remove(level, ledger, colony, target.owner(), stock);
             ledger.flush(level);
             return Outcome.of(0, 1, false, "took the old tree down (" + removed.removed() + " blocks) for a new one");
+        }
+        // design 3.2: collision only at a marker the player put down; it may have been broken while he walked here
+        final BlockPos marker = target.owner().pos();
+        if (!level.hasChunkAt(marker)) {
+            return Outcome.of(0, 0, false, "waiting for the square's chunks to load");
+        }
+        if (!(level.getBlockState(marker).getBlock() instanceof FestivalMarkerBlock)) {
+            return Outcome.of(0, 0, false, "the festival marker is gone: no tree");
         }
         final PieceLoader.Piece piece = PieceLoader.request(level, target.pack(), path, target.facing());
         if (piece == null) {

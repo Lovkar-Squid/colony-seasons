@@ -32,7 +32,8 @@ import java.util.Map;
  * colony's claim; the world block {@code isAir()} (grass, flowers, snow and water stay); no ledger entry of any
  * group lists the cell; a wall block needs the wall behind it sturdy towards it and must be able to stay there; one
  * item is taken if the slot costs one; the ledger records the cell; then the block is set without neighbour updates
- * (flags 18) and read back. A cell that does not read back as placed is forgotten and its item refunded. Nothing
+ * (flags 18) and read back. A cell that reads back as another state of the same block keeps its entry with that
+ * state; one that reads back as anything else is forgotten and its item refunded. Nothing
  * with collision is placed for a building; only the square at a player's festival marker may have it.</p>
  *
  * <p>Removing, per entry: a cell in an unloaded chunk waits; a cell whose state equals the record exactly is
@@ -192,8 +193,17 @@ public final class DecorPlacer {
                 continue;
             }
             level.setBlock(slot.pos(), state, PLACE_FLAGS);
-            if (level.getBlockState(slot.pos()) != state) {
-                // something stopped it (a protection mod, a block that changed itself): no trace of us is left
+            final BlockState now = level.getBlockState(slot.pos());
+            if (now != state && now.getBlock() == state.getBlock()) {
+                // it settled into another state of itself: still ours, so the entry follows (never a block nobody lists)
+                if (!ledger.restate(slot.pos(), now) && ledger.at(slot.pos()) == null) {
+                    ledger.record(colony, owner, festival, hutLevel, slot.pos(), now, item != null);
+                }
+                placed++;
+                continue;
+            }
+            if (now != state) {
+                // something stopped it (a protection mod, another mod's block): no trace of us is left
                 ledger.forget(slot.pos());
                 refund(stock, item);
                 continue;
@@ -326,6 +336,9 @@ public final class DecorPlacer {
         final BlockPos.MutableBlockPos at = new BlockPos.MutableBlockPos();
         for (final Direction direction : Direction.values()) {
             at.setWithOffset(pos, direction);
+            if (!level.hasChunkAt(at)) {
+                continue;                             // never load a chunk for a leaf's neighbour
+            }
             distance = Math.min(distance, LeavesBlock.getOptionalDistanceAt(level.getBlockState(at)).orElse(LeavesBlock.DECAY_DISTANCE) + 1);
             if (distance == 1) {
                 break;
