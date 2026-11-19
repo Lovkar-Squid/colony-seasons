@@ -124,6 +124,7 @@ public class CsDecorGate {
     static final String TEST_PACK = "Colony Seasons Test";
     static final LocalDate DECOR_DAY = LocalDate.of(2026, 12, 10);
     static final LocalDate AFTER = LocalDate.of(2027, 1, 10);
+    static final LocalDate FESTIVAL_DAY = LocalDate.of(2026, 12, 25);
     private static final int MORNING = 1000;
     /** Pasted huts float this high above the ground (no ground to fit, no shadow on the ground houses later). */
     private static final int FLOAT = 30;
@@ -1605,10 +1606,15 @@ public class CsDecorGate {
                 }
             }
         });
-        step(new Step("AI: tending puts the broken garland back the next day", 9000, true) {
+        step(new Step("AI: tending puts the broken garland back the next day, a festival day", 9000, true) {
+            int hosting0;
+
             @Override
             void start() {
+                // 25 Dec: Hosting (S7's stub) on the festival days, and the upkeep carries on behind it
+                setDate(FESTIVAL_DAY);
                 nextMorning();
+                hosting0 = job() == null ? 0 : job().visits(me.lovkar.seasons.ai.EntityAIWorkDecorator.DecoratorState.HOSTING);
             }
 
             @Override
@@ -1624,6 +1630,9 @@ public class CsDecorGate {
             void end(final boolean done) {
                 check("tending puts the broken garland back on the next day", done && broken[0] != null, "after " + t + " ticks, "
                         + (job() == null ? "" : job().visits(me.lovkar.seasons.ai.EntityAIWorkDecorator.DecoratorState.TENDING) + " tending visits"));
+                final int hosting = job() == null ? 0 : job().visits(me.lovkar.seasons.ai.EntityAIWorkDecorator.DecoratorState.HOSTING) - hosting0;
+                check("on a festival day the Hosting stub is visited and the upkeep goes on behind it", hosting > 0 && job().phase() == DecorPhase.HOSTING,
+                        hosting + " hosting visits, phase " + (job() == null ? "-" : job().phase()));
                 invariant("after tending");
             }
         });
