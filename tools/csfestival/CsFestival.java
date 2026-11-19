@@ -332,6 +332,7 @@ public class CsFestival {
                 planGathering(true);
                 planSecondDay();
                 planDusk();
+                planLaunching();
                 planMidnight();
                 planSeasonLine();
                 planForcedRun();
@@ -1231,6 +1232,38 @@ public class CsFestival {
                 checkEq("shows (" + name + ")", Fireworks.shows() - shows0, expected > 0 ? 1 : 0);
                 note("{} rocket entities about at the end, stock {} -> {}", seen, before, rocketsInStock());
                 present = true;
+            }
+        });
+    }
+
+    /** New Year's day, before dusk: the Decorator's Launching state takes him to the square to get the show ready. */
+    private void planLaunching() {
+        final Set<String> keys = Set.of(DecoratorTexts.ON_WAY_SHOW, DecoratorTexts.SHOW_READY, DecoratorTexts.SHOW_READY_FREE);
+        step(new Step("New Year's day: the Decorator goes Launching at the square", 900, true) {
+            int launching0;
+            final Set<String> seen = new LinkedHashSet<>();
+
+            @Override
+            void start() {
+                setDate(NEW_YEAR_EVE);
+                nextDayAt(6000);
+                launching0 = job() == null ? 0 : job().visits(EntityAIWorkDecorator.DecoratorState.LAUNCHING);
+            }
+
+            @Override
+            boolean tick() {
+                if (job() != null) {
+                    seen.add(job().statusKey());
+                }
+                return job() != null && job().visits(EntityAIWorkDecorator.DecoratorState.LAUNCHING) > launching0
+                        && keys.contains(job().statusKey());
+            }
+
+            @Override
+            void end(final boolean done) {
+                final int visits = job() == null ? 0 : job().visits(EntityAIWorkDecorator.DecoratorState.LAUNCHING) - launching0;
+                check("on the New Year days the Decorator goes Launching and gets the show ready at the square", done,
+                        visits + " launching visits, status keys " + seen);
             }
         });
     }

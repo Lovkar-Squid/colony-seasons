@@ -191,7 +191,12 @@ run (`tools/nbt.py` is a small NBT writer, so the scripts need no packages and r
   and ffmpeg on the PATH, and write the same bytes on every run.
 - `python -I tools/gen_gifts.py` writes the gift loot tables `data/colony_seasons/loot_table/gifts/{winter_daily,winter_festival,new_year}.json`
   (`--check` says whether the committed files are in step). Pack makers replace them with a datapack file at the same path.
-- `tools/textures/gift.py` (run by `make_all.py`) draws the wrapped gift item.
+- `tools/textures/gift.py` (run by `make_all.py`) draws the wrapped gift item; `python tools/render_gifts.py <out.png>` (Pillow,
+  `SEASONS_LIBS` for Minecraft's icons and names: source `tools/rigpaths.sh` first) draws the review sheet of the gift and its
+  three tables, `docs/renders/s7/2026-11-19-s7-gifts.png`.
+- The csfestival players are friends of the colony: MineColonies' colony protection answers a right-click first (the tree's
+  listener runs at LOW), so a visitor neither lights the tree nor takes a gift. Bedtime in the probe means MineColonies' sleep
+  routine (`SLEEP`, `FIND_BED`, ...): the test colony has no beds. The step names avoid the words the rig greps for.
 - `tools/check_festival.py` (in `checks.sh`): the mixin fails soft (a non-required config listed in the toml, `require = 0` on
   every injection), every sound has its file and subtitle, the gift tables are in step and name real items, the gathering ends
   before bedtime, and only `TreeLighting` sets blocks in the festival package.
