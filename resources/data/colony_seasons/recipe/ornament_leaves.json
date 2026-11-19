@@ -1,0 +1,28 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "group": "colony_seasons:decorations",
+  "pattern": [
+    " N ",
+    "LRL",
+    "LDL"
+  ],
+  "key": {
+    "N": {
+      "item": "minecraft:gold_nugget"
+    },
+    "L": {
+      "item": "minecraft:spruce_leaves"
+    },
+    "R": {
+      "item": "minecraft:red_dye"
+    },
+    "D": {
+      "item": "minecraft:glowstone_dust"
+    }
+  },
+  "result": {
+    "id": "colony_seasons:ornament_leaves",
+    "count": 4
+  }
+}

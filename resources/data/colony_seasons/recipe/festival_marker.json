@@ -1,0 +1,22 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "group": "colony_seasons:decorations",
+  "pattern": [
+    "W",
+    "S",
+    "S"
+  ],
+  "key": {
+    "W": {
+      "tag": "minecraft:wool"
+    },
+    "S": {
+      "item": "minecraft:stick"
+    }
+  },
+  "result": {
+    "id": "colony_seasons:festival_marker",
+    "count": 1
+  }
+}
