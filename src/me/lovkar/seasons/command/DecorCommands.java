@@ -84,6 +84,11 @@ public final class DecorCommands {
         ledger.flush(level);
         source.sendSuccess(() -> Component.translatable("com.colony_seasons.command.decor.remove", id, removed.removed(),
                 removed.forgotten(), removed.waiting()), true);
+        if (lost[0] > 0) {
+            // no Decorator's hut in the colony to keep the items of what came down
+            final int items = lost[0];
+            source.sendSuccess(() -> Component.translatable("com.colony_seasons.command.decor.remove.lost", items, id), true);
+        }
         return Math.max(1, removed.removed());
     }
 }

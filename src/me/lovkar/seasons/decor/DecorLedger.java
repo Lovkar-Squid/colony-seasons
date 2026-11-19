@@ -253,12 +253,24 @@ public final class DecorLedger extends SavedData {
     /** Makes the group if it is missing (an empty group means: planned, nothing fits) and sets what it was planned for. */
     public void plan(final int colony, final Owner owner, final String festival, final int level, final String piece) {
         final Group group = group(colony, owner, true);
-        if (group.entries.isEmpty()) {
-            group.festival = festival == null ? "" : festival;
+        final String newFestival = festival == null ? "" : festival;
+        final String newPiece = piece == null ? "" : piece;
+        boolean changed = false;
+        if (group.entries.isEmpty() && !group.festival.equals(newFestival)) {
+            group.festival = newFestival;
+            changed = true;
         }
-        group.level = level;
-        group.piece = piece == null ? "" : piece;
-        setDirty();
+        if (group.level != level) {
+            group.level = level;
+            changed = true;
+        }
+        if (!group.piece.equals(newPiece)) {
+            group.piece = newPiece;
+            changed = true;
+        }
+        if (changed) {
+            setDirty();                               // a visit that plans the same again writes nothing
+        }
     }
 
     public GroupView group(final int colony, final Owner owner) {
@@ -564,6 +576,7 @@ public final class DecorLedger extends SavedData {
             }
             setDirty(false);
             failedWrites = 0;
+            writes++;
         } catch (final IOException unwritable) {
             if (failedWrites++ == 0) {
                 ColonySeasons.LOGGER.warn("The decoration ledger could not be written now ({}); it is tried again on the next change "
@@ -573,6 +586,12 @@ public final class DecorLedger extends SavedData {
     }
 
     private int failedWrites;
+    private int writes;
+
+    /** How often this ledger was written to its file (the probe checks that a visit that changes nothing writes nothing). */
+    public int writes() {
+        return writes;
+    }
 
     @Override
     public CompoundTag save(final CompoundTag tag, final HolderLookup.Provider provider) {

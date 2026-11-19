@@ -319,23 +319,26 @@ public final class DecorWork {
     public static Outcome decorate(final ServerLevel level, final int colony, final Target target, final int hutLevel,
                                    final DecorPlacer.Stock stock, final long day, final DecorLedger ledger) {
         if (target.owner().kind() == DecorLedger.Kind.SQUARE) {
-            return square(level, colony, target, hutLevel, stock, day, ledger, true);
+            return square(level, colony, target, hutLevel, stock, day, ledger, false);
         }
-        return building(level, colony, target, hutLevel, stock, day, ledger, true);
+        return building(level, colony, target, hutLevel, stock, day, ledger, false);
     }
 
-    /** One tending visit: the same plan again, what went missing put back; the day is noted even when nothing was. */
+    /**
+     * One tending visit: the same plan again, what went missing put back. It is not counted against the day's budget.
+     * The day is noted once the visit really looked at the target, also when nothing was missing; a visit that was
+     * turned away (the building gone or under construction, chunks not loaded, the marker gone, the piece still
+     * loading) notes nothing, so the group is tended later the same day.
+     */
     public static Outcome tend(final ServerLevel level, final int colony, final Target target, final int hutLevel,
                                final DecorPlacer.Stock stock, final long day, final DecorLedger ledger) {
-        final Outcome outcome = target.owner().kind() == DecorLedger.Kind.SQUARE
-                ? square(level, colony, target, hutLevel, stock, day, ledger, false)
-                : building(level, colony, target, hutLevel, stock, day, ledger, false);
-        ledger.setTended(colony, target.owner(), day);
-        return outcome;
+        return target.owner().kind() == DecorLedger.Kind.SQUARE
+                ? square(level, colony, target, hutLevel, stock, day, ledger, true)
+                : building(level, colony, target, hutLevel, stock, day, ledger, true);
     }
 
     private static Outcome building(final ServerLevel level, final int colony, final Target target, final int hutLevel,
-                                    final DecorPlacer.Stock stock, final long day, final DecorLedger ledger, final boolean charge) {
+                                    final DecorPlacer.Stock stock, final long day, final DecorLedger ledger, final boolean tending) {
         // checked again at the building itself: an order may have opened (or the building gone) while he walked here
         final IBuilding building = target.building();
         if (building != null && (building.getColony().getServerBuildingManager().getBuilding(building.getPosition()) != building
@@ -351,7 +354,7 @@ public final class DecorWork {
         ledger.plan(colony, target.owner(), festival, hutLevel, "");
         final int placed = DecorPlacer.place(level, ledger, colony, target.owner(), festival, hutLevel, plan.slots(), stock);
         final int open = plan.slots().size() - placed;
-        if (placed > 0 && charge) {
+        if (placed > 0 && !tending) {
             ledger.charge(colony, target.owner(), day);
         }
         final boolean complete = open == 0;
@@ -361,17 +364,19 @@ public final class DecorWork {
             // nothing could be placed (no stock): no empty group left behind for this visit
             ledger.dropGroup(colony, target.owner());
         }
+        tended(ledger, colony, target, day, tending);
         ledger.flush(level);
         return Outcome.of(placed, open, complete, placed + " placed, " + open + " still open (" + plan.doors() + " doors)");
     }
 
     private static Outcome square(final ServerLevel level, final int colony, final Target target, final int hutLevel,
-                                  final DecorPlacer.Stock stock, final long day, final DecorLedger ledger, final boolean charge) {
+                                  final DecorPlacer.Stock stock, final long day, final DecorLedger ledger, final boolean tending) {
         final String path = PieceLoader.pathFor(hutLevel);
         final DecorLedger.GroupView group = ledger.group(colony, target.owner());
         if (group != null && !group.entries().isEmpty() && !group.piece().isEmpty() && !group.piece().equals(path)) {
             // the hut changed level: the old piece comes down, the new one goes up on a later visit
             final DecorPlacer.Removed removed = DecorPlacer.remove(level, ledger, colony, target.owner(), stock);
+            tended(ledger, colony, target, day, tending);
             ledger.flush(level);
             return Outcome.of(0, 1, false, "took the old tree down (" + removed.removed() + " blocks) for a new one");
         }
@@ -385,8 +390,13 @@ public final class DecorWork {
         }
         final PieceLoader.Piece piece = PieceLoader.request(level, target.pack(), path, target.facing());
         if (piece == null) {
-            return Outcome.of(0, 0, false, PieceLoader.missing(target.pack(), path, target.facing())
-                    ? "no tree piece " + path + " in pack " + target.pack() : "loading the tree piece");
+            if (!PieceLoader.missing(target.pack(), path, target.facing())) {
+                return Outcome.of(0, 0, false, "loading the tree piece");
+            }
+            // missing for good: he looked, there is nothing to put up today
+            tended(ledger, colony, target, day, tending);
+            ledger.flush(level);
+            return Outcome.of(0, 0, false, "no tree piece " + path + " in pack " + target.pack());
         }
         final PieceLoader.SquarePlan plan = PieceLoader.plan(level, piece, target.owner().pos(), hutLevel, ledger, colony,
                 target.owner(), SeasonsConfig.needsMaterials());
@@ -402,6 +412,7 @@ public final class DecorWork {
             if (ledger.noticeDue(colony, day)) {
                 tellManagers(level, colony);
             }
+            tended(ledger, colony, target, day, tending);
             ledger.flush(level);
             return Outcome.of(0, 0, false, "not enough room at the festival marker (" + plan.blocked() + " of " + plan.cells()
                     + " cells blocked" + (plan.trunkBlocked() ? ", the trunk among them" : "") + ")");
@@ -424,7 +435,7 @@ public final class DecorWork {
         final int placed = DecorPlacer.place(level, ledger, colony, target.owner(), festival, hutLevel, slice, stock);
         if (placed > 0) {
             DecorPlacer.settleLeaves(level, ledger, colony, target.owner());
-            if (charge) {
+            if (!tending) {
                 ledger.charge(colony, target.owner(), day);
             }
         }
@@ -433,8 +444,16 @@ public final class DecorWork {
         if (complete) {
             ledger.setDecorated(colony, target.owner(), day);
         }
+        tended(ledger, colony, target, day, tending);
         ledger.flush(level);
         return new Outcome(placed, open, complete, "square: " + placed + " placed, " + open + " still open", Map.copyOf(missing));
+    }
+
+    /** A tending visit that really looked at its target notes the day (a dropped group notes nothing). */
+    private static void tended(final DecorLedger ledger, final int colony, final Target target, final long day, final boolean tending) {
+        if (tending) {
+            ledger.setTended(colony, target.owner(), day);
+        }
     }
 
     /** Takes one group down by the removal rule; a group with cells in unloaded chunks is left to the sweep. */
