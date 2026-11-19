@@ -35,4 +35,12 @@ public enum DecorPhase {
         }
         return decorationsUp ? TAKING_DOWN : OFF_SEASON;
     }
+
+    /**
+     * True while some festival's decoration window is open, festival days included (so Decorating and Tending go on
+     * through them; {@link #of} says Hosting on those days). False before the calendar's first poll.
+     */
+    public static boolean windowOpen(final CalendarManager.Snapshot snapshot) {
+        return snapshot != null && snapshot.festivals() != null && !snapshot.festivals().decor().isEmpty();
+    }
 }

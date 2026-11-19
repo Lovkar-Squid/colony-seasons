@@ -1,0 +1,670 @@
+package me.lovkar.seasons.decor;
+
+import me.lovkar.seasons.ColonySeasons;
+import me.lovkar.seasons.block.Lights;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.HolderGetter;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.NbtUtils;
+import net.minecraft.nbt.Tag;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.dimension.DimensionType;
+import net.minecraft.world.level.saveddata.SavedData;
+import net.minecraft.world.level.storage.LevelResource;
+
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
+
+/**
+ * Every decoration the Decorator (or the server on his behalf) has put into one level, keyed by colony id (design
+ * 3.3). It is NOT stored in the hut: hut module data goes when the hut is destroyed, and the decorations must not
+ * become orphans.
+ *
+ * <p>An entry is a position, the exact block state put there, and whether an item was paid for it. Entries live in
+ * groups: one per building or festival marker ({@link Owner}), with the festival it went up for, the Decorator hut
+ * level it was planned for, the piece path (the square), the game days it was decorated and last tended, and a
+ * "removing" mark for the server sweep. Per colony the record also keeps the day's building budget, the festival
+ * marker, and when the colony's managers were last told the square has no room.</p>
+ *
+ * <p>Rules this class keeps: a position is listed at most once, in all colonies of the level together ({@link #record}
+ * refuses a second one), and {@link #record} is called BEFORE the block is set, so a crash can at worst leave an entry
+ * whose block is missing (forgotten at take-down), never a block nobody knows about. A position index makes
+ * {@link #at} and {@link #blockChanged} constant time.</p>
+ *
+ * <p>Saved per level as {@code data/colony_seasons_decor.dat}, with a version number. A group stores its states as
+ * a palette plus one index per position. A state that reads back as air (its block no longer exists) drops its
+ * entries with one warning: such a position can never equal the record again.</p>
+ */
+public final class DecorLedger extends SavedData {
+    public static final String FILE = "colony_seasons_decor";
+    static final int VERSION = 1;
+
+    /** What a group belongs to: a building (its hut position) or the square (its festival marker's position). */
+    public enum Kind { BUILDING, SQUARE }
+
+    public record Owner(Kind kind, BlockPos pos) {
+        public Owner {
+            pos = pos.immutable();
+        }
+
+        public static Owner building(final BlockPos pos) {
+            return new Owner(Kind.BUILDING, pos);
+        }
+
+        public static Owner square(final BlockPos marker) {
+            return new Owner(Kind.SQUARE, marker);
+        }
+
+        @Override
+        public String toString() {
+            return kind.name().toLowerCase(java.util.Locale.ROOT) + " " + pos.toShortString();
+        }
+    }
+
+    /** One placed block: its exact state and whether an item was taken for it. */
+    public record Entry(BlockState state, boolean paid) {
+    }
+
+    /** Where a listed position belongs. */
+    public record Located(int colony, Owner owner, Entry entry) {
+    }
+
+    /** A copy of one group. */
+    public record GroupView(Owner owner, String festival, int level, String piece, long decoratedDay, long tendedDay,
+                            long chargedDay, boolean removing, Map<BlockPos, Entry> entries) {
+        public int size() {
+            return entries.size();
+        }
+    }
+
+    private static final class Group {
+        final Owner owner;
+        String festival = "";
+        int level;
+        String piece = "";
+        long decoratedDay = -1;
+        long tendedDay = -1;
+        long chargedDay = -1;
+        boolean removing;
+        final LinkedHashMap<BlockPos, Entry> entries = new LinkedHashMap<>();
+
+        Group(final Owner owner) {
+            this.owner = owner;
+        }
+
+        GroupView view() {
+            return new GroupView(owner, festival, level, piece, decoratedDay, tendedDay, chargedDay, removing,
+                    Collections.unmodifiableMap(new LinkedHashMap<>(entries)));
+        }
+    }
+
+    private static final class ColonyRecord {
+        long budgetDay = -1;
+        int budgetUsed;
+        BlockPos marker;
+        long noticeDay = -1;
+        boolean squareProblem;
+        final LinkedHashMap<Owner, Group> groups = new LinkedHashMap<>();
+    }
+
+    private record Slot(int colony, Owner owner) {
+    }
+
+    private final Map<Integer, ColonyRecord> colonies = new TreeMap<>();
+    /** pos.asLong() -> where the entry lives. */
+    private final Map<Long, Slot> index = new HashMap<>();
+
+    public static final SavedData.Factory<DecorLedger> FACTORY = new SavedData.Factory<>(DecorLedger::new, DecorLedger::load);
+
+    public DecorLedger() {
+    }
+
+    /** The ledger of one level (made on first use). */
+    public static DecorLedger get(final ServerLevel level) {
+        return level.getDataStorage().computeIfAbsent(FACTORY, FILE);
+    }
+
+    /** The ledger of one level if it exists (in memory or on disk), else {@code null}; never makes one. */
+    public static DecorLedger peek(final ServerLevel level) {
+        return level.getDataStorage().get(FACTORY, FILE);
+    }
+
+    // ---------------------------------------------------------------- entries
+
+    /**
+     * Lists one placed block. Refuses (false) a position that is already listed, in any group of any colony.
+     * Call it before the block is set.
+     */
+    public boolean record(final int colony, final Owner owner, final String festival, final int level, final BlockPos pos,
+                          final BlockState state, final boolean paid) {
+        final long key = pos.asLong();
+        if (index.containsKey(key) || state == null || state.isAir()) {
+            return false;
+        }
+        final Group group = group(colony, owner, true);
+        if (group.entries.isEmpty() && group.festival.isEmpty()) {
+            group.festival = festival == null ? "" : festival;
+        }
+        if (group.level == 0) {
+            group.level = level;
+        }
+        group.entries.put(pos.immutable(), new Entry(state, paid));
+        index.put(key, new Slot(colony, owner));
+        setDirty();
+        return true;
+    }
+
+    /** Forgets one position (whatever is in the world there); returns its entry, or {@code null} if none. */
+    public Entry forget(final BlockPos pos) {
+        final Slot slot = index.remove(pos.asLong());
+        if (slot == null) {
+            return null;
+        }
+        final ColonyRecord record = colonies.get(slot.colony());
+        final Group group = record == null ? null : record.groups.get(slot.owner());
+        final Entry entry = group == null ? null : group.entries.remove(pos);
+        setDirty();
+        return entry;
+    }
+
+    /** A listed block changed its state in a way that is still ours (a light switched): the entry follows it. */
+    public boolean litChanged(final BlockPos pos, final BlockState state) {
+        return restate(pos, state);
+    }
+
+    /** Replaces the recorded state of a listed position, keeping whether it was paid for. */
+    public boolean restate(final BlockPos pos, final BlockState state) {
+        final Slot slot = index.get(pos.asLong());
+        if (slot == null || state == null || state.isAir()) {
+            return false;
+        }
+        final Group group = colonies.get(slot.colony()).groups.get(slot.owner());
+        final Entry old = group.entries.get(pos);
+        if (old == null || old.state() == state) {
+            return false;
+        }
+        group.entries.put(pos.immutable(), new Entry(state, old.paid()));
+        setDirty();
+        return true;
+    }
+
+    /** Where a position is listed, or {@code null}. */
+    public Located at(final BlockPos pos) {
+        final Slot slot = index.get(pos.asLong());
+        if (slot == null) {
+            return null;
+        }
+        final Group group = colonies.get(slot.colony()).groups.get(slot.owner());
+        final Entry entry = group == null ? null : group.entries.get(pos);
+        return entry == null ? null : new Located(slot.colony(), slot.owner(), entry);
+    }
+
+    /** True when {@code pos} is listed in exactly this group with exactly {@code state}. */
+    public boolean isOurs(final int colony, final Owner owner, final BlockPos pos, final BlockState state) {
+        final Located at = at(pos);
+        return at != null && at.colony() == colony && at.owner().equals(owner) && at.entry().state() == state;
+    }
+
+    // ---------------------------------------------------------------- groups
+
+    private Group group(final int colony, final Owner owner, final boolean make) {
+        ColonyRecord record = colonies.get(colony);
+        if (record == null) {
+            if (!make) {
+                return null;
+            }
+            record = new ColonyRecord();
+            colonies.put(colony, record);
+        }
+        Group group = record.groups.get(owner);
+        if (group == null && make) {
+            group = new Group(owner);
+            record.groups.put(owner, group);
+            setDirty();
+        }
+        return group;
+    }
+
+    /** Makes the group if it is missing (an empty group means: planned, nothing fits) and sets what it was planned for. */
+    public void plan(final int colony, final Owner owner, final String festival, final int level, final String piece) {
+        final Group group = group(colony, owner, true);
+        if (group.entries.isEmpty()) {
+            group.festival = festival == null ? "" : festival;
+        }
+        group.level = level;
+        group.piece = piece == null ? "" : piece;
+        setDirty();
+    }
+
+    public GroupView group(final int colony, final Owner owner) {
+        final Group group = group(colony, owner, false);
+        return group == null ? null : group.view();
+    }
+
+    /** Copies of every group of a colony, in the order they were made. */
+    public List<GroupView> groups(final int colony) {
+        final ColonyRecord record = colonies.get(colony);
+        if (record == null) {
+            return List.of();
+        }
+        final List<GroupView> all = new ArrayList<>();
+        for (final Group group : record.groups.values()) {
+            all.add(group.view());
+        }
+        return all;
+    }
+
+    /** The colony ids with a record in this level. */
+    public List<Integer> colonies() {
+        return List.copyOf(colonies.keySet());
+    }
+
+    public void setDecorated(final int colony, final Owner owner, final long day) {
+        final Group group = group(colony, owner, false);
+        if (group != null && group.decoratedDay != day) {
+            group.decoratedDay = day;
+            setDirty();
+        }
+    }
+
+    public void setTended(final int colony, final Owner owner, final long day) {
+        final Group group = group(colony, owner, false);
+        if (group != null && group.tendedDay != day) {
+            group.tendedDay = day;
+            setDirty();
+        }
+    }
+
+    /** Marks a group for removal by the server sweep (its entries stay listed until they are removed). */
+    public void markRemoving(final int colony, final Owner owner) {
+        final Group group = group(colony, owner, false);
+        if (group != null && !group.removing) {
+            group.removing = true;
+            setDirty();
+        }
+    }
+
+    /** Drops a group that has no entries left; a group that still lists entries is kept (no orphans). */
+    public boolean dropGroup(final int colony, final Owner owner) {
+        final ColonyRecord record = colonies.get(colony);
+        final Group group = record == null ? null : record.groups.get(owner);
+        if (group == null || !group.entries.isEmpty()) {
+            return false;
+        }
+        record.groups.remove(owner);
+        setDirty();
+        return true;
+    }
+
+    /** Drops every group of a colony that lists nothing. */
+    public int dropEmptyGroups(final int colony) {
+        final ColonyRecord record = colonies.get(colony);
+        if (record == null) {
+            return 0;
+        }
+        final int before = record.groups.size();
+        record.groups.values().removeIf(group -> group.entries.isEmpty());
+        final int dropped = before - record.groups.size();
+        if (dropped > 0) {
+            setDirty();
+        }
+        return dropped;
+    }
+
+    public boolean hasEntries(final int colony) {
+        final ColonyRecord record = colonies.get(colony);
+        if (record == null) {
+            return false;
+        }
+        for (final Group group : record.groups.values()) {
+            if (!group.entries.isEmpty()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Entries listed for one colony. */
+    public int count(final int colony) {
+        final ColonyRecord record = colonies.get(colony);
+        int total = 0;
+        if (record != null) {
+            for (final Group group : record.groups.values()) {
+                total += group.entries.size();
+            }
+        }
+        return total;
+    }
+
+    /** Entries listed in this level, all colonies. */
+    public int count() {
+        return index.size();
+    }
+
+    // ---------------------------------------------------------------- the day's budget
+
+    /** Buildings started on game day {@code day} (0 when the budget is of another day). */
+    public int budgetUsed(final int colony, final long day) {
+        final ColonyRecord record = colonies.get(colony);
+        return record == null || record.budgetDay != day ? 0 : record.budgetUsed;
+    }
+
+    /**
+     * Counts a group against the colony's budget of game day {@code day}, once a day: true when it was counted now,
+     * false when it had been counted already today.
+     */
+    public boolean charge(final int colony, final Owner owner, final long day) {
+        final Group group = group(colony, owner, true);
+        if (group.chargedDay == day) {
+            return false;
+        }
+        group.chargedDay = day;
+        spendBudget(colony, day);
+        return true;
+    }
+
+    /** One more building started on game day {@code day}. */
+    public void spendBudget(final int colony, final long day) {
+        ColonyRecord record = colonies.get(colony);
+        if (record == null) {
+            record = new ColonyRecord();
+            colonies.put(colony, record);
+        }
+        if (record.budgetDay != day) {
+            record.budgetDay = day;
+            record.budgetUsed = 0;
+        }
+        record.budgetUsed++;
+        setDirty();
+    }
+
+    // ---------------------------------------------------------------- the festival marker and the square
+
+    /** The colony's festival marker, or {@code null}. */
+    public BlockPos marker(final int colony) {
+        final ColonyRecord record = colonies.get(colony);
+        return record == null ? null : record.marker;
+    }
+
+    /** Sets the colony's marker; false (and nothing changes) when it already has another one. */
+    public boolean registerMarker(final int colony, final BlockPos pos) {
+        ColonyRecord record = colonies.get(colony);
+        if (record == null) {
+            record = new ColonyRecord();
+            colonies.put(colony, record);
+        }
+        if (record.marker != null && !record.marker.equals(pos)) {
+            return false;
+        }
+        record.marker = pos.immutable();
+        setDirty();
+        return true;
+    }
+
+    /** Takes the marker off its colony (only when {@code pos} is the registered one); true when it was. */
+    public boolean unregisterMarker(final int colony, final BlockPos pos) {
+        final ColonyRecord record = colonies.get(colony);
+        if (record == null || record.marker == null || !record.marker.equals(pos)) {
+            return false;
+        }
+        record.marker = null;
+        record.squareProblem = false;
+        setDirty();
+        return true;
+    }
+
+    /** The colony whose marker stands at {@code pos}, or -1. */
+    public int markerColony(final BlockPos pos) {
+        for (final Map.Entry<Integer, ColonyRecord> e : colonies.entrySet()) {
+            if (pos.equals(e.getValue().marker)) {
+                return e.getKey();
+            }
+        }
+        return -1;
+    }
+
+    /** True while the square's piece does not fit at the marker (S8 shows it in the hut window). */
+    public boolean squareProblem(final int colony) {
+        final ColonyRecord record = colonies.get(colony);
+        return record != null && record.squareProblem;
+    }
+
+    public void setSquareProblem(final int colony, final boolean problem) {
+        final ColonyRecord record = colonies.get(colony);
+        if (record != null && record.squareProblem != problem) {
+            record.squareProblem = problem;
+            setDirty();
+        }
+    }
+
+    /** True (and remembered) when the managers have not been told about the square yet on game day {@code day}. */
+    public boolean noticeDue(final int colony, final long day) {
+        final ColonyRecord record = colonies.get(colony);
+        if (record == null || record.noticeDay == day) {
+            return false;
+        }
+        record.noticeDay = day;
+        setDirty();
+        return true;
+    }
+
+    // ---------------------------------------------------------------- the blocks tell the ledger
+
+    /**
+     * Called by our decoration blocks from {@code onRemove}, for every state change on the server (MineColonies'
+     * Builder, a player, a piston, an explosion, a light switched). Only LIT changed: the entry follows (the
+     * exact-state rule still removes it at take-down). Anything else: the entry is forgotten at once and the world is
+     * left alone from then on.
+     */
+    public static void blockChanged(final Level level, final BlockPos pos, final BlockState old, final BlockState now) {
+        if (!(level instanceof ServerLevel server) || old == now) {
+            return;
+        }
+        final DecorLedger ledger = peek(server);
+        if (ledger == null) {
+            return;
+        }
+        final Located at = ledger.at(pos);
+        if (at == null) {
+            return;
+        }
+        if (at.entry().state() == old && onlyLitDiffers(old, now)) {
+            ledger.litChanged(pos, now);
+        } else {
+            ledger.forget(pos);
+        }
+    }
+
+    /** Same block, and the two states are equal once LIT is set the same. */
+    static boolean onlyLitDiffers(final BlockState a, final BlockState b) {
+        if (a.getBlock() != b.getBlock() || !a.hasProperty(Lights.LIT)) {
+            return false;
+        }
+        return b.setValue(Lights.LIT, a.getValue(Lights.LIT)) == a;
+    }
+
+    // ---------------------------------------------------------------- saving
+
+    /**
+     * Writes this ledger's file now if anything changed since the last write, so a crash between autosaves cannot
+     * lose what was placed. The file is the same one the level's own save writes.
+     */
+    public void flush(final ServerLevel level) {
+        if (!isDirty()) {
+            return;
+        }
+        try {
+            final Path root = level.getServer().getWorldPath(LevelResource.ROOT);
+            final Path data = DimensionType.getStorageFolder(level.dimension(), root).resolve("data");
+            Files.createDirectories(data);
+            final File file = data.resolve(FILE + ".dat").toFile();
+            save(file, level.registryAccess());
+        } catch (final Exception unwritable) {
+            ColonySeasons.LOGGER.warn("The decoration ledger could not be written now ({}); the next autosave writes it",
+                    unwritable.getClass().getSimpleName().replace("Exception", ""));
+        }
+    }
+
+    @Override
+    public CompoundTag save(final CompoundTag tag, final HolderLookup.Provider provider) {
+        tag.putInt("version", VERSION);
+        final ListTag all = new ListTag();
+        for (final Map.Entry<Integer, ColonyRecord> e : colonies.entrySet()) {
+            final ColonyRecord record = e.getValue();
+            final CompoundTag one = new CompoundTag();
+            one.putInt("id", e.getKey());
+            one.putLong("budgetDay", record.budgetDay);
+            one.putInt("budgetUsed", record.budgetUsed);
+            if (record.marker != null) {
+                one.putLong("marker", record.marker.asLong());
+            }
+            one.putLong("noticeDay", record.noticeDay);
+            one.putBoolean("squareProblem", record.squareProblem);
+            final ListTag groups = new ListTag();
+            for (final Group group : record.groups.values()) {
+                groups.add(saveGroup(group));
+            }
+            one.put("groups", groups);
+            all.add(one);
+        }
+        tag.put("colonies", all);
+        return tag;
+    }
+
+    private static CompoundTag saveGroup(final Group group) {
+        final CompoundTag tag = new CompoundTag();
+        tag.putString("kind", group.owner.kind().name());
+        tag.putLong("pos", group.owner.pos().asLong());
+        tag.putString("festival", group.festival);
+        tag.putInt("level", group.level);
+        tag.putString("piece", group.piece);
+        tag.putLong("decoratedDay", group.decoratedDay);
+        tag.putLong("tendedDay", group.tendedDay);
+        tag.putLong("chargedDay", group.chargedDay);
+        tag.putBoolean("removing", group.removing);
+        final List<BlockState> palette = new ArrayList<>();
+        final Map<BlockState, Integer> indexOf = new HashMap<>();
+        final long[] positions = new long[group.entries.size()];
+        final int[] states = new int[group.entries.size()];
+        final byte[] paid = new byte[group.entries.size()];
+        int i = 0;
+        for (final Map.Entry<BlockPos, Entry> e : group.entries.entrySet()) {
+            final BlockState state = e.getValue().state();
+            Integer at = indexOf.get(state);
+            if (at == null) {
+                at = palette.size();
+                palette.add(state);
+                indexOf.put(state, at);
+            }
+            positions[i] = e.getKey().asLong();
+            states[i] = at;
+            paid[i] = (byte) (e.getValue().paid() ? 1 : 0);
+            i++;
+        }
+        final ListTag paletteTag = new ListTag();
+        for (final BlockState state : palette) {
+            paletteTag.add(NbtUtils.writeBlockState(state));
+        }
+        tag.put("palette", paletteTag);
+        tag.putLongArray("positions", positions);
+        tag.putIntArray("states", states);
+        tag.putByteArray("paid", paid);
+        return tag;
+    }
+
+    public static DecorLedger load(final CompoundTag tag, final HolderLookup.Provider provider) {
+        final DecorLedger ledger = new DecorLedger();
+        final HolderGetter<Block> blocks = provider.lookupOrThrow(Registries.BLOCK);
+        int dropped = 0;
+        for (final Tag element : tag.getList("colonies", Tag.TAG_COMPOUND)) {
+            final CompoundTag one = (CompoundTag) element;
+            final int id = one.getInt("id");
+            final ColonyRecord record = new ColonyRecord();
+            record.budgetDay = one.getLong("budgetDay");
+            record.budgetUsed = one.getInt("budgetUsed");
+            record.marker = one.contains("marker") ? BlockPos.of(one.getLong("marker")) : null;
+            record.noticeDay = one.contains("noticeDay") ? one.getLong("noticeDay") : -1;
+            record.squareProblem = one.getBoolean("squareProblem");
+            ledger.colonies.put(id, record);
+            for (final Tag g : one.getList("groups", Tag.TAG_COMPOUND)) {
+                dropped += ledger.loadGroup(id, record, (CompoundTag) g, blocks);
+            }
+        }
+        if (dropped > 0) {
+            ColonySeasons.LOGGER.warn("Decoration ledger: {} entries dropped on load (their block no longer exists)", dropped);
+        }
+        return ledger;
+    }
+
+    private int loadGroup(final int colony, final ColonyRecord record, final CompoundTag tag, final HolderGetter<Block> blocks) {
+        final Kind kind;
+        try {
+            kind = Kind.valueOf(tag.getString("kind"));
+        } catch (final IllegalArgumentException unknown) {
+            return tag.getLongArray("positions").length;
+        }
+        final Owner owner = new Owner(kind, BlockPos.of(tag.getLong("pos")));
+        final Group group = new Group(owner);
+        group.festival = tag.getString("festival");
+        group.level = tag.getInt("level");
+        group.piece = tag.getString("piece");
+        group.decoratedDay = tag.contains("decoratedDay") ? tag.getLong("decoratedDay") : -1;
+        group.tendedDay = tag.contains("tendedDay") ? tag.getLong("tendedDay") : -1;
+        group.chargedDay = tag.contains("chargedDay") ? tag.getLong("chargedDay") : -1;
+        group.removing = tag.getBoolean("removing");
+        final ListTag paletteTag = tag.getList("palette", Tag.TAG_COMPOUND);
+        final List<BlockState> palette = new ArrayList<>();
+        for (int i = 0; i < paletteTag.size(); i++) {
+            palette.add(NbtUtils.readBlockState(blocks, paletteTag.getCompound(i)));
+        }
+        final long[] positions = tag.getLongArray("positions");
+        final int[] states = tag.getIntArray("states");
+        final byte[] paid = tag.getByteArray("paid");
+        int dropped = 0;
+        for (int i = 0; i < positions.length; i++) {
+            final int at = i < states.length ? states[i] : -1;
+            final BlockState state = at >= 0 && at < palette.size() ? palette.get(at) : null;
+            if (state == null || state.isAir() || index.containsKey(positions[i])) {
+                dropped++;
+                continue;
+            }
+            final BlockPos pos = BlockPos.of(positions[i]);
+            group.entries.put(pos, new Entry(state, i < paid.length && paid[i] != 0));
+            index.put(positions[i], new Slot(colony, owner));
+        }
+        record.groups.put(owner, group);
+        return dropped;
+    }
+
+    /** For the probe: every listed position of one colony with its state. */
+    public Map<BlockPos, Entry> entries(final int colony) {
+        final Map<BlockPos, Entry> all = new LinkedHashMap<>();
+        final ColonyRecord record = colonies.get(colony);
+        if (record != null) {
+            for (final Group group : record.groups.values()) {
+                all.putAll(group.entries);
+            }
+        }
+        return all;
+    }
+
+    /** Every listed position of the level. */
+    public Set<Long> positions() {
+        return Set.copyOf(index.keySet());
+    }
+}
