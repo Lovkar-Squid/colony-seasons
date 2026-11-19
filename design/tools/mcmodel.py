@@ -557,6 +557,12 @@ class Scene:
                             nb = (pos[0] + v[0], pos[1] + v[1], pos[2] + v[2])
                             if self.is_full(nb)[0]:
                                 continue
+                            # a thin decoration of ours hung on a solid wall block: its back face lies in the wall's
+                            # front plane. The game culls it; drawn here it is coplanar with the wall face, and a ray
+                            # through a transparent pixel passes both and shows the inside of the wall block.
+                            if (name.startswith(tuple(n + ":" for n in OWN_NAMESPACES))
+                                    and nb in self.parsed and self._solid(nb)):
+                                continue
                             # same-block glass / ice skip their shared faces
                             if nb in self.parsed and self.parsed[nb][0] == name and ("glass" in sn or sn == "ice"):
                                 continue
