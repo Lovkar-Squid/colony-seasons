@@ -19,5 +19,18 @@
   "com.colony_seasons.command.festival.force.unknown": "There is no festival called %1$s. Festivals: %2$s",
   "com.colony_seasons.command.festival.force.disabled": "%s is switched off in the config.",
   "com.colony_seasons.command.festival.clear": "%s is no longer on by force.",
-  "com.colony_seasons.command.festival.clear.none": "No festival is on by force."
+  "com.colony_seasons.command.festival.clear.none": "No festival is on by force.",
+
+  "itemGroup.colony_seasons": "Colony Seasons",
+  "block.colony_seasons.wreath": "Wreath",
+  "block.colony_seasons.garland": "Evergreen Garland",
+  "block.colony_seasons.lantern_string": "Lantern String",
+  "block.colony_seasons.fairy_lights": "Fairy Lights",
+  "block.colony_seasons.ornament_leaves": "Ornament Leaves",
+  "block.colony_seasons.tinsel_leaves": "Tinsel Leaves",
+  "block.colony_seasons.tree_star": "Tree Star",
+  "block.colony_seasons.large_star": "Large Tree Star",
+  "block.colony_seasons.gift_pile": "Gift Pile",
+  "block.colony_seasons.firework_crate": "Firework Crate",
+  "block.colony_seasons.festival_marker": "Festival Marker"
 }

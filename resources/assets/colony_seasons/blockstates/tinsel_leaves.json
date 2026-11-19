@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "lit=false": {
+      "model": "colony_seasons:block/tinsel_leaves"
+    },
+    "lit=true": {
+      "model": "colony_seasons:block/tinsel_leaves_lit"
+    }
+  }
+}

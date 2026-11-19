@@ -3,7 +3,8 @@
 Reads quad scenes written by mcmodel.write_scene and renders them the way the vanilla client
 draws them in daylight: every face is unlit texture colour x (vanilla face shade x smooth-lighting
 AO), nearest-neighbour texels, cutout alpha for leaves/doors/lanterns, real alpha for stained
-glass. No sun shadows, no bloom, no depth of field - only what the game itself shows.
+glass. No sun shadows, no bloom, no depth of field - only what the game itself shows. A night scene
+(mcmodel.write_scene(..., night=...)) carries a lightmap colour per vertex instead of a grey shade.
 
 jobs.json: [{"scene": quads.json, "out": png, "res": [w, h], "yaw": deg, "pitch": deg,
              "ortho": scale, "target": [x, y, z], "bg": [r, g, b]}]
@@ -98,8 +99,12 @@ def build(scene_data):
             for li in poly.loop_indices:
                 vi = mesh.loops[li].vertex_index
                 uvl.data[li].uv = uvs[vi]
-                c = srgb_to_lin(cols[vi])
-                ca.data[li].color = (c, c, c, 1.0)
+                c = cols[vi]
+                if isinstance(c, list):          # night: a lightmap colour per vertex (mcmodel night mode)
+                    ca.data[li].color = (srgb_to_lin(c[0]), srgb_to_lin(c[1]), srgb_to_lin(c[2]), 1.0)
+                else:
+                    c = srgb_to_lin(c)
+                    ca.data[li].color = (c, c, c, 1.0)
         mesh.materials.append(material(key, scene_data["textures"][key], alpha))
         mesh.update()
         obj = bpy.data.objects.new("q_" + key, mesh)

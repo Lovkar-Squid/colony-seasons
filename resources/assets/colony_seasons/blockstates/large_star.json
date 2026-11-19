@@ -1,0 +1,16 @@
+{
+  "variants": {
+    "half=lower,lit=false": {
+      "model": "colony_seasons:block/large_star_lower"
+    },
+    "half=lower,lit=true": {
+      "model": "colony_seasons:block/large_star_lower_lit"
+    },
+    "half=upper,lit=false": {
+      "model": "colony_seasons:block/large_star_upper"
+    },
+    "half=upper,lit=true": {
+      "model": "colony_seasons:block/large_star_upper_lit"
+    }
+  }
+}

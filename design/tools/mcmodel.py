@@ -7,7 +7,14 @@ blockstate x/y rotation (+ uvlock), cullface culling, tint indices, the vanilla
 directional face shade (up 1.0, N/S 0.8, E/W 0.6, down 0.5) and smooth-lighting
 ambient occlusion at block corners. Assets come from the client jar (MC_JAR),
 optional mod jars (MC_MOD_JARS) and the design's own src/assets folder (custom
-`colonyseasons:` blocks with real blockstate + model JSON + 16x16 textures).
+`colonyseasons:` blocks with real blockstate + model JSON + 16x16 textures; point CS_ASSETS at the mod's
+resources/assets for the shipped `colony_seasons:` blocks).
+
+Glow and night (added for chunk S2): an element with NeoForge's {"neoforge_data": {"block_light": 15, ...}} is
+drawn at full brightness and flagged "e" in the quads; write_scene(..., night=emission) lights the scene the way
+the game does at midnight: block and sky light flood-filled from the light sources (emission(name, props) gives
+a block's light level), smooth-lit per vertex and turned into colour by vanilla's lightmap (LightTexture, default
+brightness 0.5, sky darkened to 0.2).
 
 Block entities (chests, banners, signs, beds) have no JSON model in vanilla and
 are drawn as nothing - designs avoid them.
@@ -30,6 +37,7 @@ JAR = os.environ.get("MC_JAR", r"D:\Claude\voyager-libs\client-1.21.1-20240808.1
 MOD_JARS = [j for j in os.environ.get("MC_MOD_JARS", "").split(os.pathsep) if j]
 CUSTOM_ASSETS = os.environ.get("CS_ASSETS", os.path.join(DESIGN, "src", "assets"))
 TEX_CACHE = os.environ.get("MC_TEX_DIR", os.path.join(tempfile.gettempdir(), "cs_design_tex"))
+OWN_NAMESPACES = ("colonyseasons", "colony_seasons")   # the design's look options and the mod's blocks
 
 # biome-independent colours used for tintindex faces (plains for grass/foliage)
 GRASS = (0x91, 0xBD, 0x59)
@@ -289,7 +297,7 @@ def texture_file(ref, tint=None):
     ns, path = split_id(ref)
     key = f"{ns}_{path.replace('/', '_')}" + (f"_{tint[0]:02x}{tint[1]:02x}{tint[2]:02x}" if tint else "")
     out = os.path.join(TEX_CACHE, key + ".png")
-    if not os.path.exists(out) or ns == "colonyseasons":
+    if not os.path.exists(out) or ns in OWN_NAMESPACES:
         b = read_asset(ns, f"textures/{path}.png")
         os.makedirs(TEX_CACHE, exist_ok=True)
         if b is None:
@@ -329,12 +337,77 @@ def _short(n):
 
 
 class Scene:
-    def __init__(self, blocks):
+    def __init__(self, blocks, night=None):
         self.raw = dict(blocks)
         self.parsed = {p: parse_state(s) for p, s in self.raw.items()}
         self._baked = {}
         self._full = {}
         self.auto_props()
+        # night: emission(name, props) -> light level of a block; None renders the daylight look as before
+        self.emission = night
+        self.block_light = {}
+        self.sky_light = {}
+        if night:
+            self.compute_light()
+
+    # ---- night light (vanilla's light engine, simplified): block light from the light sources, sky light from
+    # the open sky, both losing 1 a block (leaves 2), stopped by opaque full cubes
+    def light_cost(self, pos):
+        if pos not in self.parsed:
+            return 0
+        if self.is_full(pos)[0]:
+            return 15
+        return 1 if "leaves" in self.parsed[pos][0] else 0
+
+    def compute_light(self):
+        from collections import deque
+        xs = [p[0] for p in self.parsed]; ys = [p[1] for p in self.parsed]; zs = [p[2] for p in self.parsed]
+        lo = (min(xs) - 3, min(ys) - 3, min(zs) - 3)
+        hi = (max(xs) + 3, max(ys) + 3, max(zs) + 3)
+
+        def inside(p):
+            return all(lo[i] <= p[i] <= hi[i] for i in range(3))
+
+        def spread(grid, queue):
+            while queue:
+                p = queue.popleft()
+                v = grid[p]
+                for d in DIRS.values():
+                    q = (p[0] + d[0], p[1] + d[1], p[2] + d[2])
+                    if not inside(q):
+                        continue
+                    cost = self.light_cost(q)
+                    if cost >= 15:
+                        continue
+                    nv = v - 1 - cost
+                    if nv > grid.get(q, 0):
+                        grid[q] = nv
+                        queue.append(q)
+
+        queue = deque()
+        for pos, (name, props) in self.parsed.items():
+            e = self.emission(name, props)
+            if e > 0:
+                self.block_light[pos] = e
+                queue.append(pos)
+        spread(self.block_light, queue)
+        queue = deque()
+        for x in range(lo[0], hi[0] + 1):
+            for z in range(lo[2], hi[2] + 1):
+                level = 15
+                for y in range(hi[1], lo[1] - 1, -1):
+                    cost = self.light_cost((x, y, z))
+                    if cost >= 15:
+                        break
+                    level -= cost
+                    if level <= 0:
+                        break
+                    self.sky_light[(x, y, z)] = level
+                    queue.append((x, y, z))
+        spread(self.sky_light, queue)
+
+    def light_at(self, p):
+        return self.sky_light.get(p, 0), self.block_light.get(p, 0)
 
     # ---- which blocks are full opaque cubes (cull neighbours / cast AO)
     def bake(self, pos):
@@ -421,7 +494,7 @@ class Scene:
                "ladder", "chain", "snow", "rod", "_sign", "_button", "flower", "grass", "fern", "leaves", "glass", "bars")
         if any(b in sn for b in bad) and sn not in ("snow_block", "grass_block"):
             return False
-        return not name.startswith("colonyseasons:")
+        return not name.startswith(tuple(n + ":" for n in OWN_NAMESPACES))
 
     def _stair(self, pos):
         if pos in self.parsed and _short(self.parsed[pos][0]).endswith("_stairs"):
@@ -469,10 +542,13 @@ class Scene:
             for m, xr, yr, uvl in self.bake(pos):
                 if not m["elements"]:
                     continue
+                emitting = bool(self.emission) and self.emission(name, props) > 0
                 for el in m["elements"]:
                     f, t = el["from"], el["to"]
                     erot = el.get("rotation")
                     shade_on = el.get("shade", True)
+                    nd = el.get("neoforge_data") or {}
+                    glow = nd.get("block_light", 0) > 0 or nd.get("sky_light", 0) > 0
                     for face, fd in el["faces"].items():
                         cull = fd.get("cullface")
                         if cull:
@@ -550,15 +626,90 @@ class Scene:
                                 s1 = self.ao_shade(tuple(p1)); s2 = self.ao_shade(tuple(p2))
                                 s3 = s1 if (s1 < 1 and s2 < 1) else self.ao_shade(tuple(p3))
                                 bright.append(sh * (centre_s + s1 + s2 + s3) / 4.0)
-                        verts = [(pos[0] + c_[0] / 16, pos[1] + c_[1] / 16, pos[2] + c_[2] / 16) for c_ in corners]
-                        out.append({"t": key, "v": [[round(q, 5) for q in vv] for vv in verts],
-                                    "uv": [[u / 16, 1 - v / 16] for (u, v) in uvs],
-                                    "c": [round(b_, 4) for b_ in bright], "a": _tex_alpha[key]})
+                        colour = [round(b_, 4) for b_ in bright]
+                        if self.emission:
+                            colour = self.night_colour(pos, corners, n, bright, glow, m["ao"] and not erot and not emitting)
+                        # a glowing element drawn over a plane at the same depth (the game draws it after, like
+                        # the grass block's overlay) is lifted a hair here, or the renderer would let them fight
+                        lift = 0.03 if glow else 0.0
+                        verts = [(pos[0] + (c_[0] + n[0] * lift) / 16, pos[1] + (c_[1] + n[1] * lift) / 16,
+                                  pos[2] + (c_[2] + n[2] * lift) / 16) for c_ in corners]
+                        q_ = {"t": key, "v": [[round(q, 5) for q in vv] for vv in verts],
+                              "uv": [[u / 16, 1 - v / 16] for (u, v) in uvs], "c": colour, "a": _tex_alpha[key]}
+                        if glow:
+                            q_["e"] = 1
+                        out.append(q_)
         return out, textures
 
+    def night_colour(self, pos, corners, n, bright, glow, smooth):
+        """Per-vertex RGB at night: lightmap(sky, block) x face shade x AO; a glowing element is full white."""
+        if glow:
+            return [[1.0, 1.0, 1.0] for _ in corners]
+        ax = max(range(3), key=lambda i: abs(n[i]))
+        sign = 1 if n[ax] > 0 else -1
+        coord = corners[0][ax]
+        flush = all(c[ax] == coord for c in corners) and coord in (0, 16) and ((coord == 16) == (sign > 0))
+        base = list(pos)
+        if flush:
+            base[ax] += sign
+        base = tuple(base)
+        plane = [i for i in range(3) if i != ax]
+        out = []
+        for i, cpt in enumerate(corners):
+            if smooth:
+                samples = [base]
+                sa = 1 if cpt[plane[0]] > 8 else -1
+                sb = 1 if cpt[plane[1]] > 8 else -1
+                for da, db in ((sa, 0), (0, sb), (sa, sb)):
+                    q = list(base)
+                    q[plane[0]] += da
+                    q[plane[1]] += db
+                    samples.append(tuple(q))
+                vals = [self.light_at(q) if self.light_cost(q) < 15 else self.light_at(base) for q in samples]
+                sky = sum(v[0] for v in vals) / 4.0
+                blk = sum(v[1] for v in vals) / 4.0
+            else:
+                sky, blk = self.light_at(base)
+            r, g, b = lightmap(sky, blk)
+            out.append([round(r * bright[i], 4), round(g * bright[i], 4), round(b * bright[i], 4)])
+        return out
 
-def write_scene(blocks, path, extra=None):
-    sc = Scene(blocks)
+
+def _brightness(level):
+    f = level / 15.0
+    return f / (4.0 - 3.0 * f)
+
+
+def _lightmap_exact(sky, block, sky_darken=0.2, gamma=0.5):
+    """Vanilla 1.21.1 LightTexture.updateLightTexture for one (sky, block) pair: overworld, midnight sky
+    (getSkyDarken 0.2), default brightness 0.5, no torch flicker."""
+    f1 = sky_darken * 0.95 + 0.05
+    sv = [sky_darken + (1 - sky_darken) * 0.35] * 2 + [1.0]
+    f8 = _brightness(sky) * f1
+    f9 = _brightness(block) * 1.5
+    c = [f9, f9 * ((f9 * 0.6 + 0.4) * 0.6 + 0.4), f9 * (f9 * f9 * 0.6 + 0.4)]
+    c = [c[i] + sv[i] * f8 for i in range(3)]
+    c = [v + (0.75 - v) * 0.04 for v in c]
+    c = [min(max(v, 0.0), 1.0) for v in c]
+    c = [v + ((1 - (1 - v) ** 4) - v) * gamma for v in c]
+    c = [v + (0.75 - v) * 0.04 for v in c]
+    return [min(max(v, 0.0), 1.0) for v in c]
+
+
+def lightmap(sky, block):
+    """The lightmap colour at (possibly fractional, smooth-lit) light levels, bilinear like the game's texture."""
+    s0, b0 = int(math.floor(sky)), int(math.floor(block))
+    s1, b1 = min(s0 + 1, 15), min(b0 + 1, 15)
+    fs, fb = sky - s0, block - b0
+    c00, c01 = _lightmap_exact(s0, b0), _lightmap_exact(s0, b1)
+    c10, c11 = _lightmap_exact(s1, b0), _lightmap_exact(s1, b1)
+    return [c00[i] * (1 - fs) * (1 - fb) + c01[i] * (1 - fs) * fb + c10[i] * fs * (1 - fb) + c11[i] * fs * fb
+            for i in range(3)]
+
+
+def write_scene(blocks, path, extra=None, night=None):
+    """night: emission(name, props) -> light level; given, the scene is lit as at midnight (see Scene)."""
+    sc = Scene(blocks, night)
     quads, textures = sc.quads()
     xs = [p[0] for p in blocks]; ys = [p[1] for p in blocks]; zs = [p[2] for p in blocks]
     data = {"quads": quads, "textures": textures,

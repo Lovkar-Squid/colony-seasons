@@ -14,6 +14,7 @@ step() {
 step "lang keys"  python -I tools/check_lang.py
 step "models"     python -I tools/check_models.py
 step "clock"      python -I tools/check_clock.py
+step "block files" python -I tools/check_blocks.py
 
 version="$(sed -n 's/^version="\([^"]*\)".*/\1/p' resources/META-INF/neoforge.mods.toml | head -1)"
 jar="colony_seasons-$version.jar"

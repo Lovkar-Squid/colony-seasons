@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "lit=false": {
+      "model": "colony_seasons:block/tree_star"
+    },
+    "lit=true": {
+      "model": "colony_seasons:block/tree_star_lit"
+    }
+  }
+}

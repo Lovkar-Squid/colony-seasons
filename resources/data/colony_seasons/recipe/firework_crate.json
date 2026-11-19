@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "group": "colony_seasons:decorations",
+  "pattern": [
+    " F ",
+    "FBF"
+  ],
+  "key": {
+    "F": {
+      "item": "minecraft:firework_rocket"
+    },
+    "B": {
+      "item": "minecraft:barrel"
+    }
+  },
+  "result": {
+    "id": "colony_seasons:firework_crate",
+    "count": 1
+  }
+}
