@@ -1445,12 +1445,22 @@ public class CsDecorGate {
                 check("none of our blocks is left on it", leftovers.isEmpty(), leftovers.size() + " left");
                 colony.getWorkManager().removeWorkOrder(order);
                 check("the order is gone, the building is free again", !DecorWork.busy(colony, h2), "");
+                // h2 was counted against today's budget before the order. The rest of the budget goes to other
+                // buildings now (in a full run the square's real pieces used it up already), so h2 must come back
+                // without a second slot: the day's count is the colony's, not the dropped group's.
+                note("today's building budget before the order is done: {} of {}", ledger.budgetUsed(colonyId, day()), DecorWork.quota(3));
+                while (ledger.budgetUsed(colonyId, day()) < DecorWork.quota(3)) {
+                    ledger.spendBudget(colonyId, day());
+                }
+                final int spent = ledger.budgetUsed(colonyId, day());
                 final DecorWork.Target next = DecorWork.nextToDecorate(level, colony, 3, hut.getPosition(), ledger, DecorPlacer.Stock.FREE, day());
-                check("decorated again after the order: it is the next target", next != null && next.owner().equals(ownerOf(h2)), String.valueOf(next == null ? null : next.owner()));
+                check("decorated again after the order, with the day's budget used up: it is the next target", next != null && next.owner().equals(ownerOf(h2)),
+                        String.valueOf(next == null ? null : next.owner()));
                 if (next != null) {
                     DecorWork.decorate(level, colonyId, next, 3, DecorPlacer.Stock.FREE, day(), ledger);
                 }
                 checkEq("its decorations are back", size(h2), 12);
+                checkEq("counted today already: putting it back up takes no second slot of the day's budget", ledger.budgetUsed(colonyId, day()), spent);
                 invariant("after the work order");
             }
         });

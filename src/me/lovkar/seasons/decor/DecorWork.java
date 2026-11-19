@@ -177,7 +177,8 @@ public final class DecorWork {
             if (done) {
                 continue;
             }
-            final boolean chargedToday = group != null && group.chargedDay() == day;
+            // counted today already (also when its group was dropped since, as a work order does): no second slot
+            final boolean chargedToday = ledger.chargedOn(id, target.owner(), day);
             if (!chargedToday && !budgetLeft) {
                 continue;
             }

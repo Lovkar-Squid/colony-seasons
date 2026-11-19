@@ -29,6 +29,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -42,8 +43,10 @@ import java.util.TreeMap;
  * <p>An entry is a position, the exact block state put there, and whether an item was paid for it. Entries live in
  * groups: one per building or festival marker ({@link Owner}), with the festival it went up for, the Decorator hut
  * level it was planned for, the piece path (the square), the game days it was decorated and last tended, and a
- * "removing" mark for the server sweep. Per colony the record also keeps the day's building budget, the festival
- * marker, and when the colony's managers were last told the square has no room.</p>
+ * "removing" mark for the server sweep. Per colony the record also keeps the day's building budget (how many and
+ * which buildings or squares were counted on that game day: the count belongs to the colony, so a group that is
+ * dropped and made again the same day, as when a work order takes a building's decorations off, is not counted
+ * twice), the festival marker, and when the colony's managers were last told the square has no room.</p>
  *
  * <p>Rules this class keeps: a position is listed at most once, in all colonies of the level together ({@link #record}
  * refuses a second one), and {@link #record} is called BEFORE the block is set, so a crash can at worst leave an entry
@@ -89,7 +92,7 @@ public final class DecorLedger extends SavedData {
     public record Located(int colony, Owner owner, Entry entry) {
     }
 
-    /** A copy of one group. */
+    /** A copy of one group; {@code chargedDay} is the colony's budget day when this owner was counted on it, else -1. */
     public record GroupView(Owner owner, String festival, int level, String piece, long decoratedDay, long tendedDay,
                             long chargedDay, boolean removing, Map<BlockPos, Entry> entries) {
         public int size() {
@@ -104,7 +107,6 @@ public final class DecorLedger extends SavedData {
         String piece = "";
         long decoratedDay = -1;
         long tendedDay = -1;
-        long chargedDay = -1;
         boolean removing;
         final LinkedHashMap<BlockPos, Entry> entries = new LinkedHashMap<>();
 
@@ -112,7 +114,8 @@ public final class DecorLedger extends SavedData {
             this.owner = owner;
         }
 
-        GroupView view() {
+        GroupView view(final ColonyRecord record) {
+            final long chargedDay = record.charged.contains(owner) ? record.budgetDay : -1;
             return new GroupView(owner, festival, level, piece, decoratedDay, tendedDay, chargedDay, removing,
                     Collections.unmodifiableMap(new LinkedHashMap<>(entries)));
         }
@@ -121,6 +124,8 @@ public final class DecorLedger extends SavedData {
     private static final class ColonyRecord {
         long budgetDay = -1;
         int budgetUsed;
+        /** The owners counted on {@code budgetDay}; kept when their group is dropped. */
+        final Set<Owner> charged = new LinkedHashSet<>();
         BlockPos marker;
         long noticeDay = -1;
         boolean squareProblem;
@@ -258,7 +263,7 @@ public final class DecorLedger extends SavedData {
 
     public GroupView group(final int colony, final Owner owner) {
         final Group group = group(colony, owner, false);
-        return group == null ? null : group.view();
+        return group == null ? null : group.view(colonies.get(colony));
     }
 
     /** Copies of every group of a colony, in the order they were made. */
@@ -269,7 +274,7 @@ public final class DecorLedger extends SavedData {
         }
         final List<GroupView> all = new ArrayList<>();
         for (final Group group : record.groups.values()) {
-            all.add(group.view());
+            all.add(group.view(record));
         }
         return all;
     }
@@ -370,21 +375,34 @@ public final class DecorLedger extends SavedData {
     }
 
     /**
-     * Counts a group against the colony's budget of game day {@code day}, once a day: true when it was counted now,
-     * false when it had been counted already today.
+     * Counts a building or square against the colony's budget of game day {@code day}, once a day: true when it was
+     * counted now, false when it had been counted already today. The mark is the colony's, so it holds even when the
+     * owner's group was dropped in between (its decorations taken off for a work order, then put up again).
      */
     public boolean charge(final int colony, final Owner owner, final long day) {
-        final Group group = group(colony, owner, true);
-        if (group.chargedDay == day) {
+        final ColonyRecord record = budgetOf(colony, day);
+        if (!record.charged.add(owner)) {
             return false;
         }
-        group.chargedDay = day;
-        spendBudget(colony, day);
+        record.budgetUsed++;
+        setDirty();
         return true;
     }
 
-    /** One more building started on game day {@code day}. */
+    /** True when the owner was counted against the colony's budget of game day {@code day}. */
+    public boolean chargedOn(final int colony, final Owner owner, final long day) {
+        final ColonyRecord record = colonies.get(colony);
+        return record != null && record.budgetDay == day && record.charged.contains(owner);
+    }
+
+    /** One more building started on game day {@code day}, with no owner named (the probe fills the day with it). */
     public void spendBudget(final int colony, final long day) {
+        budgetOf(colony, day).budgetUsed++;
+        setDirty();
+    }
+
+    /** The colony's record with its budget turned to game day {@code day} (a new day starts at 0, nobody counted). */
+    private ColonyRecord budgetOf(final int colony, final long day) {
         ColonyRecord record = colonies.get(colony);
         if (record == null) {
             record = new ColonyRecord();
@@ -393,9 +411,10 @@ public final class DecorLedger extends SavedData {
         if (record.budgetDay != day) {
             record.budgetDay = day;
             record.budgetUsed = 0;
+            record.charged.clear();
+            setDirty();
         }
-        record.budgetUsed++;
-        setDirty();
+        return record;
     }
 
     // ---------------------------------------------------------------- the festival marker and the square
@@ -565,6 +584,14 @@ public final class DecorLedger extends SavedData {
             one.putInt("id", e.getKey());
             one.putLong("budgetDay", record.budgetDay);
             one.putInt("budgetUsed", record.budgetUsed);
+            final ListTag charged = new ListTag();
+            for (final Owner owner : record.charged) {
+                final CompoundTag o = new CompoundTag();
+                o.putString("kind", owner.kind().name());
+                o.putLong("pos", owner.pos().asLong());
+                charged.add(o);
+            }
+            one.put("charged", charged);
             if (record.marker != null) {
                 one.putLong("marker", record.marker.asLong());
             }
@@ -590,7 +617,6 @@ public final class DecorLedger extends SavedData {
         tag.putString("piece", group.piece);
         tag.putLong("decoratedDay", group.decoratedDay);
         tag.putLong("tendedDay", group.tendedDay);
-        tag.putLong("chargedDay", group.chargedDay);
         tag.putBoolean("removing", group.removing);
         final List<BlockState> palette = new ArrayList<>();
         final Map<BlockState, Integer> indexOf = new HashMap<>();
@@ -632,12 +658,21 @@ public final class DecorLedger extends SavedData {
             final ColonyRecord record = new ColonyRecord();
             record.budgetDay = one.getLong("budgetDay");
             record.budgetUsed = one.getInt("budgetUsed");
+            for (final Tag c : one.getList("charged", Tag.TAG_COMPOUND)) {
+                final CompoundTag o = (CompoundTag) c;
+                try {
+                    record.charged.add(new Owner(Kind.valueOf(o.getString("kind")), BlockPos.of(o.getLong("pos"))));
+                } catch (final IllegalArgumentException unknown) {
+                    // an owner kind this version does not know: it is not counted
+                }
+            }
+            final boolean oldFile = !one.contains("charged");
             record.marker = one.contains("marker") ? BlockPos.of(one.getLong("marker")) : null;
             record.noticeDay = one.contains("noticeDay") ? one.getLong("noticeDay") : -1;
             record.squareProblem = one.getBoolean("squareProblem");
             ledger.colonies.put(id, record);
             for (final Tag g : one.getList("groups", Tag.TAG_COMPOUND)) {
-                dropped += ledger.loadGroup(id, record, (CompoundTag) g, blocks);
+                dropped += ledger.loadGroup(id, record, (CompoundTag) g, blocks, oldFile);
             }
         }
         if (dropped > 0) {
@@ -646,7 +681,8 @@ public final class DecorLedger extends SavedData {
         return ledger;
     }
 
-    private int loadGroup(final int colony, final ColonyRecord record, final CompoundTag tag, final HolderGetter<Block> blocks) {
+    private int loadGroup(final int colony, final ColonyRecord record, final CompoundTag tag, final HolderGetter<Block> blocks,
+                          final boolean oldFile) {
         final Kind kind;
         try {
             kind = Kind.valueOf(tag.getString("kind"));
@@ -660,7 +696,9 @@ public final class DecorLedger extends SavedData {
         group.piece = tag.getString("piece");
         group.decoratedDay = tag.contains("decoratedDay") ? tag.getLong("decoratedDay") : -1;
         group.tendedDay = tag.contains("tendedDay") ? tag.getLong("tendedDay") : -1;
-        group.chargedDay = tag.contains("chargedDay") ? tag.getLong("chargedDay") : -1;
+        if (oldFile && tag.contains("chargedDay") && tag.getLong("chargedDay") == record.budgetDay) {
+            record.charged.add(owner);                // a file of an earlier build kept the day's count per group
+        }
         group.removing = tag.getBoolean("removing");
         final ListTag paletteTag = tag.getList("palette", Tag.TAG_COMPOUND);
         final List<BlockState> palette = new ArrayList<>();
