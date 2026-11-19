@@ -18,6 +18,9 @@ import me.lovkar.seasons.decor.DecorLedger;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 
@@ -271,6 +274,10 @@ public final class Gathering {
                 }
                 // on MineColonies' own leisure trip to another place (the town hall, a tavern): his idle walk would
                 // take him straight back there, so the trip ends here and he is idle again, then walked like the rest
+                if (entity.getCitizenAI().getState() == EntityAICitizenWander.WanderState.READ_A_BOOK
+                        && entity.getMainHandItem().is(Items.BOOK)) {
+                    entity.setItemSlot(EquipmentSlot.MAINHAND, ItemStack.EMPTY);   // the book his reading put in his hand
+                }
                 entity.getCitizenAI().reset();
                 tripsEnded++;
             }
