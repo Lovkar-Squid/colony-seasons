@@ -8,6 +8,7 @@ import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.NbtIo;
 import net.minecraft.nbt.NbtUtils;
 import net.minecraft.nbt.Tag;
 import net.minecraft.server.level.ServerLevel;
@@ -19,8 +20,11 @@ import net.minecraft.world.level.saveddata.SavedData;
 import net.minecraft.world.level.storage.LevelResource;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -46,7 +50,8 @@ import java.util.TreeMap;
  * whose block is missing (forgotten at take-down), never a block nobody knows about. A position index makes
  * {@link #at} and {@link #blockChanged} constant time.</p>
  *
- * <p>Saved per level as {@code data/colony_seasons_decor.dat}, with a version number. A group stores its states as
+ * <p>Saved per level as {@code data/colony_seasons_decor.dat}, with a version number, written at once on the server
+ * thread (see {@link #save(File, HolderLookup.Provider)}). A group stores its states as
  * a palette plus one index per position. A state that reads back as air (its block no longer exists) drops its
  * entries with one warning: such a position can never equal the record again.</p>
  */
@@ -508,17 +513,47 @@ public final class DecorLedger extends SavedData {
         if (!isDirty()) {
             return;
         }
+        final Path root = level.getServer().getWorldPath(LevelResource.ROOT);
+        final Path data = DimensionType.getStorageFolder(level.dimension(), root).resolve("data");
+        save(data.resolve(FILE + ".dat").toFile(), level.registryAccess());
+    }
+
+    /**
+     * The level's autosave and {@link #flush} both come here. Written at once on the calling (server) thread, to a
+     * temporary file that then replaces the old one, and marked clean only once that worked. Vanilla hands saved data
+     * to NeoForge's IO workers instead, where two quick writes race for the same file and a failed one is logged and
+     * forgotten with the data marked clean; for a ledger that must never lose an entry the few kilobytes are written
+     * here and now, and a failed write stays dirty for the next try.
+     */
+    @Override
+    public void save(final File file, final HolderLookup.Provider provider) {
+        if (!isDirty()) {
+            return;
+        }
+        final Path target = file.toPath();
+        final Path temp = target.resolveSibling(target.getFileName() + ".cs-tmp");
         try {
-            final Path root = level.getServer().getWorldPath(LevelResource.ROOT);
-            final Path data = DimensionType.getStorageFolder(level.dimension(), root).resolve("data");
-            Files.createDirectories(data);
-            final File file = data.resolve(FILE + ".dat").toFile();
-            save(file, level.registryAccess());
-        } catch (final Exception unwritable) {
-            ColonySeasons.LOGGER.warn("The decoration ledger could not be written now ({}); the next autosave writes it",
-                    unwritable.getClass().getSimpleName().replace("Exception", ""));
+            Files.createDirectories(target.getParent());
+            final CompoundTag root = new CompoundTag();
+            root.put("data", save(new CompoundTag(), provider));
+            NbtUtils.addCurrentDataVersion(root);
+            NbtIo.writeCompressed(root, temp);
+            try {
+                Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            } catch (final AtomicMoveNotSupportedException noAtomic) {
+                Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING);
+            }
+            setDirty(false);
+            failedWrites = 0;
+        } catch (final IOException unwritable) {
+            if (failedWrites++ == 0) {
+                ColonySeasons.LOGGER.warn("The decoration ledger could not be written now ({}); it is tried again on the next change "
+                        + "and with the level's next save", unwritable.getClass().getSimpleName().replace("Exception", ""));
+            }
         }
     }
+
+    private int failedWrites;
 
     @Override
     public CompoundTag save(final CompoundTag tag, final HolderLookup.Provider provider) {

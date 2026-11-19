@@ -1704,7 +1704,7 @@ public class CsDecorGate {
         step(new Step("restart-save: the ledger file on disk", 200, true) {
             String detail = "";
 
-            /** The ledger as the file on disk has it (NeoForge writes saved data on its IO worker, a moment later). */
+            /** The ledger as the file on disk has it (the ledger writes it at once; the probe still polls, to be robust). */
             boolean fileMatches() {
                 try {
                     final CompoundTag root = NbtIo.readCompressed(dataFile(), NbtAccounter.unlimitedHeap());
