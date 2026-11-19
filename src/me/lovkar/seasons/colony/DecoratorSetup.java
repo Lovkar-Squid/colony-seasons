@@ -81,6 +81,7 @@ public final class DecoratorSetup {
                     .setBuildingViewProducer(() -> EmptyView::new)
                     .setRegistryName(BUILDING_ID)
                     .addBuildingModuleProducer(DecoratorModules.WORK)
+                    .addBuildingModuleProducer(DecoratorModules.INFO)
                     .addBuildingModuleProducer(DecoratorModules.SETTINGS)
                     .addBuildingModuleProducer(DecoratorModules.STOCK)
                     .createBuildingEntry());

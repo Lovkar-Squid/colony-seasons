@@ -22,11 +22,24 @@ public final class DecoratorModules {
                     () -> new WorkerBuildingModule(DecoratorSetup.JOB.get(), Skill.Creativity, Skill.Dexterity, false, building -> 1),
                     () -> WorkerBuildingModuleView::new);
 
-    /** The hut's switches: "prepare all year" (on by default). */
+    /**
+     * The hut's switches, all on by default: "prepare all year", "decorate", and which kinds he puts up (wreaths,
+     * garlands, lights, the tree). Our settings go into MineColonies' module, before its NBT is read.
+     */
     public static final BuildingEntry.ModuleProducer<SettingsModule, SettingsModuleView> SETTINGS =
             new BuildingEntry.ModuleProducer<>("decorator_settings",
-                    () -> (SettingsModule) new SettingsModule().with(BuildingDecorator.PREPARE_ALL_YEAR, new BoolSetting(true)),
+                    () -> (SettingsModule) new SettingsModule()
+                            .with(BuildingDecorator.PREPARE_ALL_YEAR, new BoolSetting(true))
+                            .with(BuildingDecorator.DECORATE, new BoolSetting(true))
+                            .with(BuildingDecorator.KIND_WREATHS, new BoolSetting(true))
+                            .with(BuildingDecorator.KIND_GARLANDS, new BoolSetting(true))
+                            .with(BuildingDecorator.KIND_LIGHTS, new BoolSetting(true))
+                            .with(BuildingDecorator.KIND_TREE, new BoolSetting(true)),
                     () -> SettingsModuleView::new);
+
+    /** The hut window's page for the calendar, the progress and what is missing (client view: {@link DecoratorInfoModuleView}). */
+    public static final BuildingEntry.ModuleProducer<DecoratorInfoModule, DecoratorInfoModuleView> INFO =
+            new BuildingEntry.ModuleProducer<>("decorator_info", DecoratorInfoModule::new, () -> DecoratorInfoModuleView::new);
 
     /** What the hut keeps from the couriers (server only, no window tab). */
     public static final BuildingEntry.ModuleProducer<DecoratorStockModule, IBuildingModuleView> STOCK =
