@@ -120,3 +120,21 @@ the barrels are inside.
 - The ornament leaves texture is pre-tinted, so the block must have no tintindex. In the game the
   lights will not glow unless the light pixels get their own emissive element.
 
+## Shipped ids (chunk S2, 19 Nov 2026)
+
+The mod ships the picked variants under namespace `colony_seasons` with these ids; `src/` keeps the look-option
+names. A piece built from `src/trees.py` or `src/walls.py` maps them like this (`tools/render_decor.py` does it):
+
+| Design (`colonyseasons:`) | Shipped (`colony_seasons:`) |
+|---|---|
+| `wreath[facing,style=classic]` | `wreath[facing]` (frosted and rustic are not shipped) |
+| `string_garland[facing]` | `garland[facing]` |
+| `string_lanterns[facing,variant]` | `lantern_string[facing,lit,variant]` (variant 0, 1, 2 as before) |
+| `string_fairy_lights[facing]` | `fairy_lights[facing,lit]` (larger bulbs) |
+| `ornament_leaves[style=mixed]` | `ornament_leaves[lit]` (three textures at random per position; larger baubles) |
+| `ornament_leaves[style=garland]` | `tinsel_leaves[lit]` |
+| `tree_star[size=small]` | `tree_star[lit]` |
+| `tree_star[size=large]` | `large_star[half=lower,lit]` plus `large_star[half=upper,lit]` in the block above |
+| `gift_pile[facing]` | `gift_pile[facing]` |
+| (none) | `firework_crate`, `festival_marker[facing]` |
+| `string_bunting` | not shipped (hut A was picked) |
