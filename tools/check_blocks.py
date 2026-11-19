@@ -2,7 +2,7 @@
 
 A block the game knows but whose files are incomplete fails quietly: no blockstate or model means a magenta
 cube, no loot table means it drops nothing, a missing lang line shows the raw key, a recipe naming an item that
-does not exist is dropped with one log line. So for every block registered in SeasonsBlocks.java this checks:
+does not exist is dropped with one log line. So for every block registered anywhere under src/ (the decorations and the hut) this checks:
 
   * its blockstate exists and every model it names exists (ours under resources/, vanilla in the client jar);
   * every model's parent exists, its render_type is a real one, its elements stay inside -16..32, and any
@@ -28,7 +28,6 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import paths  # noqa: E402
 
 NS = "colony_seasons"
-REGISTRATION = os.path.join(paths.ROOT, "src", "me", "lovkar", "seasons", "block", "SeasonsBlocks.java")
 ASSETS = paths.res("assets", NS)
 DATA = paths.res("data")
 RENDER_TYPES = {"minecraft:solid", "minecraft:cutout", "minecraft:cutout_mipped", "minecraft:translucent",
@@ -58,6 +57,44 @@ class Vanilla:
 
     def json(self, entry):
         return json.loads(self.zip.read(entry).decode("utf-8"))
+
+
+SRC = os.path.join(paths.ROOT, "src")
+
+
+def registered_blocks():
+    """Every block id registered through BLOCKS.register(...) anywhere under src/: the decoration blocks of
+    SeasonsBlocks.java and the hut of colony/DecoratorSetup.java (a name given as a String constant of the same
+    file is resolved)."""
+    found = []
+    for p in sorted(glob.glob(os.path.join(SRC, "**", "*.java"), recursive=True)):
+        with open(p, encoding="utf-8") as f:
+            java = f.read()
+        consts = dict(re.findall(r'static\s+final\s+String\s+(\w+)\s*=\s*"([a-z0-9_]+)"', java))
+        for literal, const in re.findall(r'\bBLOCKS\.register\(\s*(?:"([a-z0-9_]+)"|(\w+)\s*,)', java):
+            name = literal or consts.get(const)
+            if name is None:
+                bad(f"{os.path.relpath(p, paths.ROOT)}: BLOCKS.register({const}, ...) names no String constant of that file")
+            elif name not in found:
+                found.append(name)
+    return found
+
+
+class ModItems:
+    """Items of the other mods a recipe may use (MineColonies, Structurize, ...): read from the jars next to the
+    MineColonies jar that tools/rigpaths.sh names (the rig's basemods folder)."""
+
+    def __init__(self):
+        mc = os.environ.get("MINECOLONIES_JAR", "")
+        self.names = set()
+        folder = os.path.dirname(mc) if mc else ""
+        self.where = folder or "(MINECOLONIES_JAR not set: run through tools/checks.sh)"
+        for jar in glob.glob(os.path.join(folder, "*.jar")) if folder else []:
+            with zipfile.ZipFile(jar) as z:
+                self.names.update(n for n in z.namelist() if "/models/item/" in n)
+
+    def has(self, ns, path):
+        return f"assets/{ns}/models/item/{path}.json" in self.names
 
 
 def split(ref, default="minecraft"):
@@ -114,9 +151,8 @@ def check_model(vanilla, ref, where, seen):
 
 def main():
     vanilla = Vanilla()
-    with open(REGISTRATION, encoding="utf-8") as f:
-        java = f.read()
-    blocks = re.findall(r'BLOCKS\.register\(\s*"([a-z0-9_]+)"', java)
+    blocks = registered_blocks()
+    mod_items = ModItems()
     if not blocks:
         print("no blocks registered - nothing to check")
         return 0
@@ -174,7 +210,12 @@ def main():
             for one in (ing if isinstance(ing, list) else [ing]):
                 if "item" in one:
                     ns, path = split(one["item"])
-                    ok = path in blocks if ns == NS else vanilla.has(f"assets/{ns}/models/item/{path}.json")
+                    if ns == NS:
+                        ok = path in blocks
+                    elif ns == "minecraft":
+                        ok = vanilla.has(f"assets/{ns}/models/item/{path}.json")
+                    else:
+                        ok = mod_items.has(ns, path)
                     if not ok:
                         bad(f"recipe {name}: '{k}' = item {one['item']} does not exist")
                 elif "tag" in one:
