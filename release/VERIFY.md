@@ -47,6 +47,21 @@ State when this list was made: S0, S1, S2, S3 and S6 merged; S4, S5, S7 and S8 n
 18. "Our own" sounds: the README says the textures, models and sounds are our own; check that every sound
     in the jar is ours and that it is made by `tools/`.
 
+Notes from S7 (19 Nov 2026, probe `csfestival`, all modes and `tools/restart.sh csfestival` PASS):
+- 12: proven; only a player of the colony gets a gift (MineColonies' colony protection refuses a visitor's click), and
+  the claim is kept for the whole server, so a second pile or another colony's never gives a second one.
+- 13: proven; likewise only a player who may use the colony's blocks lights the tree.
+- 14 and 15: proven, nomixin mode included (only off-duty colonists come). Off-duty colonists on MineColonies' own
+  leisure trip elsewhere have the trip ended so they come.
+- 16: proven with a fake clock; the dusk show is the first dusk of each real day with a player in the colony.
+- 17: proven for the dusk shows. The Decorator stands at the tree and hands out gifts; on the New Year days he goes to
+  the square and gets the rockets in, and on the evening the mixin keeps him up past bedtime until he has launched the
+  dusk show there (then he goes to bed). Without the mixin (or when he is ill, hungry or it rains) the server launches
+  it from the square with his rockets. The midnight show comes at a real hour and always goes up from the server, so
+  "sets off the fireworks" holds for the dusk shows; say so if the page names the midnight show.
+- 18: the two festival sounds are made by `tools/sfx/*.py`.
+- 23: built in S7 (`festival/FestivalDirector`), proven by csfestival.
+
 ## Rests on S8 (effects, hut window)
 
 19. The three effect switches do what the README table says and are off by default; the strengths are in the

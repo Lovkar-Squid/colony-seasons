@@ -1,8 +1,12 @@
 package me.lovkar.seasons.block;
 
 import com.mojang.serialization.MapCodec;
+import me.lovkar.seasons.festival.Gifts;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
@@ -12,6 +16,7 @@ import net.minecraft.world.level.block.HorizontalDirectionalBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
@@ -22,8 +27,9 @@ import java.util.EnumMap;
 import java.util.Map;
 
 /**
- * Four wrapped boxes at the foot of the tree. Its block entity ({@link GiftPileBlockEntity}) keeps the stock and
- * who took a gift on which real day; handing gifts out comes in a later chunk. It faces the player who put it down;
+ * Four wrapped boxes at the foot of the tree. A click on the Decorator's pile hands out today's gift
+ * ({@link Gifts}: one per player and real day, the claim saved with the world); a pile a player placed is a
+ * decoration. Its block entity ({@link GiftPileBlockEntity}) keeps the fields of S2. It faces the player who put it down;
  * its outline and collision are the four boxes (low enough to step over).
  */
 public class GiftPileBlock extends HorizontalDirectionalBlock implements EntityBlock {
@@ -93,6 +99,17 @@ public class GiftPileBlock extends HorizontalDirectionalBlock implements EntityB
     protected @NotNull VoxelShape getShape(final @NotNull BlockState state, final @NotNull BlockGetter level,
                                            final @NotNull BlockPos pos, final @NotNull CollisionContext context) {
         return SHAPES.get(state.getValue(FACING));
+    }
+
+    /** A click hands out today's gift when this is the Decorator's pile (festival/Gifts says what happened). */
+    @Override
+    protected @NotNull InteractionResult useWithoutItem(final @NotNull BlockState state, final @NotNull Level level,
+                                                        final @NotNull BlockPos pos, final @NotNull Player player,
+                                                        final @NotNull BlockHitResult hit) {
+        if (level instanceof ServerLevel server) {
+            Gifts.take(server, pos, player);
+        }
+        return InteractionResult.sidedSuccess(level.isClientSide);
     }
 
     @Override
