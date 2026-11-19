@@ -2,6 +2,15 @@
 
 ## 0.1.0-beta.1 - unreleased - seasons and festivals for MineColonies
 
+What a player gets in this version: a calendar with seasons and real-date festivals, the Decorator (a new
+worker and hut who decorates the colony and a tree on the square for the Winter Festival and takes it all
+down afterwards), eleven decoration blocks, gifts, a gathering at the tree, New Year fireworks, winter
+clothes for colonists, and three effects on the game that are off by default. The player-facing changelog
+for the upload is `CHANGELOG-0.1.0-beta.1.md` at the repo root. Below, the notes of each build chunk.
+
+### Build notes
+
+
 - **S0, skeleton and first boot.** The mod loads next to MineColonies 1.1.1420 on a dedicated server. It
   registers its (still empty) blocks, items, block entities, sounds, MineColonies jobs and buildings, and
   a server config `colony_seasons-server.toml` with every key of the design (calendar, the two festivals'
@@ -36,3 +45,4 @@
   year comes from the calendar; the Decorating, Tending, Taking down, Hosting and Launching states are stubs for S4
   and S7. No hut blueprint yet (S5), so the hut cannot be built with the build tool until then. Probe `csdecorator`
   (three game days with a night and rain on a real colony, mode free) and `tools/restart.sh csdecorator`.
+- **S11, page and logo (drafts).** README, the CurseForge page text and one-line summary, the player-facing changelog, a 400x400 logo made by `tools/gen_logo.py` from our own textures (three variants in `docs/renders/s11/`), and `tools/check_public.py` (no personal names, user-folder paths or world names in tracked files, no machine paths or hype words in public text, the summary at most 120 characters). Sentences that rest on chunks not built yet are listed in `release/VERIFY.md` for the final check after S9.
