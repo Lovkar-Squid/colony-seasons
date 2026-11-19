@@ -39,6 +39,7 @@ flat world, MineColonies and its libraries loaded) and logs `[<probe>] CHECK <wh
 bash tools/probe.sh csboot                # the mod loads, every register is wired, the config spec is registered
 bash tools/probe.sh csconfig defaults     # every getter equals the hand-written defaults list
 bash tools/probe.sh csconfig seeded       # a config file with a non-default value for every key is read back
+bash tools/probe.sh csclient              # the client config is registered, not loaded on a server, answers its defaults; the season packet clamps a bad id
 ```
 
 ```bash
@@ -63,6 +64,25 @@ If the server dies with `FAILED TO BIND TO PORT`, Windows has reserved the rig's
 (`netsh interface ipv4 show excludedportrange protocol=tcp`). `bash tools/private-rig.sh` makes a copy of the
 rig on another port next to the repository; `tools/rigpaths.sh` then uses it automatically.
 
+## Winter clothes check (no game)
+
+```bash
+bash tools/clothescheck.sh   # ClothesRules + HatModels + Season compiled against Gson only: who wears what, MineColonies' December hat,
+                             # the shipped hat allow-list; then tools/check_clothes.py (also a step of checks.sh)
+```
+
+`tools/check_clothes.py` reads the citizen model ids out of the MineColonies jar (`ModModelTypes.class`) and checks every id
+in `hat_models.json` against them, every texture the clothes code names and its size, and that nothing is shipped into
+MineColonies' `nether` style folder.
+
 ## Generated files
 
-None yet. Chunks that generate resources (blueprints, textures, sounds) document their scripts here.
+Chunks that generate resources (blueprints, textures, sounds) document their scripts here.
+
+- `python -I tools/gen_clothes.py` paints the clothes textures, `resources/assets/colony_seasons/textures/entity/scarf_*.png` and
+  `wool_hat_*.png` (64x32, the layout of `ScarfModel` / `WoolHatModel`). Pure Python, the same bytes on every run.
+- Preview renders of the clothes on MineColonies' models (`docs/renders/s6/`), with Voyager's entity preview pipeline copied here:
+  `bash tools/preview.sh` runs both steps: `tools/mc_models.py` plays every citizen model's `createMesh()` bytecode (`javap -c`, JDK from
+  `$JDK_BIN`) into `tools/out/mc_models.json`, a copy of their boxes that stays out of the repository; then
+  `tools/entity_preview.py` builds the sheets (our boxes are read out of the two model classes)
+  and runs Blender headless on `tools/mcrender.py` (the jar and Blender paths are in `tools/rigpaths.sh`).

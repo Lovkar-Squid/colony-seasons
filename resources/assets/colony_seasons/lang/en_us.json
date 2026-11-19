@@ -19,5 +19,8 @@
   "com.colony_seasons.command.festival.force.unknown": "There is no festival called %1$s. Festivals: %2$s",
   "com.colony_seasons.command.festival.force.disabled": "%s is switched off in the config.",
   "com.colony_seasons.command.festival.clear": "%s is no longer on by force.",
-  "com.colony_seasons.command.festival.clear.none": "No festival is on by force."
+  "com.colony_seasons.command.festival.clear.none": "No festival is on by force.",
+
+  "com.colony_seasons.config.show_clothes": "Winter clothes on colonists",
+  "com.colony_seasons.config.show_particles": "Festival particles"
 }
