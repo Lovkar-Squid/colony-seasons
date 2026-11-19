@@ -1,0 +1,352 @@
+package me.lovkar.seasons.decor;
+
+import com.minecolonies.api.colony.IColony;
+import com.minecolonies.api.colony.IColonyManager;
+import me.lovkar.seasons.ColonySeasons;
+import me.lovkar.seasons.block.LanternStringBlock;
+import me.lovkar.seasons.block.Lights;
+import me.lovkar.seasons.block.WallDecorationBlock;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.LeavesBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * The only code that sets or clears decoration blocks (design 3.2, 3.3; the cell rule and the removal rule of the
+ * S4 design, A3 and A4).
+ *
+ * <p>Placing, per cell and in this order: the chunk is loaded (checked without loading it); the cell is inside this
+ * colony's claim; the world block {@code isAir()} (grass, flowers, snow and water stay); no ledger entry of any
+ * group lists the cell; a wall block needs the wall behind it sturdy towards it and must be able to stay there; one
+ * item is taken if the slot costs one; the ledger records the cell; then the block is set without neighbour updates
+ * (flags 18) and read back. A cell that reads back as another state of the same block keeps its entry with that
+ * state; one that reads back as anything else is forgotten and its item refunded. Nothing
+ * with collision is placed for a building; only the square at a player's festival marker may have it.</p>
+ *
+ * <p>Removing, per entry: a cell in an unloaded chunk waits; a cell whose state equals the record exactly is
+ * forgotten first, then set to air with no drops, and its item handed back if it was paid for; a cell whose state
+ * differs (a player changed it, the Builder cleared it) is forgotten and left alone. Afterwards the neighbours of the
+ * cleared cells are updated once, so snow and anything attached settle.</p>
+ */
+public final class DecorPlacer {
+
+    /** Where items for decorations come from and go back to. */
+    public interface Stock {
+        /** Takes one {@code item}; false when there is none. */
+        boolean take(Item item);
+
+        /** Hands a stack back; what does not fit anywhere is dropped (or, with no hut at all, lost). */
+        void give(ItemStack stack);
+
+        /** True when at least one {@code item} could be taken (looked at, nothing moves). */
+        default boolean has(final Item item) {
+            return true;
+        }
+
+        /** Decorations are free: everything is there, nothing comes back. */
+        Stock FREE = new Stock() {
+            @Override
+            public boolean take(final Item item) {
+                return true;
+            }
+
+            @Override
+            public void give(final ItemStack stack) {
+            }
+        };
+    }
+
+    /** One cell to fill: where, the exact state, and whether it costs an item of that block. */
+    public record Slot(BlockPos pos, BlockState state, boolean costs) {
+        public Slot {
+            pos = pos.immutable();
+        }
+    }
+
+    /** What one removal did: cells set to air, entries forgotten because the world had changed, cells still waiting. */
+    public record Removed(int removed, int forgotten, int waiting) {
+        public static final Removed NONE = new Removed(0, 0, 0);
+
+        public Removed plus(final Removed other) {
+            return new Removed(removed + other.removed, forgotten + other.forgotten, waiting + other.waiting);
+        }
+
+        public int touched() {
+            return removed + forgotten;
+        }
+    }
+
+    /** Placing: tell clients, skip the neighbours' shape updates. */
+    public static final int PLACE_FLAGS = Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE;
+    /** Clearing: the same, and no drops. */
+    public static final int CLEAR_FLAGS = Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE | Block.UPDATE_SUPPRESS_DROPS;
+    /** Colony id for "no colony here". */
+    public static final int NO_COLONY = -1;
+
+    private DecorPlacer() {
+    }
+
+    // ---------------------------------------------------------------- the cell rule
+
+    /** The colony whose claim holds {@code pos}; never loads a chunk (an unloaded one gives {@link #NO_COLONY}). */
+    public static int colonyAt(final ServerLevel level, final BlockPos pos) {
+        if (!level.hasChunkAt(pos)) {
+            return NO_COLONY;
+        }
+        try {
+            final IColony colony = IColonyManager.getInstance().getIColony(level, pos);
+            return colony == null ? NO_COLONY : colony.getID();
+        } catch (final RuntimeException unavailable) {
+            return NO_COLONY;
+        }
+    }
+
+    /** Why a cell cannot take a block, or {@code null} when it can (steps 1 to 5 of the cell rule). */
+    public static String refusal(final ServerLevel level, final DecorLedger ledger, final int colony, final BlockPos pos,
+                                 final BlockState state, final boolean square) {
+        if (!level.hasChunkAt(pos)) {
+            return "unloaded";
+        }
+        if (colonyAt(level, pos) != colony) {
+            return "claim";
+        }
+        if (!level.getBlockState(pos).isAir()) {
+            return "occupied";
+        }
+        if (ledger.at(pos) != null) {
+            return "listed";
+        }
+        if (!square && !state.getCollisionShape(level, pos).isEmpty()) {
+            return "collision";
+        }
+        if (state.getBlock() instanceof WallDecorationBlock) {
+            final Direction facing = state.getValue(WallDecorationBlock.FACING);
+            final BlockPos wall = pos.relative(facing.getOpposite());
+            if (!level.hasChunkAt(wall)) {
+                return "unloaded";                    // the wall may sit across a chunk border: never load it to read it
+            }
+            if (!level.getBlockState(wall).isFaceSturdy(level, wall, facing)) {
+                return "wall";
+            }
+        }
+        if (!state.canSurvive(level, pos)) {
+            return "survive";
+        }
+        return null;
+    }
+
+    /** The state as the Decorator puts it: lights off, the lantern string's colour order from its position, leaves that never decay, no water. */
+    public static BlockState normalise(final BlockState state, final BlockPos pos) {
+        BlockState s = state;
+        if (s.hasProperty(Lights.LIT) && ColonySeasons.MODID.equals(BuiltInRegistries.BLOCK.getKey(s.getBlock()).getNamespace())) {
+            s = s.setValue(Lights.LIT, false);
+        }
+        if (s.getBlock() instanceof LanternStringBlock) {
+            s = s.setValue(LanternStringBlock.VARIANT, LanternStringBlock.variantAt(pos, s.getValue(WallDecorationBlock.FACING)));
+        }
+        if (s.getBlock() instanceof LeavesBlock && s.hasProperty(LeavesBlock.PERSISTENT)) {
+            s = s.setValue(LeavesBlock.PERSISTENT, true);
+        }
+        if (s.hasProperty(BlockStateProperties.WATERLOGGED)) {
+            s = s.setValue(BlockStateProperties.WATERLOGGED, false);
+        }
+        return s;
+    }
+
+    /** The item a block costs, or {@code null} for none. */
+    public static Item itemOf(final BlockState state) {
+        final Item item = state.getBlock().asItem();
+        return item == Items.AIR ? null : item;
+    }
+
+    // ---------------------------------------------------------------- placing
+
+    /**
+     * Fills the slots that pass the cell rule, in order; a slot whose item is missing is skipped. Returns how many
+     * blocks were placed.
+     */
+    public static int place(final ServerLevel level, final DecorLedger ledger, final int colony, final DecorLedger.Owner owner,
+                            final String festival, final int hutLevel, final List<Slot> slots, final Stock stock) {
+        final boolean square = owner.kind() == DecorLedger.Kind.SQUARE;
+        int placed = 0;
+        for (final Slot slot : slots) {
+            final BlockState state = normalise(slot.state(), slot.pos());
+            if (refusal(level, ledger, colony, slot.pos(), state, square) != null) {
+                continue;
+            }
+            final Item item = slot.costs() ? itemOf(state) : null;
+            if (item != null && !stock.take(item)) {
+                continue;
+            }
+            if (!ledger.record(colony, owner, festival, hutLevel, slot.pos(), state, item != null)) {
+                refund(stock, item);
+                continue;
+            }
+            level.setBlock(slot.pos(), state, PLACE_FLAGS);
+            final BlockState now = level.getBlockState(slot.pos());
+            if (now != state && now.getBlock() == state.getBlock()) {
+                // it settled into another state of itself: still ours, so the entry follows (never a block nobody lists)
+                if (!ledger.restate(slot.pos(), now) && ledger.at(slot.pos()) == null) {
+                    ledger.record(colony, owner, festival, hutLevel, slot.pos(), now, item != null);
+                }
+                placed++;
+                continue;
+            }
+            if (now != state) {
+                // something stopped it (a protection mod, another mod's block): no trace of us is left
+                ledger.forget(slot.pos());
+                refund(stock, item);
+                continue;
+            }
+            placed++;
+        }
+        return placed;
+    }
+
+    private static void refund(final Stock stock, final Item item) {
+        if (item != null) {
+            stock.give(new ItemStack(item));
+        }
+    }
+
+    // ---------------------------------------------------------------- removing
+
+    /** Removes a whole group by the rule (no budget). */
+    public static Removed remove(final ServerLevel level, final DecorLedger ledger, final int colony, final DecorLedger.Owner owner,
+                                 final Stock sink) {
+        return remove(level, ledger, colony, owner, sink, Integer.MAX_VALUE);
+    }
+
+    /**
+     * Removes up to {@code budget} entries of one group by the removal rule, top down. A group with no entries left
+     * is dropped from the ledger.
+     */
+    public static Removed remove(final ServerLevel level, final DecorLedger ledger, final int colony, final DecorLedger.Owner owner,
+                                 final Stock sink, final int budget) {
+        final DecorLedger.GroupView group = ledger.group(colony, owner);
+        if (group == null) {
+            return Removed.NONE;
+        }
+        final List<Map.Entry<BlockPos, DecorLedger.Entry>> work = new ArrayList<>(group.entries().entrySet());
+        work.sort(Comparator.comparingInt((Map.Entry<BlockPos, DecorLedger.Entry> e) -> -e.getKey().getY())
+                .thenComparing(Map.Entry::getKey));
+        int removed = 0;
+        int forgotten = 0;
+        int waiting = 0;
+        int spent = 0;
+        final List<BlockPos> cleared = new ArrayList<>();
+        for (final Map.Entry<BlockPos, DecorLedger.Entry> e : work) {
+            final BlockPos pos = e.getKey();
+            if (!level.hasChunkAt(pos)) {
+                waiting++;
+                continue;
+            }
+            if (spent >= budget) {
+                waiting++;
+                continue;
+            }
+            spent++;
+            final DecorLedger.Entry entry = e.getValue();
+            final BlockState now = level.getBlockState(pos);
+            ledger.forget(pos);
+            if (now == entry.state()) {
+                level.setBlock(pos, Blocks.AIR.defaultBlockState(), CLEAR_FLAGS);
+                cleared.add(pos);
+                removed++;
+                if (entry.paid()) {
+                    final Item item = itemOf(entry.state());
+                    if (item != null) {
+                        sink.give(new ItemStack(item));
+                    }
+                }
+            } else {
+                forgotten++;
+            }
+        }
+        final BlockState air = Blocks.AIR.defaultBlockState();
+        for (final BlockPos pos : cleared) {
+            air.updateNeighbourShapes(level, pos, Block.UPDATE_ALL);
+            level.updateNeighborsAt(pos, Blocks.AIR);
+        }
+        ledger.dropGroup(colony, owner);
+        return new Removed(removed, forgotten, waiting);
+    }
+
+    /** Every group of a colony, by the rule; groups with cells in unloaded chunks are marked for the sweep. */
+    public static Removed removeColony(final ServerLevel level, final DecorLedger ledger, final int colony, final Stock sink) {
+        Removed all = Removed.NONE;
+        for (final DecorLedger.GroupView group : ledger.groups(colony)) {
+            final Removed one = remove(level, ledger, colony, group.owner(), sink);
+            if (one.waiting() > 0) {
+                ledger.markRemoving(colony, group.owner());
+            }
+            all = all.plus(one);
+        }
+        return all;
+    }
+
+    // ---------------------------------------------------------------- leaves
+
+    /**
+     * Vanilla leaves of a group settle to the distance the world gives them (as their own tick would), and the
+     * entries follow, so a neighbour update later does not turn our leaves into "changed by someone" at take-down.
+     */
+    public static int settleLeaves(final ServerLevel level, final DecorLedger ledger, final int colony, final DecorLedger.Owner owner) {
+        final DecorLedger.GroupView group = ledger.group(colony, owner);
+        if (group == null) {
+            return 0;
+        }
+        int changed = 0;
+        for (int round = 0; round < LeavesBlock.DECAY_DISTANCE; round++) {
+            int thisRound = 0;
+            for (final Map.Entry<BlockPos, DecorLedger.Entry> e : ledger.group(colony, owner).entries().entrySet()) {
+                final BlockState state = e.getValue().state();
+                if (!(state.getBlock() instanceof LeavesBlock) || !level.hasChunkAt(e.getKey())
+                        || level.getBlockState(e.getKey()) != state) {
+                    continue;
+                }
+                final BlockState settled = state.setValue(LeavesBlock.DISTANCE, distanceAt(level, e.getKey()));
+                if (settled != state) {
+                    ledger.restate(e.getKey(), settled);
+                    level.setBlock(e.getKey(), settled, PLACE_FLAGS);
+                    thisRound++;
+                }
+            }
+            changed += thisRound;
+            if (thisRound == 0) {
+                break;
+            }
+        }
+        return changed;
+    }
+
+    /** Vanilla's leaf distance at a position (1 next to a log, 7 far from any). */
+    private static int distanceAt(final ServerLevel level, final BlockPos pos) {
+        int distance = LeavesBlock.DECAY_DISTANCE;
+        final BlockPos.MutableBlockPos at = new BlockPos.MutableBlockPos();
+        for (final Direction direction : Direction.values()) {
+            at.setWithOffset(pos, direction);
+            if (!level.hasChunkAt(at)) {
+                continue;                             // never load a chunk for a leaf's neighbour
+            }
+            distance = Math.min(distance, LeavesBlock.getOptionalDistanceAt(level.getBlockState(at)).orElse(LeavesBlock.DECAY_DISTANCE) + 1);
+            if (distance == 1) {
+                break;
+            }
+        }
+        return distance;
+    }
+}

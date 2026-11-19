@@ -21,7 +21,8 @@ import java.util.List;
 
 /**
  * {@code /colonyseasons}: {@code status} (everyone), and for operators (permission 2) {@code season set <season>},
- * {@code festival force <id>} and {@code festival clear}. The forced festival is saved with the world.
+ * {@code festival force <id>} and {@code festival clear}. The forced festival is saved with the world. The
+ * {@code decor} branch (list, remove) is {@link DecorCommands}.
  */
 public final class SeasonsCommands {
     /** The permission level the changing commands need. */
@@ -55,7 +56,8 @@ public final class SeasonsCommands {
                                 .then(Commands.argument("id", StringArgumentType.word())
                                         .suggests((context, builder) -> SharedSuggestionProvider.suggest(SeasonsConfig.FESTIVAL_IDS, builder))
                                         .executes(SeasonsCommands::forceFestival)))
-                        .then(Commands.literal("clear").executes(SeasonsCommands::clearFestival))));
+                        .then(Commands.literal("clear").executes(SeasonsCommands::clearFestival)))
+                .then(DecorCommands.node()));
     }
 
     // ---------------------------------------------------------------- status

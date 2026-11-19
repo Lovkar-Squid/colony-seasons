@@ -11,6 +11,8 @@ and are off by default.
 
 - NeoForge 1.21.1, MineColonies 1.1.1420 or newer in the 1.1 line
 - Server config: `colony_seasons-server.toml` (every key and its default is in `SeasonsConfig.java`)
+- Admins: before taking the mod out of a world, run `/colonyseasons decor remove <colony id>` (permission 2) for each
+  colony, in each dimension. Without the mod its own blocks vanish, but the vanilla logs and leaves of the tree would stay.
 - License: GPL-3.0-or-later. Made by Lovkar & Claude.
 
 Building from source and running the headless tests: see [BUILDING.md](BUILDING.md). History: [docs/CHANGELOG.md](docs/CHANGELOG.md).

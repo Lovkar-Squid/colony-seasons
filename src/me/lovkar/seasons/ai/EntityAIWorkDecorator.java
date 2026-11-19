@@ -9,8 +9,14 @@ import me.lovkar.seasons.SeasonsConfig;
 import me.lovkar.seasons.calendar.CalendarManager;
 import me.lovkar.seasons.colony.BuildingDecorator;
 import me.lovkar.seasons.colony.JobDecorator;
+import me.lovkar.seasons.decor.DecorLedger;
 import me.lovkar.seasons.decor.DecorPhase;
+import me.lovkar.seasons.decor.DecorPlacer;
+import me.lovkar.seasons.decor.DecorWork;
 import me.lovkar.seasons.decor.Kits;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.items.IItemHandler;
 import net.neoforged.neoforge.items.ItemHandlerHelper;
@@ -18,38 +24,43 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * The Decorator's day (design section 4). Every 20 ticks {@link #decide()} looks at the calendar and the hut:
  *
  * <ul>
- *   <li>the phase comes from {@link DecorPhase#of}: festival days are Hosting, an open decoration window is
- *       Decorating (S4 splits Tending out of it), decorations still up after the window are Taking down, anything
- *       else is the Off season;</li>
- *   <li>outside the Off season, every {@link #PHASE_VISIT_TICKS} ticks he goes through that phase's state. In this
- *       chunk the states are stubs that note the visit and come straight back: S4 fills in Decorating, Tending and
- *       Taking down, S7 Hosting and Launching;</li>
- *   <li>Preparing goes on in every phase when the hut's "prepare all year" is on, and from the first day of a window
+ *   <li>the phase comes from {@link DecorPhase#of} (decorations count as up while the hut says so or the decoration
+ *       ledger lists any for the colony): festival days are Hosting, an open decoration window is Decorating,
+ *       decorations still up after the window are Taking down, anything else is the Off season;</li>
+ *   <li>outside the Off season, every {@link #PHASE_VISIT_TICKS} ticks he goes through that phase's state, and after a
+ *       visit that put something up or took something down he pauses {@link #visitPause} ticks (shorter with more
+ *       Creativity). Decorating picks the next building ({@link DecorWork#nextToDecorate}), walks there and places
+ *       what the plan and his stock allow; when nothing is left for the day it turns into Tending (once a game day
+ *       per decorated group). Taking down clears one group per visit by the removal rule and puts the items back in
+ *       the hut. Hosting is S7's: it notes the visit and goes on with the upkeep;</li>
+ *   <li>Preparing goes on in every phase when the hut's "prepare all year" is on, and only while a window is open
  *       when it is off: for every kit below the stock cap he asks the colony for one batch of what is missing (async
  *       requests, MineColonies drops duplicates), and when his pack holds a whole batch he walks to the hut and
  *       assembles it.</li>
  * </ul>
  *
  * <p>Nothing that must survive is kept here: MineColonies resets this AI for sleep, rain and raids. The fields are
- * scratch (timers, a walk counter, the kit he was about to assemble); progress is the building's NBT, stock is items
- * in the hut and in his own pack. An assembly happens in one server tick, so a reset can never catch it halfway.</p>
+ * scratch (timers, a walk counter, the kit he was about to assemble, the building he was walking to); progress is
+ * the decoration ledger and the building's NBT, stock is items in the hut and in his own pack. An assembly and every
+ * placing or removing visit happen in one server tick, so a reset can never catch one halfway.</p>
  */
 public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator, BuildingDecorator> {
 
-    /** The Decorator's own states: assembling, and the phase states S4 and S7 fill in. */
+    /** The Decorator's own states: assembling, the upkeep of the decorations, and the festival states S7 fills in. */
     public enum DecoratorState implements IAIState {
         /** At the hut, turning one batch of materials into decorations. */
         ASSEMBLE(true),
-        /** Putting decorations up (S4). */
+        /** Putting decorations up. */
         DECORATING(true),
-        /** Once a game day, putting back what went missing (S4). */
+        /** Once a game day, putting back what went missing. */
         TENDING(true),
-        /** Taking the decorations down after the window (S4). */
+        /** Taking the decorations down after the window. */
         TAKING_DOWN(true),
         /** Standing at the tree on festival days (S7). */
         HOSTING(false),
@@ -81,10 +92,21 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
     /** When neither the hut nor his pack has room for a batch, he waits this long before he looks again. */
     public static final int FULL_DELAY = 600;
 
-    // scratch only: a reset of the AI loses these and nothing else
+    /** Decisions spent walking to a building before he works from where he stands (the rules do not need him there). */
+    public static final int WALK_ATTEMPTS_OUT = 40;
+    /**
+     * Pause after a visit that put something up or took something down: {@code VISIT_PAUSE - VISIT_PAUSE_PER_CREATIVITY x
+     * Creativity}, at least {@code VISIT_PAUSE_MIN} ticks. Creativity is how quickly he decorates.
+     */
+    public static final int VISIT_PAUSE = 200;
+    public static final int VISIT_PAUSE_PER_CREATIVITY = 6;
+    public static final int VISIT_PAUSE_MIN = 40;
+
+    // scratch only: a reset of the AI loses these and nothing else (progress is the ledger and the building's NBT)
     private long nextPhaseVisit = Long.MIN_VALUE;
     private int walkAttempts;
     private Kits.Kit kitToAssemble;
+    private DecorWork.Target target;
 
     public EntityAIWorkDecorator(final @NotNull JobDecorator job) {
         super(job);
@@ -92,10 +114,10 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
                 new AITarget<IAIState>(AIWorkerState.IDLE, () -> AIWorkerState.START_WORKING, 20),
                 new AITarget<IAIState>(AIWorkerState.START_WORKING, this::decide, TICK_DELAY),
                 new AITarget<IAIState>(DecoratorState.ASSEMBLE, this::assemble, TICK_DELAY),
-                new AITarget<IAIState>(DecoratorState.DECORATING, () -> visit(DecoratorState.DECORATING), TICK_DELAY),
-                new AITarget<IAIState>(DecoratorState.TENDING, () -> visit(DecoratorState.TENDING), TICK_DELAY),
-                new AITarget<IAIState>(DecoratorState.TAKING_DOWN, () -> visit(DecoratorState.TAKING_DOWN), TICK_DELAY),
-                new AITarget<IAIState>(DecoratorState.HOSTING, () -> visit(DecoratorState.HOSTING), TICK_DELAY),
+                new AITarget<IAIState>(DecoratorState.DECORATING, this::decorating, TICK_DELAY),
+                new AITarget<IAIState>(DecoratorState.TENDING, this::tending, TICK_DELAY),
+                new AITarget<IAIState>(DecoratorState.TAKING_DOWN, this::takingDown, TICK_DELAY),
+                new AITarget<IAIState>(DecoratorState.HOSTING, this::hosting, TICK_DELAY),
                 new AITarget<IAIState>(DecoratorState.LAUNCHING, () -> visit(DecoratorState.LAUNCHING), TICK_DELAY));
     }
 
@@ -117,12 +139,18 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
             job.setStatus("waiting for the hut to be built");
             return AIWorkerState.IDLE;
         }
-        final DecorPhase phase = DecorPhase.of(CalendarManager.current(), building.decorationsUp());
+        final CalendarManager.Snapshot snapshot = CalendarManager.current();
+        final DecorLedger ledger = ledger();
+        final boolean up = building.decorationsUp() || ledger != null && ledger.hasEntries(building.getColony().getID());
+        final DecorPhase phase = DecorPhase.of(snapshot, up);
+        final boolean window = DecorPhase.windowOpen(snapshot);
         job.setPhase(phase);
 
         final long now = world.getGameTime();
         if (phase != DecorPhase.OFF_SEASON && now >= nextPhaseVisit) {
             nextPhaseVisit = now + PHASE_VISIT_TICKS;
+            target = null;
+            walkAttempts = 0;
             return switch (phase) {
                 case DECORATING -> DecoratorState.DECORATING;
                 case HOSTING -> DecoratorState.HOSTING;
@@ -137,8 +165,8 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
             walkToBuilding();
             return AIWorkerState.START_WORKING;
         }
-        if (phase == DecorPhase.OFF_SEASON && !building.prepareAllYear()) {
-            job.setStatus("off season: the hut prepares only during a festival's window");
+        if (!building.prepareAllYear() && !window) {
+            job.setStatus("the hut prepares only during a festival's window");
             walkToBuilding();
             return AIWorkerState.START_WORKING;
         }
@@ -154,7 +182,7 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
         final int cap = building.stockCap();
         final List<Kits.Kit> wanted = new ArrayList<>();
         for (final Kits.Kit kit : Kits.all()) {
-            if (building.stock(kit.output()) + kit.count() <= cap) {
+            if (Kits.wanted(building.stock(kit.output()), kit.count(), cap)) {
                 wanted.add(kit);
             }
         }
@@ -229,7 +257,7 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
         final IItemHandler pack = worker.getInventoryCitizen();
         final IItemHandler hut = building.getItemHandlerCap();
         if (!SeasonsConfig.needsMaterials() || !Kits.hasBatch(pack, kit)
-                || building.stock(kit.output()) + kit.count() > building.stockCap()) {
+                || !Kits.wanted(building.stock(kit.output()), kit.count(), building.stockCap())) {
             return AIWorkerState.START_WORKING;
         }
         final ItemStack output = new ItemStack(kit.output(), kit.count());
@@ -283,9 +311,186 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
         }
     }
 
-    // ---------------------------------------------------------------- the phase states (stubs until S4 and S7)
+    // ---------------------------------------------------------------- the phase states
 
-    /** A phase state's whole work in this chunk: note the visit and go back to deciding. */
+    private DecorLedger ledger() {
+        return world instanceof ServerLevel server ? DecorLedger.get(server) : null;
+    }
+
+    /** The pause after a visit that did something: shorter with more Creativity. */
+    public static int visitPause(final int creativity) {
+        return Math.max(VISIT_PAUSE_MIN, VISIT_PAUSE - VISIT_PAUSE_PER_CREATIVITY * creativity);
+    }
+
+    private void afterWork() {
+        nextPhaseVisit = world.getGameTime() + visitPause(getPrimarySkillLevel());
+        incrementActionsDoneAndDecSaturation();
+    }
+
+    /** True once he stands at the target, or has walked long enough (he then works from where he is). */
+    private boolean arrived() {
+        if (target == null) {
+            return true;
+        }
+        if (walkToSafePos(target.stand())) {
+            return true;
+        }
+        return ++walkAttempts >= WALK_ATTEMPTS_OUT;
+    }
+
+    private DecorPlacer.Stock stock() {
+        return DecorWork.stockOf(building, worker);
+    }
+
+    /**
+     * Decorating: the next building (town hall, then the square, then the nearest) while the day's budget lasts, then
+     * tending. While the window is open this is also where he goes on festival days, after the Hosting stub.
+     */
+    private IAIState decorating() {
+        job.recordVisit(DecoratorState.DECORATING);
+        final DecorLedger ledger = ledger();
+        if (ledger == null) {
+            return AIWorkerState.START_WORKING;
+        }
+        final ServerLevel level = (ServerLevel) world;
+        final long day = DecorWork.day(level);
+        final int hutLevel = building.getBuildingLevel();
+        if (target == null) {
+            target = DecorWork.nextToDecorate(level, building.getColony(), hutLevel, building.getPosition(), ledger, stock(), day);
+            walkAttempts = 0;
+            if (target == null) {
+                target = DecorWork.nextToTend(level, building.getColony(), building.getPosition(), ledger, day);
+                if (target != null) {
+                    job.setStatus("tending the decorations at " + target.owner());
+                    return DecoratorState.TENDING;
+                }
+                job.setStatus(ledger.budgetUsed(building.getColony().getID(), day) >= DecorWork.quota(hutLevel)
+                        ? "decorated as many buildings as he can today" : "waiting for decorations (or every building is decorated)");
+                return AIWorkerState.START_WORKING;
+            }
+            job.setStatus("on his way to decorate " + target.owner());
+        }
+        if (!arrived()) {
+            return DecoratorState.DECORATING;
+        }
+        final DecorWork.Outcome outcome = DecorWork.decorate(level, building.getColony().getID(), target, hutLevel, stock(), day, ledger);
+        askForSquare(outcome);
+        if (outcome.placed() > 0) {
+            building.setDecorationsUp(true);
+            afterWork();
+        }
+        job.setStatus("decorated " + target.owner() + ": " + outcome.status());
+        target = null;
+        return AIWorkerState.START_WORKING;
+    }
+
+    /**
+     * Vanilla blocks of the square (spruce logs and leaves) come from the warehouse like his kits' materials; our own
+     * blocks (ornament leaves, the star) only he makes, from his kits, so nobody else is asked for them.
+     */
+    private void askForSquare(final DecorWork.Outcome outcome) {
+        if (!SeasonsConfig.needsMaterials()) {
+            return;
+        }
+        for (final Map.Entry<Item, Integer> e : outcome.missing().entrySet()) {
+            if ("minecraft".equals(BuiltInRegistries.ITEM.getKey(e.getKey()).getNamespace())) {
+                checkIfRequestForItemExistOrCreateAsync(new ItemStack(e.getKey()), Math.min(64, e.getValue()), 1);
+            }
+        }
+    }
+
+    /** Tending: once a game day per decorated group, what went missing is put back. */
+    private IAIState tending() {
+        job.recordVisit(DecoratorState.TENDING);
+        final DecorLedger ledger = ledger();
+        if (ledger == null || target == null) {
+            target = null;
+            return AIWorkerState.START_WORKING;
+        }
+        if (!arrived()) {
+            return DecoratorState.TENDING;
+        }
+        final ServerLevel level = (ServerLevel) world;
+        final DecorWork.Outcome outcome = DecorWork.tend(level, building.getColony().getID(), target, building.getBuildingLevel(),
+                stock(), DecorWork.day(level), ledger);
+        askForSquare(outcome);
+        if (outcome.placed() > 0) {
+            building.setDecorationsUp(true);
+            afterWork();
+        }
+        job.setStatus("tended " + target.owner() + ": " + outcome.status());
+        target = null;
+        return AIWorkerState.START_WORKING;
+    }
+
+    /**
+     * Taking down after the window: one group per visit, nearest first, by the removal rule, the items back to the
+     * hut for next year; none left: the decorations are down.
+     */
+    private IAIState takingDown() {
+        job.recordVisit(DecoratorState.TAKING_DOWN);
+        final DecorLedger ledger = ledger();
+        if (ledger == null) {
+            return AIWorkerState.START_WORKING;
+        }
+        final ServerLevel level = (ServerLevel) world;
+        final int colony = building.getColony().getID();
+        final long day = DecorWork.day(level);
+        if (target == null) {
+            if (!ledger.hasEntries(colony)) {
+                ledger.dropEmptyGroups(colony);
+                building.setDecorationsUp(false);
+                job.setStatus("the decorations are down");
+                return AIWorkerState.START_WORKING;
+            }
+            if (ledger.budgetUsed(colony, day) >= DecorWork.quota(building.getBuildingLevel())) {
+                job.setStatus("took down as many buildings as he can today");
+                return AIWorkerState.START_WORKING;
+            }
+            target = DecorWork.nextToTakeDown(level, building.getColony(), building.getPosition(), ledger);
+            walkAttempts = 0;
+            if (target == null) {
+                job.setStatus("waiting for the decorations' chunks to load");
+                return AIWorkerState.START_WORKING;
+            }
+            job.setStatus("on his way to take down " + target.owner());
+        }
+        if (!arrived()) {
+            return DecoratorState.TAKING_DOWN;
+        }
+        final DecorPlacer.Removed removed = DecorWork.takeDown(level, colony, target.owner(), stock(), day, ledger);
+        job.setStatus("took down " + target.owner() + ": " + removed.removed() + " removed, " + removed.forgotten()
+                + " changed by someone and left alone");
+        target = null;
+        if (removed.touched() > 0) {
+            afterWork();
+        }
+        if (!ledger.hasEntries(colony)) {
+            ledger.dropEmptyGroups(colony);
+            building.setDecorationsUp(false);
+        }
+        return AIWorkerState.START_WORKING;
+    }
+
+    /**
+     * Hosting (S7 fills it in): the visit is noted, then the upkeep goes on, so festival days inside a window still
+     * see decorating and tending, and decorations after one are still taken down.
+     */
+    private IAIState hosting() {
+        job.recordVisit(DecoratorState.HOSTING);
+        target = null;
+        walkAttempts = 0;
+        if (DecorPhase.windowOpen(CalendarManager.current())) {
+            return DecoratorState.DECORATING;
+        }
+        final DecorLedger ledger = ledger();
+        if (ledger != null && ledger.hasEntries(building.getColony().getID())) {
+            return DecoratorState.TAKING_DOWN;
+        }
+        return AIWorkerState.START_WORKING;
+    }
+
+    /** A phase state that S7 fills in (Launching): note the visit and go back to deciding. */
     private IAIState visit(final DecoratorState state) {
         job.recordVisit(state);
         return AIWorkerState.START_WORKING;

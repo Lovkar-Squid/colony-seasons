@@ -141,6 +141,16 @@ public class CsDecorator {
 
     public CsDecorator() {
         NeoForge.EVENT_BUS.addListener(this::onTick);
+        try {
+            if ("restart-load".equals(readMode())) {
+                // S4: outside a decoration window the Taking-down state clears cs_decorations_up as soon as the ledger
+                // lists nothing for the colony (here it never does), which could happen before this probe looks at the
+                // flag. In a window nothing clears it, so the reload starts in one; the probe sets its own date after.
+                CalendarManager.setDateSource(DateSource.fixed(DECOR_DAY));
+            }
+        } catch (final Exception unreadable) {
+            // no mode file: not a restart run
+        }
     }
 
     // ================================================================ logging
@@ -448,7 +458,8 @@ public class CsDecorator {
         check("prepare all year is on by default", hut.prepareAllYear(), "");
         check("the stock module is server only", DecoratorModules.STOCK.hasServerModule() && !DecoratorModules.STOCK.hasView(), "");
         checkEq("stock cap at level 1", hut.stockCap(), 16);
-        check("the Decorator wears his own model", job() != null && job().getModel().equals(DecoratorSetup.MODEL_ID), String.valueOf(DecoratorSetup.MODEL_ID));
+        final ResourceLocation worn = citizen.getEntity().map(AbstractEntityCitizen::getModelType).orElse(null);
+        check("the Decorator wears his own model", DecoratorSetup.MODEL_ID.equals(worn), "the citizen reports " + worn);
 
         kitChecks();
         phaseChecks();

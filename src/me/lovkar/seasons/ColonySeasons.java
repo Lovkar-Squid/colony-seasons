@@ -80,6 +80,7 @@ public class ColonySeasons {
         NeoForge.EVENT_BUS.addListener(ColonySeasons::onServerStarted);
         CalendarEvents.register();
         DecoratorSetup.init(modEventBus);
+        me.lovkar.seasons.decor.DecorEvents.init(modEventBus);
         SeasonsCommands.register();
 
         LOGGER.info("Colony Seasons {} loaded", version(container));

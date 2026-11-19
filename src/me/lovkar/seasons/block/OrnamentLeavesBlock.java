@@ -34,6 +34,14 @@ public class OrnamentLeavesBlock extends Block {
         return CODEC;
     }
 
+    /** Tells the decoration ledger about every change of this block on the server (design 3.3: a light switched is followed, anything else forgotten). */
+    @Override
+    protected void onRemove(final @NotNull BlockState state, final @NotNull Level level, final @NotNull BlockPos pos,
+                            final @NotNull BlockState now, final boolean moving) {
+        super.onRemove(state, level, pos, now, moving);
+        me.lovkar.seasons.decor.DecorLedger.blockChanged(level, pos, state, now);
+    }
+
     @Override
     protected void createBlockStateDefinition(final StateDefinition.Builder<Block, BlockState> builder) {
         builder.add(Lights.LIT);

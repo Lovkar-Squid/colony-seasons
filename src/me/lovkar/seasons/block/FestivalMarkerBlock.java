@@ -3,8 +3,10 @@ package me.lovkar.seasons.block;
 import com.minecolonies.api.colony.IColony;
 import com.minecolonies.api.colony.IColonyManager;
 import com.mojang.serialization.MapCodec;
+import me.lovkar.seasons.decor.DecorEvents;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;
@@ -24,8 +26,10 @@ import org.jetbrains.annotations.Nullable;
 /**
  * The festival marker: a stake with a pennant that the PLAYER puts where the colony's tree should stand (design
  * 3.5). Its {@code facing} points at the player who placed it, so the pennant is seen broadside from there; the
- * tree piece is placed relative to the marker and its facing by a later chunk. No collision. Its block entity
- * ({@link FestivalMarkerBlockEntity}) keeps who placed it and the colony it was placed in.
+ * tree piece is placed relative to the marker and its facing. No collision. Its block entity
+ * ({@link FestivalMarkerBlockEntity}) keeps who placed it and the colony it was placed in; placed in a colony that
+ * has no marker yet, it becomes that colony's square (the decoration ledger keeps it), and broken it takes its
+ * square's decorations with it.
  */
 public class FestivalMarkerBlock extends HorizontalDirectionalBlock implements EntityBlock {
     public static final MapCodec<FestivalMarkerBlock> CODEC = simpleCodec(FestivalMarkerBlock::new);
@@ -66,6 +70,19 @@ public class FestivalMarkerBlock extends HorizontalDirectionalBlock implements E
         }
         marker.setPlacedBy(placer == null ? null : placer.getUUID());
         marker.setColonyId(colonyAt(level, pos));
+        if (level instanceof ServerLevel server && marker.getColonyId() != FestivalMarkerBlockEntity.NO_COLONY) {
+            DecorEvents.markerPlaced(server, marker.getColonyId(), pos);
+        }
+    }
+
+    /** The marker going (broken, blown up, replaced): its square comes down at the end of the tick. */
+    @Override
+    protected void onRemove(final @NotNull BlockState state, final @NotNull Level level, final @NotNull BlockPos pos,
+                            final @NotNull BlockState now, final boolean moving) {
+        if (level instanceof ServerLevel server && !now.is(this)) {
+            DecorEvents.markerRemoved(server, pos);
+        }
+        super.onRemove(state, level, pos, now, moving);
     }
 
     /** The id of the colony whose claim holds the position, or {@link FestivalMarkerBlockEntity#NO_COLONY}. */
