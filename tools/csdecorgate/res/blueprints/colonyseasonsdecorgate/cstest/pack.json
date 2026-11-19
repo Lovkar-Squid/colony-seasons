@@ -1,0 +1,14 @@
+{
+  "name": "Colony Seasons Test",
+  "icon": "icon.png",
+  "authors": [
+    "Lovkar",
+    "Claude"
+  ],
+  "desc": "Test pieces of the csdecorgate probe (Colony Seasons); never shipped.",
+  "mods": [
+    "structurize"
+  ],
+  "version": "1",
+  "pack-format": "1"
+}
