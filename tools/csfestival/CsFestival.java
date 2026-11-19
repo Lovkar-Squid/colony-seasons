@@ -104,7 +104,8 @@ import java.util.UUID;
  *       placed refused, the Winter Festival's and New Year's tables, opened into items); the gathering on 25 Dec (the
  *       everyone day: off-duty colonists and workers within 8 blocks of the tree, the Decorator hosting, the leisure
  *       site, the song; back at work after the hours, everyone in bed after bedtime) and the next game day (only the
- *       off-duty ones); New Year dusk fireworks from stock (the big show, a sparkle, nothing without a player); the
+ *       off-duty ones); New Year dusk fireworks from stock (the big show, a sparkle, nothing without a player, and a
+ *       sparkle beside the tree once the crate is gone; every show's rockets climb into the sky); the
  *       midnight show with the fake clock stepping over midnight; the season line; three game days of a forced
  *       Winter Festival;</li>
  *   <li>nomixin: the mod jar built without its mixin (prepare.sh): it loads, the mixin is absent and never asked, the
@@ -1193,16 +1194,21 @@ public class CsFestival {
     }
 
     private void planDusk() {
-        dusk("the first dusk of the real day: the big show from stock", true, Fireworks.SHOW_ROCKETS, 20);
-        dusk("the next dusk the same real day: a sparkle", true, Fireworks.SPARKLE_ROCKETS, 0);
-        dusk("a dusk with nobody in the colony: nothing", false, 0, 0);
+        dusk("the first dusk of the real day: the big show from stock", true, Fireworks.SHOW_ROCKETS, 20, false);
+        dusk("the next dusk the same real day: a sparkle", true, Fireworks.SPARKLE_ROCKETS, 0, false);
+        dusk("a dusk with nobody in the colony: nothing", false, 0, 0, false);
+        // hut levels 1 and 2 build no crate, and the trunk stands on the marker: the rockets must go up beside the tree
+        dusk("a dusk without the crate: a sparkle beside the tree", true, Fireworks.SPARKLE_ROCKETS, 5, true);
     }
 
-    private void dusk(final String name, final boolean player, final int expected, final int stock) {
+    private void dusk(final String name, final boolean player, final int expected, final int stock, final boolean noCrate) {
         step(new Step("fireworks: " + name, 1200, true) {
             int before;
             int shows0;
             int rockets0;
+            BlockPos site;
+            /** The highest a rocket of this step got above the top of the block it left from, in whole blocks. */
+            int rise = -1;
 
             @Override
             void start() {
@@ -1212,6 +1218,14 @@ public class CsFestival {
                     addRockets(stock);
                 }
                 nextDayAt(12300);
+                if (noCrate) {
+                    final BlockPos crate = firstOf(s -> s.is(SeasonsBlocks.FIREWORK_CRATE.get()));
+                    check("the tree has a firework crate to take away", crate != null, "");
+                    if (crate != null) {
+                        level.setBlock(crate, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);   // the ledger forgets it
+                    }
+                }
+                site = Fireworks.site(level, colony);
                 before = rocketsInStock();
                 shows0 = Fireworks.shows();
                 rockets0 = Fireworks.rockets();
@@ -1219,6 +1233,11 @@ public class CsFestival {
 
             @Override
             boolean tick() {
+                if (site != null) {
+                    for (final FireworkRocketEntity r : level.getEntitiesOfClass(FireworkRocketEntity.class, new AABB(site).inflate(64))) {
+                        rise = Math.max(rise, (int) Math.floor(r.getY() - site.getY() - 1));
+                    }
+                }
                 return timeOfDay() >= Fireworks.DUSK_FROM + 400;
             }
 
@@ -1230,6 +1249,15 @@ public class CsFestival {
                 checkEq("rockets taken from the Decorator's stock (" + name + ")", used, expected);
                 checkEq("rockets that flew from the square (" + name + ")", flown, expected);
                 checkEq("shows (" + name + ")", Fireworks.shows() - shows0, expected > 0 ? 1 : 0);
+                if (expected > 0) {
+                    // a rocket started inside a block bursts on its first tick, where it started
+                    check("the rockets climb into the sky (" + name + ")", rise >= 3, rise + " blocks above " + site);
+                }
+                if (noCrate) {
+                    check("without the crate they leave beside the tree with open sky, not from the marker under the trunk",
+                            site != null && !site.equals(marker) && Fireworks.openSky(level, site.above()), site + ", marker " + marker);
+                    invariant("the crate taken away");
+                }
                 note("{} rocket entities about at the end, stock {} -> {}", seen, before, rocketsInStock());
                 present = true;
             }

@@ -79,8 +79,9 @@ public final class Gathering {
     public static final String WHO_OFF_DUTY = "off_duty";
     public static final String WHO_EVERYONE = "everyone";
 
-    /** Colony ids whose working colonists come right now (read by the mixin on every AI decision). */
-    private static volatile Set<Integer> everyone = Set.of();
+    /** The colonies whose working colonists come right now (read by the mixin on every AI decision; colony ids are
+     * per dimension, so the colonies themselves are kept). */
+    private static volatile Set<IColony> everyone = Set.of();
     private static volatile int mixinCalls;
     private static volatile int broughtWorkers;
     private static int pulls;
@@ -331,8 +332,8 @@ public final class Gathering {
     }
 
     /** Publishes the colonies whose working colonists come now (the mixin reads it). */
-    static void publish(final Set<Integer> ids) {
-        everyone = Set.copyOf(ids);
+    static void publish(final Set<IColony> colonies) {
+        everyone = Set.copyOf(colonies);
     }
 
     // ---------------------------------------------------------------- the mixin's question
@@ -345,12 +346,12 @@ public final class Gathering {
      */
     public static boolean bringWorker(final EntityCitizen citizen) {
         mixinCalls++;
-        final Set<Integer> ids = everyone;
-        if (ids.isEmpty() || citizen == null) {
+        final Set<IColony> colonies = everyone;
+        if (colonies.isEmpty() || citizen == null) {
             return false;
         }
         final ICitizenData data = citizen.getCitizenData();
-        if (data == null || data.getColony() == null || !ids.contains(data.getColony().getID())) {
+        if (data == null || data.getColony() == null || !colonies.contains(data.getColony())) {
             return false;
         }
         final IJob<?> job = data.getJob();
@@ -398,8 +399,8 @@ public final class Gathering {
         return songs;
     }
 
-    /** The colony ids whose working colonists come now. */
-    public static Set<Integer> everyone() {
+    /** The colonies whose working colonists come now. */
+    public static Set<IColony> everyone() {
         return everyone;
     }
 

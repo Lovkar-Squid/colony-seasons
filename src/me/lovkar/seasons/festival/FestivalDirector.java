@@ -81,7 +81,7 @@ public final class FestivalDirector {
         final FestivalData data = FestivalData.get(server);
         seasonLine(data, snapshot);
         Fireworks.midnight(server, data, snapshot);
-        final Set<Integer> everyone = new HashSet<>();
+        final Set<IColony> everyone = new HashSet<>();
         final boolean upkeep = polls % UPKEEP_POLLS == 0;
         for (final IColony colony : List.copyOf(IColonyManager.getInstance().getAllColonies())) {
             if (!(colony.getWorld() instanceof ServerLevel level)) {
@@ -89,11 +89,12 @@ public final class FestivalDirector {
             }
             try {
                 final long gameDay = DecorWork.day(level);
-                TreeLighting.tick(level, colony, data, snapshot, gameDay, upkeep);
-                if (Gathering.tick(level, colony, data, snapshot, gameDay, server.getTickCount())) {
-                    everyone.add(colony.getID());
+                final FestivalData states = FestivalData.of(level);   // colony ids are per dimension
+                TreeLighting.tick(level, colony, states, snapshot, gameDay, upkeep);
+                if (Gathering.tick(level, colony, states, snapshot, gameDay, server.getTickCount())) {
+                    everyone.add(colony);
                 }
-                Fireworks.dusk(level, colony, data, snapshot, gameDay);
+                Fireworks.dusk(level, colony, states, snapshot, gameDay);
             } catch (final RuntimeException broken) {
                 // one colony in a state we did not expect must not stop the others; the next poll tries again
                 ColonySeasons.LOGGER.warn("Festival events skipped colony {} this time: {}", colony.getID(), broken.toString());

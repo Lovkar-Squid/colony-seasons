@@ -56,7 +56,7 @@ Notes from S7 (19 Nov 2026, probe `csfestival`, all modes and `tools/restart.sh 
 - 16: proven with a fake clock; the dusk show is the first dusk of each real day with a player in the colony.
 - 17: differs. The Decorator stands at the tree and hands out gifts, and on the New Year days he goes to the square and
   gets the rockets in; but dusk is after the colonists' bedtime, so the server launches the shows from the firework
-  crate with the rockets of his stock while he sleeps. "Sets off fireworks" needs rewording unless that changes.
+  crate (below hut level 3, from a spot with open sky beside the tree) with the rockets of his stock while he sleeps. "Sets off fireworks" needs rewording unless that changes.
 - 18: the two festival sounds are made by `tools/sfx/*.py`.
 - 23: built in S7 (`festival/FestivalDirector`), proven by csfestival.
 

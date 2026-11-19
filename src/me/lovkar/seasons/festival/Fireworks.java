@@ -28,6 +28,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.component.FireworkExplosion;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.levelgen.Heightmap;
 import net.neoforged.neoforge.items.IItemHandler;
 
 import java.time.Duration;
@@ -43,7 +44,7 @@ import java.util.function.BiPredicate;
 
 /**
  * New Year's fireworks (design 5). On the New Year days, at the first dusk of each real day with a player in the
- * colony, the big show goes up from the square (the firework crate, else the festival marker); on the other dusks
+ * colony, the big show goes up from the square (the firework crate, else beside the tree: {@link #site}); on the other dusks
  * a smaller sparkle, so the rockets last. If the server runs through real midnight inside the New Year days
  * ({@code events.midnightShow}), the colony's players see a countdown on the action bar and the big show starts at
  * 00:00. Every show uses the firework rockets in the Decorator's stock (his pack, then his hut; a rocket with its
@@ -259,7 +260,12 @@ public final class Fireworks {
 
     // ---------------------------------------------------------------- shows
 
-    /** Where the colony's rockets go up: its firework crate, else its festival marker; {@code null} without a square. */
+    /**
+     * Where the colony's rockets go up (they leave from the top of this block): its firework crate; without one (hut
+     * levels 1 and 2 have none) the marker when nothing stands over it, else the floor of the nearest standing place
+     * round the tree with open sky above, because the tree's trunk stands on the marker and a rocket started inside it
+     * bursts at once; {@code null} without a square.
+     */
     public static BlockPos site(final ServerLevel level, final IColony colony) {
         final DecorLedger ledger = DecorLedger.peek(level);
         final BlockPos marker = ledger == null ? null : ledger.marker(colony.getID());
@@ -274,7 +280,20 @@ public final class Fireworks {
                 }
             }
         }
+        if (openSky(level, marker.above())) {
+            return marker;
+        }
+        for (final BlockPos spot : Gathering.spots(level, colony, marker)) {
+            if (openSky(level, spot)) {
+                return spot.below();
+            }
+        }
         return marker;
+    }
+
+    /** True when nothing that stops a rocket stands at or above {@code pos} (the motion-blocking heightmap). */
+    public static boolean openSky(final ServerLevel level, final BlockPos pos) {
+        return level.getHeight(Heightmap.Types.MOTION_BLOCKING, pos.getX(), pos.getZ()) <= pos.getY();
     }
 
     /** The colony's staffed Decorator hut, or {@code null}. */

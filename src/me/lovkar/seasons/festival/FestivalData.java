@@ -6,6 +6,7 @@ import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtUtils;
 import net.minecraft.nbt.Tag;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.saveddata.SavedData;
 
 import java.util.HashMap;
@@ -16,7 +17,8 @@ import java.util.UUID;
 
 /**
  * What the festival events must remember across a restart, saved with the overworld as
- * {@code data/colony_seasons_festival.dat} (design 4 [B]: nothing that must survive lives in AI fields).
+ * {@code data/colony_seasons_festival.dat} (design 4 [B]: nothing that must survive lives in AI fields); the states of
+ * colonies in another dimension are saved with that dimension ({@link #of}).
  *
  * <ul>
  *   <li>per colony: the game day its tree was found finished (the two-day timer for the Decorator's lighting), the
@@ -90,9 +92,21 @@ public final class FestivalData extends SavedData {
     public FestivalData() {
     }
 
-    /** The server's festival data (kept with the overworld; made on first use). */
+    /**
+     * The server's festival data (kept with the overworld; made on first use): the gift claims, the season told and
+     * the midnight are only ever kept here, and so are the colony states of the overworld's colonies.
+     */
     public static FestivalData get(final MinecraftServer server) {
         return server.overworld().getDataStorage().computeIfAbsent(FACTORY, FILE);
+    }
+
+    /**
+     * The festival data that holds the colony states of {@code level}'s colonies: MineColonies numbers colonies per
+     * dimension, so a colony in another dimension may share an id with one in the overworld, and each level keeps its
+     * own colonies' states (as the decoration ledger does). For the overworld this is {@link #get}.
+     */
+    public static FestivalData of(final ServerLevel level) {
+        return level.getDataStorage().computeIfAbsent(FACTORY, FILE);
     }
 
     // ---------------------------------------------------------------- colonies

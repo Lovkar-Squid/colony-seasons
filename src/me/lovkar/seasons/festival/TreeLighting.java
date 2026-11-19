@@ -138,7 +138,7 @@ public final class TreeLighting {
         if (tree == null || !tree.owner().equals(at.owner()) || !DecorPhase.windowOpen(CalendarManager.current())) {
             return false;
         }
-        final FestivalData data = FestivalData.get(level.getServer());
+        final FestivalData data = FestivalData.of(level);
         final FestivalData.ColonyState s = data.peek(at.colony());
         if (s != null && s.treeLit()) {
             return false;
@@ -166,7 +166,7 @@ public final class TreeLighting {
         }
         final int switched = switchOn(level, ledger, id);
         ledger.flush(level);
-        FestivalData.get(level.getServer()).setTreeLit(id, by);
+        FestivalData.of(level).setTreeLit(id, by);
         final BlockPos marker = ledger.marker(id);
         final BlockPos at = marker != null ? marker : colony.getCenter();
         level.playSound(null, at, FestivalSounds.CHIME.get(), SoundSource.BLOCKS, 2.0F, 1.0F);
