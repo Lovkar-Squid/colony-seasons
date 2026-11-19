@@ -1,0 +1,32 @@
+# research notes: local machine paths, never public
+research/
+
+# compiled output and scratch
+build/
+build2/
+stubs/
+tools/out/
+tools/__pycache__/
+__pycache__/
+*.jar
+*.zip
+*.args
+*.log
+
+# third-party jars and decompiled sources - NEVER commit (their licenses do not allow redistribution)
+libs/
+clibs/
+tlibs/
+old/
+_old/
+_to_delete/
+decomp/
+
+# large design renders stay on disk only; the four contact sheets, the 16x textures and the sources are committed
+design/tree-?.png
+design/hut-?.png
+design/wreath-?.png
+design/string-?.png
+
+# local publishing notes
+publish/

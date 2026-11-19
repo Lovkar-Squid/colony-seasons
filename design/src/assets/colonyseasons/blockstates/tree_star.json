@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "size=small": {
+      "model": "colonyseasons:block/tree_star"
+    },
+    "size=large": {
+      "model": "colonyseasons:block/tree_star_large"
+    }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "colonyseasons:block/string_garland",
+      "y": 0
+    },
+    "facing=east": {
+      "model": "colonyseasons:block/string_garland",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "colonyseasons:block/string_garland",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "colonyseasons:block/string_garland",
+      "y": 270
+    }
+  }
+}

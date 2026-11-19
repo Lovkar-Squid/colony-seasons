@@ -1,0 +1,24 @@
+{
+  "variants": {
+    "style=mixed": [
+      {
+        "model": "colonyseasons:block/ornament_leaves_0"
+      },
+      {
+        "model": "colonyseasons:block/ornament_leaves_1"
+      },
+      {
+        "model": "colonyseasons:block/ornament_leaves_2"
+      }
+    ],
+    "style=baubles": {
+      "model": "colonyseasons:block/ornament_leaves_0"
+    },
+    "style=lights": {
+      "model": "colonyseasons:block/ornament_leaves_2"
+    },
+    "style=garland": {
+      "model": "colonyseasons:block/ornament_leaves_garland"
+    }
+  }
+}

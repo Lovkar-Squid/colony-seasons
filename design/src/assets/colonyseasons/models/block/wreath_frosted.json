@@ -1,0 +1,102 @@
+{
+  "parent": "minecraft:block/block",
+  "ambientocclusion": false,
+  "textures": {
+    "tex": "colonyseasons:block/wreath_frosted",
+    "particle": "colonyseasons:block/wreath_frosted"
+  },
+  "elements": [
+    {
+      "from": [
+        0,
+        0,
+        15
+      ],
+      "to": [
+        16,
+        16,
+        16
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#tex"
+        },
+        "south": {
+          "uv": [
+            16,
+            0,
+            0,
+            16
+          ],
+          "texture": "#tex",
+          "cullface": "south"
+        }
+      }
+    },
+    {
+      "from": [
+        6,
+        2,
+        14
+      ],
+      "to": [
+        10,
+        5,
+        15
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            6,
+            11,
+            10,
+            14
+          ],
+          "texture": "#tex"
+        },
+        "east": {
+          "uv": [
+            6,
+            11,
+            10,
+            14
+          ],
+          "texture": "#tex"
+        },
+        "west": {
+          "uv": [
+            6,
+            11,
+            10,
+            14
+          ],
+          "texture": "#tex"
+        },
+        "up": {
+          "uv": [
+            6,
+            11,
+            10,
+            14
+          ],
+          "texture": "#tex"
+        },
+        "down": {
+          "uv": [
+            6,
+            11,
+            10,
+            14
+          ],
+          "texture": "#tex"
+        }
+      }
+    }
+  ]
+}

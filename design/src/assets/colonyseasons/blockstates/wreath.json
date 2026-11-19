@@ -1,0 +1,52 @@
+{
+  "variants": {
+    "facing=north,style=classic": {
+      "model": "colonyseasons:block/wreath_classic",
+      "y": 0
+    },
+    "facing=north,style=frosted": {
+      "model": "colonyseasons:block/wreath_frosted",
+      "y": 0
+    },
+    "facing=north,style=rustic": {
+      "model": "colonyseasons:block/wreath_rustic",
+      "y": 0
+    },
+    "facing=east,style=classic": {
+      "model": "colonyseasons:block/wreath_classic",
+      "y": 90
+    },
+    "facing=east,style=frosted": {
+      "model": "colonyseasons:block/wreath_frosted",
+      "y": 90
+    },
+    "facing=east,style=rustic": {
+      "model": "colonyseasons:block/wreath_rustic",
+      "y": 90
+    },
+    "facing=south,style=classic": {
+      "model": "colonyseasons:block/wreath_classic",
+      "y": 180
+    },
+    "facing=south,style=frosted": {
+      "model": "colonyseasons:block/wreath_frosted",
+      "y": 180
+    },
+    "facing=south,style=rustic": {
+      "model": "colonyseasons:block/wreath_rustic",
+      "y": 180
+    },
+    "facing=west,style=classic": {
+      "model": "colonyseasons:block/wreath_classic",
+      "y": 270
+    },
+    "facing=west,style=frosted": {
+      "model": "colonyseasons:block/wreath_frosted",
+      "y": 270
+    },
+    "facing=west,style=rustic": {
+      "model": "colonyseasons:block/wreath_rustic",
+      "y": 270
+    }
+  }
+}
