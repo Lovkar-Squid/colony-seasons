@@ -198,7 +198,7 @@ public class CsConfig {
         check("year length refuses 3, 50, 964, 0", !SeasonsConfig.isYearLength(3) && !SeasonsConfig.isYearLength(50)
                 && !SeasonsConfig.isYearLength(964) && !SeasonsConfig.isYearLength(0), "");
         check("time zone accepts system and a zone id", SeasonsConfig.isTimeZone("system")
-                && SeasonsConfig.isTimeZone("Europe/Ljubljana"), "");
+                && SeasonsConfig.isTimeZone("Europe/Berlin"), "");
         check("time zone refuses a made-up id", !SeasonsConfig.isTimeZone("Mars/Olympus_Mons") && !SeasonsConfig.isTimeZone(""), "");
         check("start seasons", SeasonsConfig.START_SEASONS.equals(List.of("auto", "spring", "summer", "autumn", "winter")),
                 SeasonsConfig.START_SEASONS.toString());

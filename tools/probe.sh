@@ -5,7 +5,7 @@
 #   rigjars.txt             extra jars for the rig, one per line (or comma separated)
 #   rigconfig-<mode>/       the config folder for -Mode <mode>
 #   rigconfig/              the config folder when no mode is given, and for a mode without its own folder
-#                           (except mode 'defaults', which must have its own folder and never falls back)
+#                           (except mode 'defaults', which never falls back to it); with neither, nothing is seeded
 # The run fails on a probe FAIL line and on any ERROR/Exception line that names the mod or the probe.
 # Prints the rig's summary and exits with run-rig's exit code. The rig takes one run at a time and a
 # run may wait up to 40 minutes for another session's: start this in the background where needed.
@@ -34,18 +34,17 @@ if [ -f "tools/$probe/rigjars.txt" ]; then
 fi
 
 args=(-Name "$probe" -Jars "$jars" -ErrorMatch "colony_seasons|me\.lovkar\.seasons|$probe")
+if [ -n "$mode" ]; then
+  args+=(-Mode "$mode")
+fi
 if [ -n "$mode" ] && [ -d "tools/$probe/rigconfig-$mode" ]; then
-  args+=(-Mode "$mode" -Config "$repo/tools/$probe/rigconfig-$mode")
-elif [ -n "$mode" ] && [ "$mode" != "defaults" ] && [ -d "tools/$probe/rigconfig" ]; then
-  # a mode without its own folder reads the probe's one rigconfig/ (csconfig seeded)
-  args+=(-Mode "$mode" -Config "$repo/tools/$probe/rigconfig")
-elif [ -n "$mode" ]; then
-  # mode "defaults" never falls back to a seeded folder: it would check the defaults against seeded values
-  echo "probe $probe has no config folder for mode '$mode' (tools/$probe/rigconfig-$mode)" >&2
-  exit 2
-elif [ -d "tools/$probe/rigconfig" ]; then
+  args+=(-Config "$repo/tools/$probe/rigconfig-$mode")
+elif [ "$mode" != "defaults" ] && [ -d "tools/$probe/rigconfig" ]; then
+  # no mode, or a mode without its own folder: the probe's one rigconfig/ (csconfig seeded).
+  # Mode "defaults" never falls back to it: it would check the defaults against seeded values.
   args+=(-Config "$repo/tools/$probe/rigconfig")
 fi
+# no config folder at all: the run seeds nothing (a mode is still passed to the probe)
 
 # a config file left in the rig by an earlier run (a seeded one) must not leak into a defaults run
 rm -f "$RUN_RIG_DIR/rig/config/colony_seasons-server.toml"

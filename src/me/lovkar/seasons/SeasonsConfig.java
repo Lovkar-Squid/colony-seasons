@@ -135,7 +135,7 @@ public final class SeasonsConfig {
                 .define("useSereneSeasons", DEFAULT_USE_SERENE_SEASONS);
         TIME_ZONE = builder
                 .comment("The time zone the festival dates are read in: system (the server's own clock zone)",
-                        "or a zone id such as Europe/Ljubljana or America/New_York. For hosted servers whose",
+                        "or a zone id such as Europe/Berlin or America/New_York. For hosted servers whose",
                         "clock is in another zone than their players.")
                 .define("timeZone", DEFAULT_TIME_ZONE, SeasonsConfig::isTimeZone);
         builder.pop();
