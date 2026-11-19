@@ -60,7 +60,7 @@ State when this list was made: S0, S1, S2, S3 and S6 merged; S4, S5, S7 and S8 n
 
 ## Rests on S9 and S10 (not a feature, a claim)
 
-24. Every number in the pages: 48-day year, twelve days a season, about four hours of play, the dates, the
+24. Every number in the pages: 48-day year, twelve days a season, about four hours of play a season, the dates, the
     levels 1 to 5, the three switches, eleven blocks.
 25. Requirements line: NeoForge 1.21.1, MineColonies 1.1.1420 or newer in the 1.1 line, Structurize, Domum
     Ornamentum required, Serene Seasons optional, install on the server and on every client.

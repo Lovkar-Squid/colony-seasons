@@ -17,8 +17,8 @@ The first beta. For NeoForge 1.21.1 with MineColonies 1.1.1420 or newer in the 1
 - The festival marker: place it on the square and the Decorator builds the tree there.
 - Festival days: a gift a day from the pile at the tree, a gathering of the colonists at the tree on 24 to
   26 December, fireworks on New Year, and a midnight show if the server runs through midnight.
-- Winter clothes: a knitted scarf in five colours, a wool hat on models without headgear, a striped scarf
-  during the Winter Festival. Client side only.
+- Winter clothes: in the game's winter a knitted scarf in five colours and a wool hat on models without
+  headgear; from 1 December to 6 January a striped scarf. Client side only.
 - Three effects on the game (festival happiness, slower crops in winter, more food in winter), all off by
   default.
 - Commands: `/colonyseasons status`, `season set`, `festival force`, `festival clear`, `decor list` and

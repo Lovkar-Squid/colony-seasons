@@ -10,7 +10,6 @@ for the upload is `CHANGELOG-0.1.0-beta.1.md` at the repo root. Below, the notes
 
 ### Build notes
 
-
 - **S0, skeleton and first boot.** The mod loads next to MineColonies 1.1.1420 on a dedicated server. It
   registers its (still empty) blocks, items, block entities, sounds, MineColonies jobs and buildings, and
   a server config `colony_seasons-server.toml` with every key of the design (calendar, the two festivals'

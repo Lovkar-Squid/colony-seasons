@@ -4,7 +4,7 @@
 
 Colony Seasons gives a MineColonies colony a calendar. The game has seasons, and the festivals come on
 real dates. In December a new worker, the **Decorator**, hangs wreaths and garlands on the colony's
-buildings and builds a decorated tree on the square. Colonists put on scarves and wool hats, they gather
+buildings and builds a decorated tree on the square. Colonists put on striped scarves, they gather
 at the tree on the festival days, the player picks up a small gift every day, and New Year ends with
 fireworks. After 6 January the Decorator takes everything down again.
 
@@ -19,7 +19,7 @@ on every client.
 ## The calendar
 
 There is one calendar per world, so neighbouring colonies always agree. The game year is 48 game days
-long by default, twelve to a season, which is about four hours of play. A new world starts in the season
+long by default, twelve to a season, so a season lasts about four hours of play. A new world starts in the season
 of the real date, so a colony founded in December starts in winter. You can change the year length, the
 starting season and the time zone in the config.
 
@@ -118,10 +118,11 @@ off-duty colonists come.
 ## Clothes
 
 Colonists and visitors wear a knitted scarf in in-game winter, in red, green, blue, mustard or plum. The
-colour is picked from the colonist's id, so he keeps it. While the Winter Festival is on, the scarf is a
-striped festive one. Colonists whose model has no headgear of its own also get a wool hat in the colour of
-the scarf. It is never drawn over a helmet, or when MineColonies shows its own December hat; the scarf
-still is. Guards in a chestplate get no scarf.
+colour is picked from the colonist's id, so he keeps it. From 1 December to 6 January, the Winter Festival's
+decoration window, the scarf is a striped festive one instead, whatever the season in the game. In in-game
+winter, colonists whose model has no headgear of its own also get a wool hat in the colour of the scarf. It
+is never drawn over a helmet, or when MineColonies shows its own December hat; the scarf still is. A
+colonist in a chestplate, such as a guard, gets no scarf.
 
 This is drawn on the client only, as one extra layer on MineColonies' colonist renderer. Nothing is put in
 an inventory slot and nothing is saved on the colonist. There is a client config `colony_seasons-client.toml`

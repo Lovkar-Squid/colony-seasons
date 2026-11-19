@@ -4,7 +4,7 @@ Seasons and festivals for MineColonies.
 
 Colony Seasons gives your colony a calendar. The game has seasons, and the festivals come on real dates. In
 December a new worker, the Decorator, hangs wreaths and garlands on the colony's buildings and builds a
-decorated tree on the square. Colonists put on scarves and wool hats, they gather at the tree on the festival
+decorated tree on the square. Colonists put on striped scarves, they gather at the tree on the festival
 days, you pick up a small gift every day, and New Year ends with fireworks. After 6 January the Decorator
 takes it all down again, and next year he does it again.
 
@@ -35,9 +35,10 @@ The gifts come from a loot table, so a pack maker can change what is in them.
 
 ## Clothes
 
-In winter colonists and visitors wear a knitted scarf in one of five colours, and a wool hat if their model
-has no headgear of its own. During the Winter Festival the scarf is a striped one. It is all drawn on the
-client, nothing goes into an inventory and nothing is saved on the colonist.
+In the game's winter colonists and visitors wear a knitted scarf in one of five colours, and a wool hat if
+their model has no headgear of its own. From 1 December to 6 January the scarf is a striped one, whatever the
+season in the game. It is all drawn on the client, nothing goes into an inventory and nothing is saved on the
+colonist.
 
 ## Seasons and dates
 
