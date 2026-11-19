@@ -12,6 +12,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionResult;
+import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
@@ -47,7 +48,9 @@ public final class FestivalDirector {
         FestivalSounds.load();
         Gifts.init(modBus);
         NeoForge.EVENT_BUS.addListener(FestivalDirector::onServerTick);
-        NeoForge.EVENT_BUS.addListener(FestivalDirector::onRightClickBlock);
+        // LOW: MineColonies' colony protection (NORMAL) answers first, so only a player who may use blocks in the colony
+        // lights its tree, and a click it refused never reaches us
+        NeoForge.EVENT_BUS.addListener(EventPriority.LOW, FestivalDirector::onRightClickBlock);
         NeoForge.EVENT_BUS.addListener(FestivalDirector::onServerStopped);
     }
 

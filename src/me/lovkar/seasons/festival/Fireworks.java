@@ -11,6 +11,7 @@ import me.lovkar.seasons.block.SeasonsBlocks;
 import me.lovkar.seasons.calendar.CalendarManager;
 import me.lovkar.seasons.calendar.FestivalCalendar;
 import me.lovkar.seasons.colony.BuildingDecorator;
+import me.lovkar.seasons.colony.DecoratorTexts;
 import me.lovkar.seasons.colony.JobDecorator;
 import me.lovkar.seasons.decor.DecorLedger;
 import net.minecraft.core.BlockPos;
@@ -67,6 +68,21 @@ public final class Fireworks {
     private static final int[] COLOURS = {0xD8322E, 0xF0C030, 0x3FA34D, 0xF4F1EA, 0x3B6FD0, 0xC75BC2};
 
     private record Pending(ResourceKey<Level> dimension, BlockPos at, ItemStack rocket, int delay) {
+    }
+
+    /** The kinds of show, each with the Decorator's status line when it went up and when the stock was empty. */
+    public enum Show {
+        DUSK(DecoratorTexts.LAUNCHED_DUSK, DecoratorTexts.NO_ROCKETS_DUSK),
+        SPARKLE(DecoratorTexts.LAUNCHED_SPARKLE, DecoratorTexts.NO_ROCKETS_SPARKLE),
+        MIDNIGHT(DecoratorTexts.LAUNCHED_MIDNIGHT, DecoratorTexts.NO_ROCKETS_MIDNIGHT);
+
+        private final String launched;
+        private final String empty;
+
+        Show(final String launched, final String empty) {
+            this.launched = launched;
+            this.empty = empty;
+        }
     }
 
     private static final List<Pending> QUEUE = new ArrayList<>();
@@ -173,7 +189,7 @@ public final class Fireworks {
         }
         final long realDay = snapshot.date().toEpochDay();
         final boolean big = state == null || state.bigShowRealDay() != realDay;
-        if (show(level, colony, big ? SHOW_ROCKETS : SPARKLE_ROCKETS, big ? "the New Year show at dusk" : "a sparkle at dusk") < 0) {
+        if (show(level, colony, big ? SHOW_ROCKETS : SPARKLE_ROCKETS, big ? Show.DUSK : Show.SPARKLE) < 0) {
             return;                                   // no square or no Decorator: nothing is noted, the next dusk tries
         }
         data.setDusk(id, gameDay);
@@ -211,7 +227,7 @@ public final class Fireworks {
         tell(server, Component.translatable("com.colony_seasons.festival.happy_new_year"));
         for (final IColony colony : IColonyManager.getInstance().getAllColonies()) {
             if (colony.getWorld() instanceof ServerLevel level) {
-                show(level, colony, MIDNIGHT_ROCKETS, "the midnight show");
+                show(level, colony, MIDNIGHT_ROCKETS, Show.MIDNIGHT);
             }
         }
     }
@@ -276,7 +292,7 @@ public final class Fireworks {
      * {@code decorator.needsMaterials} off). Returns the rockets queued, or -1 when the colony has no square or no
      * Decorator.
      */
-    public static int show(final ServerLevel level, final IColony colony, final int count, final String what) {
+    public static int show(final ServerLevel level, final IColony colony, final int count, final Show what) {
         final BlockPos site = site(level, colony);
         final BuildingDecorator hut = decorator(colony);
         if (site == null || hut == null) {
@@ -307,8 +323,11 @@ public final class Fireworks {
         }
         shows++;
         if (job != null) {
-            job.setStatus(queued > 0 ? "launched " + what + ": " + queued + " rockets"
-                    : "no firework rockets in stock for " + what);
+            if (queued > 0) {
+                job.setStatus(what.launched, queued);
+            } else {
+                job.setStatus(what.empty);
+            }
         }
         return queued;
     }

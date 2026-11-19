@@ -4,6 +4,7 @@ import com.minecolonies.api.colony.ICitizenData;
 import com.minecolonies.api.colony.IColony;
 import com.minecolonies.api.colony.IColonyManager;
 import com.minecolonies.api.colony.buildings.IBuilding;
+import com.minecolonies.api.colony.permissions.Action;
 import com.minecolonies.core.colony.buildings.modules.WorkerBuildingModule;
 import com.minecolonies.api.entity.citizen.AbstractEntityCitizen;
 import com.minecolonies.api.tileentities.AbstractTileEntityColonyBuilding;
@@ -22,6 +23,7 @@ import me.lovkar.seasons.calendar.Season;
 import me.lovkar.seasons.colony.BuildingDecorator;
 import me.lovkar.seasons.colony.DecoratorModules;
 import me.lovkar.seasons.colony.DecoratorSetup;
+import me.lovkar.seasons.colony.DecoratorTexts;
 import me.lovkar.seasons.colony.JobDecorator;
 import me.lovkar.seasons.decor.DecorEvents;
 import me.lovkar.seasons.decor.DecorLedger;
@@ -130,9 +132,13 @@ public class CsFestival {
     private static final int BEFORE_HOURS = 8000;
     private static final int SAMPLE_FROM = 9300;
     private static final int WITHIN = 8;
+    /** MineColonies' bedtime: the citizen state SLEEP and the states of its sleep AI. */
+    private static final Set<String> BEDTIME_STATES = Set.of("SLEEP", "WALKING_HOME", "FIND_BED", "SLEEPING");
     private static final String RESTART_FILE = "csfestival-restart.nbt";
     private static final UUID P1 = UUID.nameUUIDFromBytes("csfestival-player-one".getBytes(StandardCharsets.US_ASCII));
     private static final UUID P2 = UUID.nameUUIDFromBytes("csfestival-player-two".getBytes(StandardCharsets.US_ASCII));
+    /** A player who is not of the colony (MineColonies' neutral rank). */
+    private static final UUID P3 = UUID.nameUUIDFromBytes("csfestival-visitor".getBytes(StandardCharsets.US_ASCII));
 
     private int ticks;
     private boolean failed;
@@ -145,6 +151,7 @@ public class CsFestival {
     private FakePlayer owner;
     private FakePlayer one;
     private FakePlayer two;
+    private FakePlayer visitor;
     private IColony colony;
     private int colonyId;
     private int ground;
@@ -317,6 +324,7 @@ public class CsFestival {
         switch (mode) {
             case "" -> {
                 planSetup(false);
+                planRules();
                 planTree();
                 planLighting();
                 planDecoratorLights();
@@ -658,6 +666,15 @@ public class CsFestival {
                 DecorWork.decorate(level, colonyId, DecorWork.Target.building(townHall), 3, DecorPlacer.Stock.FREE, day(), ledger);
                 one = player(P1, "csfestival_one");
                 two = player(P2, "csfestival_two");
+                visitor = player(P3, "csfestival_visitor");
+                // the colony's players: friends of the colony (MineColonies' protection lets them use its blocks)
+                for (final FakePlayer p : List.of(one, two)) {
+                    colony.getPermissions().addPlayer(p.getGameProfile(), colony.getPermissions().getRankFriend());
+                }
+                check("the two players are of the colony and may use its blocks, the visitor may not",
+                        colony.getPermissions().hasPermission(one, Action.RIGHTCLICK_BLOCK)
+                                && colony.getPermissions().hasPermission(two, Action.RIGHTCLICK_BLOCK)
+                                && !colony.getPermissions().hasPermission(visitor, Action.RIGHTCLICK_BLOCK), "");
                 setTimeOfDay(MORNING);
             }
 
@@ -678,6 +695,45 @@ public class CsFestival {
                         offDuty.stream().map(CsFestival::state).toList());
             }
         });
+    }
+
+    // ================================================================ the rules without a world
+
+    /** The festival hours guard (the S0 hand-off) and the three values of events.whoComes, without waiting for the clock. */
+    private void planRules() {
+        step(new Step("rules: the hours guard and who comes", 1) {
+            @Override
+            void start() {
+                final int from = SeasonsConfig.DEFAULT_GATHER_FROM_TICK;
+                final int until = SeasonsConfig.DEFAULT_GATHER_UNTIL_TICK;
+                checkEq("the default hours are kept", toList(Gathering.hours()), List.of(from, until));
+                checkEq("an end past bedtime is cut to " + Gathering.LATEST_UNTIL, toList(Gathering.hours(9000, 12000)),
+                        List.of(9000, Gathering.LATEST_UNTIL));
+                checkEq("an end not after the start falls back to the defaults", toList(Gathering.hours(9000, 9000)), List.of(from, until));
+                checkEq("an end before the start falls back to the defaults", toList(Gathering.hours(10000, 9000)), List.of(from, until));
+                checkEq("a start after the latest end falls back to the defaults", toList(Gathering.hours(10550, 10590)), List.of(from, until));
+                check("the latest end leaves time before bedtime", Gathering.LATEST_UNTIL < Gathering.BEDTIME, "");
+                // who comes: throwaway colony ids, so the real colony's saved day is not touched
+                final FestivalData data = data();
+                final int id = 9999;
+                final long realDay = FESTIVAL_DAY.toEpochDay();
+                check("everyone_once_a_day: everyone on the first festival game day of the real day",
+                        Gathering.everyoneNow(Gathering.WHO_EVERYONE_ONCE, id, data, realDay, 40), "");
+                check("everyone_once_a_day: the same game day again, still everyone",
+                        Gathering.everyoneNow(Gathering.WHO_EVERYONE_ONCE, id, data, realDay, 40), "");
+                check("everyone_once_a_day: the next game day of that real day, only the off-duty ones",
+                        !Gathering.everyoneNow(Gathering.WHO_EVERYONE_ONCE, id, data, realDay, 41), "");
+                check("everyone_once_a_day: the next real day, everyone again",
+                        Gathering.everyoneNow(Gathering.WHO_EVERYONE_ONCE, id, data, realDay + 1, 42), "");
+                check("off_duty: never the workers", !Gathering.everyoneNow(Gathering.WHO_OFF_DUTY, id + 1, data, realDay, 40), "");
+                check("everyone: the workers on every festival game day", Gathering.everyoneNow(Gathering.WHO_EVERYONE, id + 2, data, realDay, 40)
+                        && Gathering.everyoneNow(Gathering.WHO_EVERYONE, id + 2, data, realDay, 41), "");
+            }
+        });
+    }
+
+    private static List<Integer> toList(final int[] hours) {
+        return List.of(hours[0], hours[1]);
     }
 
     // ================================================================ the tree
@@ -730,6 +786,11 @@ public class CsFestival {
                 lightings0 = TreeLighting.lightings();
                 rockets0 = Fireworks.rockets();
                 final BlockPos log = firstOf(s -> s.is(BlockTags.LOGS));
+                if (log != null) {
+                    click(visitor, log);
+                    check("a visitor (not of the colony) cannot light the tree", !festival().treeLit() && lights()[0] == 0
+                            && TreeLighting.lightings() == lightings0, lights()[0] + " lit");
+                }
                 result = log == null ? null : click(one, log);
             }
 
@@ -847,6 +908,8 @@ public class CsFestival {
                 checkEq("the claim is saved for the real day", data().giftsOn(P1, DECOR_DAY.toEpochDay()), 1);
                 click(two, pile);
                 checkEq("player two takes a gift of his own", gifts(two, Gifts.DAILY), 1);
+                click(visitor, pile);
+                checkEq("a visitor (not of the colony) gets no gift", gifts(visitor, Gifts.DAILY), 0);
                 // a gift pile a player put down himself is a decoration
                 final BlockPos own = marker.offset(10, 0, 8);
                 level.setBlock(own, SeasonsBlocks.GIFT_PILE.get().defaultBlockState(), Block.UPDATE_ALL);
@@ -951,12 +1014,15 @@ public class CsFestival {
             int hosting0;
             int handed0;
             int songs0;
+            int trips0;
+            final Set<String> statusKeys = new LinkedHashSet<>();
 
             @Override
             void start() {
                 hosting0 = job() == null ? 0 : job().visits(EntityAIWorkDecorator.DecoratorState.HOSTING);
                 handed0 = job() == null ? 0 : job().giftsHanded();
                 songs0 = Gathering.songs();
+                trips0 = Gathering.tripsEnded();
             }
 
             @Override
@@ -969,6 +1035,9 @@ public class CsFestival {
                         workerStates.add(state(w));
                     }
                     leisure |= colony.getServerBuildingManager().getLeisureSites().contains(marker);
+                    if (job() != null) {
+                        statusKeys.add(job().statusKey());
+                    }
                 }
                 return time >= SeasonsConfig.DEFAULT_GATHER_UNTIL_TICK - 40;
             }
@@ -994,6 +1063,8 @@ public class CsFestival {
                 final int handed = job() == null ? 0 : job().giftsHanded() - handed0;
                 check("the Decorator hosts at the tree and hands colonists gifts (hearts, a line)", hosting > 0 && handed > 0,
                         hosting + " hosting visits, " + handed + " gifts, status '" + (job() == null ? "-" : job().status()) + "'");
+                check("his status line in the hours is the hosting one (a lang key)", statusKeys.contains(DecoratorTexts.HOSTING), statusKeys.toString());
+                note("{} leisure trips to other places ended so the colonist could come", Gathering.tripsEnded() - trips0);
             }
         });
         step(new Step("gathering: after the hours", 200, true) {
@@ -1011,10 +1082,12 @@ public class CsFestival {
         });
         step(new Step("gathering: bedtime", 2600, true) {
             int brought;
+            int pulls;
 
             @Override
             void start() {
                 brought = Gathering.broughtWorkers();
+                pulls = Gathering.pulls();
             }
 
             @Override
@@ -1029,10 +1102,13 @@ public class CsFestival {
                 for (final ICitizenData c : colony.getCitizenManager().getCitizens()) {
                     final String s = state(c);
                     states.put(c.getName(), s);
-                    all &= "SLEEP".equals(s) || c == astronomer;
+                    all &= BEDTIME_STATES.contains(s) || c == astronomer;
                 }
-                check("nobody is awake past bedtime (every colonist in bed)", all, states.toString());
+                // the test colony has no beds, so they look for one (FIND_BED) or sleep where they are: either is
+                // MineColonies' own bedtime; none of them is held at the tree, at work or idle
+                check("nobody is awake past bedtime (every colonist in MineColonies' sleep routine)", all, states.toString());
                 checkEq("nobody was brought after the hours", Gathering.broughtWorkers(), brought);
+                checkEq("nobody was walked to the tree after the hours", Gathering.pulls(), pulls);
             }
         });
     }
@@ -1229,7 +1305,7 @@ public class CsFestival {
     }
 
     private void planForcedRun() {
-        step(new Step("three game days of a forced Winter Festival (no ERROR in the log)", 76000, true) {
+        step(new Step("three game days of a forced Winter Festival (the log stays clean)", 76000, true) {
             final Set<Long> days = new LinkedHashSet<>();
             int pulls0;
             long first;
@@ -1326,6 +1402,8 @@ public class CsFestival {
                 colony.getPackageManager().addCloseSubscriber(owner);
                 one = player(P1, "csfestival_one");
                 two = player(P2, "csfestival_two");
+                check("the players are still of the colony after the restart", colony.getPermissions().hasPermission(one, Action.RIGHTCLICK_BLOCK)
+                        && colony.getPermissions().hasPermission(two, Action.RIGHTCLICK_BLOCK), "");
             }
         });
         step(new Step("restart-load: the claim, the lit tree, no repeats", 80, true) {

@@ -6,6 +6,7 @@ import com.minecolonies.api.colony.IColony;
 import com.minecolonies.api.colony.buildings.IBuilding;
 import com.minecolonies.api.colony.jobs.IJob;
 import com.minecolonies.api.entity.ai.statemachine.states.CitizenAIState;
+import com.minecolonies.core.entity.ai.minimal.EntityAICitizenWander;
 import com.minecolonies.core.entity.citizen.EntityCitizen;
 import com.minecolonies.core.entity.pathfinding.navigation.EntityNavigationUtils;
 import me.lovkar.seasons.ColonySeasons;
@@ -30,8 +31,11 @@ import java.util.Set;
 /**
  * The gathering at the tree (design 5, Winter Festival days). In the festival hours ({@code events.gatherFromTick}
  * to {@code events.gatherUntilTick}, the afternoon: colonists go to bed once {@code dayTime % 24000 > 10600}) the
- * colony's off-duty colonists (citizen AI state IDLE) are sent walking to a free spot round the tree, the festival
- * marker's square (without a marker, the town hall: design 6). A short song plays at the start and every
+ * colony's off-duty colonists (citizen AI state IDLE, or on MineColonies' own leisure trip) are sent walking to a
+ * free spot round the tree, the festival marker's square (without a marker, the town hall: design 6). A colonist on a
+ * leisure trip to another place (the town hall, a tavern) would be walked straight back there by MineColonies' idle
+ * walk, so that trip is ended (his citizen AI is set back to its first state, IDLE, which he was in before the trip)
+ * and he comes like the others; one strolling round our tree is left to stroll. A short song plays at the start and every
  * {@link #SONG_TICKS} ticks while anyone is there.
  *
  * <p>Who comes ([B], the owner, 19 Nov 2026; {@code events.whoComes}): with {@code everyone_once_a_day} every
@@ -43,7 +47,10 @@ import java.util.Set;
  *
  * <p>[V] The marker's block entity is a Structurize blueprint-data provider, so during the hours the marker is also
  * one of MineColonies' leisure sites (MineColonies' own idle walk then sometimes chooses it and strolls inside a box
- * round the tree); outside the hours it is taken off the list again.</p>
+ * round the tree); outside the hours it is taken off the list again. Proven on the rig (csfestival): MineColonies'
+ * slow colony tick drops every leisure site whose block entity is not its own decoration controller, so the marker
+ * falls off the list now and then and the next poll (a second later) puts it back; the walking below does not depend
+ * on it.</p>
  *
  * <p>The pull runs every {@link #PULL_TICKS} ticks, not every 5 s as design 5 suggests: MineColonies' idle walk
  * starts a random walk of up to 10 blocks whenever a colonist's path is done, so with a slow pull the gathered
@@ -74,6 +81,7 @@ public final class Gathering {
     private static volatile int mixinCalls;
     private static volatile int broughtWorkers;
     private static int pulls;
+    private static int tripsEnded;
     private static int songs;
     private static boolean warned;
     private static final Map<Integer, Long> lastSong = new HashMap<>();
@@ -83,21 +91,30 @@ public final class Gathering {
 
     // ---------------------------------------------------------------- the hours
 
-    /** The hours as configured, guarded: {@code until} at most {@link #LATEST_UNTIL}, later than {@code from}, else the defaults. */
+    /** The hours as configured, guarded by {@link #hours(int, int)}. */
     public static int[] hours() {
-        int from = SeasonsConfig.gatherFromTick();
-        int until = Math.min(SeasonsConfig.gatherUntilTick(), LATEST_UNTIL);
-        if (until <= from) {
-            if (!warned) {
-                warned = true;
-                ColonySeasons.LOGGER.warn("events.gatherUntilTick ({}) must be later than events.gatherFromTick ({}) and below {}; "
-                        + "the gathering uses {} to {}", SeasonsConfig.gatherUntilTick(), SeasonsConfig.gatherFromTick(), BEDTIME,
-                        SeasonsConfig.DEFAULT_GATHER_FROM_TICK, SeasonsConfig.DEFAULT_GATHER_UNTIL_TICK);
-            }
-            from = SeasonsConfig.DEFAULT_GATHER_FROM_TICK;
-            until = SeasonsConfig.DEFAULT_GATHER_UNTIL_TICK;
+        final int from = SeasonsConfig.gatherFromTick();
+        final int until = SeasonsConfig.gatherUntilTick();
+        final int[] hours = hours(from, until);
+        if ((hours[0] != from || hours[1] != until) && !warned) {
+            warned = true;
+            ColonySeasons.LOGGER.warn("events.gatherUntilTick ({}) must be later than events.gatherFromTick ({}) and at most {} "
+                    + "(colonists go to bed at {}); the gathering uses {} to {}", until, from, LATEST_UNTIL, BEDTIME, hours[0], hours[1]);
         }
-        return new int[] {from, until};
+        return hours;
+    }
+
+    /**
+     * The festival hours from the two config values (the S0 hand-off: nothing else enforces their order): {@code until}
+     * is cut to {@link #LATEST_UNTIL}, so nobody is called after bedtime; if that leaves {@code until} not later than
+     * {@code from}, the defaults are used.
+     */
+    public static int[] hours(final int from, final int until) {
+        final int end = Math.min(until, LATEST_UNTIL);
+        if (end <= from) {
+            return new int[] {SeasonsConfig.DEFAULT_GATHER_FROM_TICK, SeasonsConfig.DEFAULT_GATHER_UNTIL_TICK};
+        }
+        return new int[] {from, end};
     }
 
     /** True inside the festival hours of the game day. */
@@ -192,17 +209,24 @@ public final class Gathering {
     /** Who comes in this colony right now; also picks today's "everyone" game day (saved). */
     static boolean everyoneNow(final ServerLevel level, final IColony colony, final FestivalData data, final CalendarManager.Snapshot snapshot,
                                final long gameDay) {
-        final String who = SeasonsConfig.whoComes();
+        return everyoneNow(SeasonsConfig.whoComes(), colony.getID(), data, snapshot.date().toEpochDay(), gameDay);
+    }
+
+    /**
+     * Whether the working colonists of colony {@code id} come on game day {@code gameDay} of real day {@code realDay},
+     * by the {@code events.whoComes} value {@code who}; the first festival game day of each real day is saved as the
+     * colony's "everyone" day (public for the probe).
+     */
+    public static boolean everyoneNow(final String who, final int id, final FestivalData data, final long realDay, final long gameDay) {
         if (WHO_OFF_DUTY.equals(who)) {
             return false;
         }
         if (WHO_EVERYONE.equals(who)) {
             return true;
         }
-        final long realDay = snapshot.date().toEpochDay();
-        final FestivalData.ColonyState state = data.peek(colony.getID());
+        final FestivalData.ColonyState state = data.peek(id);
         if (state == null || state.everyoneRealDay() != realDay) {
-            data.setEveryone(colony.getID(), realDay, gameDay);   // the first festival game day of this real day
+            data.setEveryone(id, realDay, gameDay);           // the first festival game day of this real day
             return true;
         }
         return state.everyoneGameDay() == gameDay;
@@ -240,11 +264,20 @@ public final class Gathering {
             final EntityCitizen entity = come.get(i);
             final BlockPos spot = spots.get(Math.floorMod(i + turn, spots.size()));
             final boolean there = entity.blockPosition().distSqr(site) <= (double) KEEP_RADIUS * KEEP_RADIUS;
+            near += there ? 1 : 0;
+            if (onLeisureTrip(entity)) {
+                if (there) {
+                    continue;                         // strolling round our tree (the leisure site): MineColonies walks him
+                }
+                // on MineColonies' own leisure trip to another place (the town hall, a tavern): his idle walk would
+                // take him straight back there, so the trip ends here and he is idle again, then walked like the rest
+                entity.getCitizenAI().reset();
+                tripsEnded++;
+            }
             if (!there || entity.getNavigation().isDone() && Math.floorMod(tick + i * 7L, MILL_TICKS) < PULL_TICKS) {
                 EntityNavigationUtils.walkToPos(entity, spot, 1, true);
                 pulls++;
             }
-            near += there ? 1 : 0;
         }
         final Long sung = lastSong.get(colony.getID());
         if (near > 0 && (sung == null || tick - sung >= SONG_TICKS || tick < sung)) {
@@ -255,15 +288,24 @@ public final class Gathering {
         return everyoneComes;
     }
 
-    /** Off duty: in MineColonies' IDLE state, awake, not the Decorator (he hosts). */
+    /**
+     * Off duty: in MineColonies' IDLE state or one of its idle walk's leisure states (on his way to a leisure site,
+     * strolling there, reading a book), awake, not the Decorator (he hosts).
+     */
     static boolean offDuty(final EntityCitizen entity) {
-        if (entity.getCitizenAI() == null || entity.getCitizenAI().getState() != CitizenAIState.IDLE) {
+        if (entity.getCitizenAI() == null
+                || entity.getCitizenAI().getState() != CitizenAIState.IDLE && !onLeisureTrip(entity)) {
             return false;
         }
         if (entity.getCitizenSleepHandler() != null && entity.getCitizenSleepHandler().isAsleep()) {
             return false;
         }
         return !(entity.getCitizenData() != null && entity.getCitizenData().getJob() instanceof JobDecorator);
+    }
+
+    /** True while MineColonies' idle walk has him on a leisure trip (its states, still off duty). */
+    static boolean onLeisureTrip(final EntityCitizen entity) {
+        return entity.getCitizenAI() != null && entity.getCitizenAI().getState() instanceof EntityAICitizenWander.WanderState;
     }
 
     /** During the hours the marker is one of the colony's leisure sites ([V]: only where its block entity is a blueprint-data provider). */
@@ -338,6 +380,11 @@ public final class Gathering {
 
     public static int pulls() {
         return pulls;
+    }
+
+    /** Leisure trips to other places that were ended so the colonist could come. */
+    public static int tripsEnded() {
+        return tripsEnded;
     }
 
     public static int songs() {

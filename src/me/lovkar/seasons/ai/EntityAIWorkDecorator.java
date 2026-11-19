@@ -547,10 +547,10 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
         final BlockPos site = Gathering.site(level, building.getColony());
         final List<BlockPos> spots = Gathering.spots(level, building.getColony(), site);
         if (!spots.isEmpty() && !walkToSafePos(spots.get(0)) && ++walkAttempts < WALK_ATTEMPTS_OUT) {
-            job.setStatus("on his way to the tree for the gathering");
+            job.setStatus(DecoratorTexts.ON_WAY_GATHERING);
             return DecoratorState.HOSTING;
         }
-        job.setStatus("hosting the gathering at the tree");
+        job.setStatus(DecoratorTexts.HOSTING);
         final long day = DecorWork.day(level);
         if (day != thankedDay) {
             thankedDay = day;
@@ -593,7 +593,7 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
         }
         final BlockPos site = Fireworks.site(level, building.getColony());
         if (site == null) {
-            job.setStatus("no festival square for the New Year show");
+            job.setStatus(DecoratorTexts.NO_SQUARE_SHOW);
             return upkeep();
         }
         final int rockets = building.stock(Items.FIREWORK_ROCKET);
@@ -602,11 +602,14 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
         }
         final BlockPos stand = Gathering.standable(level, site.relative(Direction.SOUTH, 2));
         if (stand != null && !walkToSafePos(stand) && ++walkAttempts < WALK_ATTEMPTS_OUT) {
-            job.setStatus("on his way to the square for the New Year show");
+            job.setStatus(DecoratorTexts.ON_WAY_SHOW);
             return DecoratorState.LAUNCHING;
         }
-        job.setStatus(SeasonsConfig.needsMaterials() ? "the New Year show is ready at the square: " + rockets + " rockets in stock"
-                : "the New Year show is ready at the square");
+        if (SeasonsConfig.needsMaterials()) {
+            job.setStatus(DecoratorTexts.SHOW_READY, rockets);
+        } else {
+            job.setStatus(DecoratorTexts.SHOW_READY_FREE);
+        }
         return upkeep();
     }
 }
