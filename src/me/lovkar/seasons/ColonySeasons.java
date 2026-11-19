@@ -5,6 +5,7 @@ import com.minecolonies.api.colony.jobs.registry.JobEntry;
 import com.minecolonies.apiimp.CommonMinecoloniesAPIImpl;
 import me.lovkar.seasons.block.SeasonsBlocks;
 import me.lovkar.seasons.calendar.CalendarEvents;
+import me.lovkar.seasons.colony.DecoratorSetup;
 import me.lovkar.seasons.command.SeasonsCommands;
 import me.lovkar.seasons.network.SeasonsNetwork;
 import net.minecraft.core.registries.Registries;
@@ -78,6 +79,7 @@ public class ColonySeasons {
         // game bus: everything that happens in a running world
         NeoForge.EVENT_BUS.addListener(ColonySeasons::onServerStarted);
         CalendarEvents.register();
+        DecoratorSetup.init(modEventBus);
         SeasonsCommands.register();
 
         LOGGER.info("Colony Seasons {} loaded", version(container));
