@@ -1,0 +1,45 @@
+# Seeded by tools/probe.sh csconfig: a non-default value for every key, so the probe can tell a
+# config that was read from one that silently fell back to the mod's defaults.
+
+[calendar]
+	yearLengthDays = 96
+	startSeason = "winter"
+	useSereneSeasons = false
+	timeZone = "Europe/Paris"
+
+[festivals]
+
+	[festivals.winter_festival]
+		enabled = false
+		decorFrom = "11-15"
+		decorUntil = "01-10"
+		daysFrom = "12-20"
+		daysUntil = "12-28"
+
+	[festivals.new_year]
+		enabled = false
+		decorFrom = "12-30"
+		decorUntil = "01-02"
+		daysFrom = "12-30"
+		daysUntil = "01-02"
+
+[decorator]
+	needsMaterials = false
+	buildingsPerDayBase = 5
+	buildingsPerDayPerLevel = 3
+	maxPerSide = 9
+
+[events]
+	gatherFromTick = 7000
+	gatherUntilTick = 9000
+	whoComes = "off_duty"
+	midnightShow = false
+	giftsPerPlayerPerDay = 3
+
+[effects]
+	festivalHappiness = true
+	festivalHappinessBonus = 2.5
+	winterCropSlowdown = true
+	winterCropSkipChance = 0.25
+	winterFoodNeed = true
+	winterFoodNeedFactor = 1.5

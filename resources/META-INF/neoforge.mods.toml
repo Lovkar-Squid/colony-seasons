@@ -1,0 +1,50 @@
+modLoader="javafml"
+loaderVersion="[4,)"
+license="GPL-3.0-or-later"
+issueTrackerURL="https://github.com/Lovkar-Squid/colony-seasons/issues"
+
+[[mods]]
+modId="colony_seasons"
+version="0.1.0-beta.1"
+displayName="Colony Seasons"
+description='''Seasons and festivals for MineColonies. The colony follows a calendar: a new worker, the Decorator, dresses the buildings and a tree on the square for the Winter Festival and takes it all down afterwards, colonists dress for the season and gather at the tree, and the player gets gifts and New Year fireworks. Work in progress. Made by Lovkar & Claude.'''
+authors="Lovkar & Claude"
+displayURL="https://github.com/Lovkar-Squid/colony-seasons"
+
+[[dependencies.colony_seasons]]
+modId="neoforge"
+type="required"
+versionRange="[21.1,21.2)"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.colony_seasons]]
+modId="minecraft"
+type="required"
+versionRange="[1.21.1]"
+ordering="NONE"
+side="BOTH"
+
+# 1.1.1420 is the oldest MineColonies this mod has booted on (the test rig runs exactly that one).
+[[dependencies.colony_seasons]]
+modId="minecolonies"
+type="required"
+versionRange="[1.1.1420,1.2)"
+ordering="AFTER"
+side="BOTH"
+
+[[dependencies.colony_seasons]]
+modId="structurize"
+type="required"
+versionRange="[1.0.800,)"
+ordering="AFTER"
+side="BOTH"
+
+[[dependencies.colony_seasons]]
+modId="domum_ornamentum"
+type="required"
+versionRange="[1.0,)"
+ordering="AFTER"
+side="BOTH"
+
+# Serene Seasons is deliberately NOT listed: the mod reads it by reflection when it is present (chunk S1).
