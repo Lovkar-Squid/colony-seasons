@@ -23,6 +23,8 @@ step "blueprints" python -I tools/build_pack.py --check "$RIG_DIR/basemods"
 step "placing code" python -I tools/check_decor.py
 step "test piece"  python -I tools/csdecorgate/make_piece.py --check
 step "festival"    python -I tools/check_festival.py
+step "packets"     python -I tools/check_packets.py
+step "windows"     python -I tools/check_windows.py
 
 version="$(sed -n 's/^version="\([^"]*\)".*/\1/p' resources/META-INF/neoforge.mods.toml | head -1)"
 jar="colony_seasons-$version.jar"

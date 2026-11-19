@@ -88,6 +88,19 @@ takes the decorations down by itself as the chunks load.
 The decorations are ordinary blocks with crafting recipes, in a creative tab called Colony Seasons, so you
 can decorate by hand as well. The Decorator ignores blocks you place yourself.
 
+### The hut window
+
+The Decorator's Workshop has a **Calendar** page in its window. It shows today's season and the day of the
+year, the festival that is on (or the next one and how many days away it is) with its dates, what the
+Decorator is doing right now, how many decorations are up and how many buildings are done, the stock of each
+kit against the hut's cap, which materials the next kit still lacks, and what the three effect switches do on
+this server. Everything is translated for each player; the server only sends numbers, ids and lang keys.
+
+The **Settings** page has four more switches besides "Prepare all year": "Decorate" (off: he puts nothing up
+and tends nothing, but still makes stock and still takes everything down afterwards), and one each for
+wreaths, garlands, lights and the tree. A switched-off kind is left out of his plan; what is already standing
+is not touched until the take-down. Switching the tree off stops a new tree from going up.
+
 ## The festival marker
 
 The tree stands where you want it. Place a **Festival Marker** on the square and the Decorator builds the
@@ -138,6 +151,29 @@ looks, sounds, the materials the Decorator uses and the gifts, and nothing else.
 | `effects.festivalHappiness` | on festival days every colonist gets a happiness bonus |
 | `effects.winterCropSlowdown` | in in-game winter, crops inside colony claims skip some of their growth steps |
 | `effects.winterFoodNeed` | in in-game winter, colonists use more food |
+
+How strong each one is: `effects.festivalHappinessBonus` (1.0 happiness points, of the 0 to 10 MineColonies
+shows), `effects.winterCropSkipChance` (0.5: half the growth steps) and `effects.winterFoodNeedFactor` (1.25:
+a quarter more food). "Winter" is winter in the game's calendar (or Serene Seasons'), never the real date; a
+festival day is a real-date festival day, and the forced festival counts.
+
+Two things these switches cannot do, both proven on a test server and both stated here on purpose:
+
+- **The happiness bonus is not listed in the citizen window.** MineColonies keeps only its own fixed list of
+  happiness reasons across a world load and shows only those in the citizen window. The bonus is a reason of
+  our own (`colonyseasons_festival`), so the server puts it back on every colonist every five seconds while
+  festival days last, and takes it off when they end. It counts: the happiness number a player is shown is the
+  server's number with the bonus in it, and the test checks that the two are equal. Only the list of reasons
+  behind the number leaves it out. The Decorator's hut window says whether the bonus is on and how big it is.
+  Nothing of it is saved, so removing the mod leaves nothing behind.
+- **MineColonies' own crops are not slowed down.** The crop switch vetoes growth steps that go through the
+  game's crop growth event, which the vanilla crops fire (wheat, carrots, potatoes, beetroot and so on).
+  MineColonies' own crops (bell pepper, cabbage and the others it adds) grow through its own code, which
+  never fires that event, so they grow at their usual speed. The test grew one of them 4000 steps and
+  counted no event.
+
+The food switch looks at each colonist's hunger every five seconds and takes a quarter of what he used since the
+last look, on top. A colony that nobody is near does not get hungry on its own, so there it takes nothing.
 
 ## Config
 

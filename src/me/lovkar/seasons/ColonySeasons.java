@@ -83,6 +83,7 @@ public class ColonySeasons {
         me.lovkar.seasons.decor.DecorEvents.init(modEventBus);
         // S7: the festival events (after the calendar's poll, which they read), the gift item and the sounds
         me.lovkar.seasons.festival.FestivalDirector.init(modEventBus);
+        me.lovkar.seasons.effects.Effects.register();
         SeasonsCommands.register();
 
         LOGGER.info("Colony Seasons {} loaded", version(container));

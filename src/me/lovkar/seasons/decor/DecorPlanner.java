@@ -68,6 +68,15 @@ public final class DecorPlanner {
         };
     }
 
+    /** The amounts with the switched-off kinds taken out. */
+    public static Amounts limited(final Amounts amounts, final DecorKinds kinds) {
+        if (kinds == null) {
+            return amounts;
+        }
+        return new Amounts(amounts.wreath() && kinds.wreaths(), kinds.garlands() ? amounts.garland() : 0,
+                kinds.lights() ? amounts.lights() : 0, amounts.secondDoor());
+    }
+
     /** The light a building gets, the same for it every year: lantern string or fairy lights, from its position. */
     public static BlockState lightsFor(final BlockPos buildingPos) {
         final int pick = Math.floorMod(31 * (31 * buildingPos.getX() + buildingPos.getY()) + buildingPos.getZ(), 2);
@@ -82,11 +91,18 @@ public final class DecorPlanner {
      */
     public static Plan plan(final ServerLevel level, final DoorFinder.Box box, final int hutLevel, final int maxPerSide,
                             final DecorLedger ledger, final int colony, final DecorLedger.Owner owner, final boolean costs) {
+        return plan(level, box, hutLevel, maxPerSide, ledger, colony, owner, costs, DecorKinds.ALL);
+    }
+
+    /** {@link #plan} with the kinds the hut's settings allow: a switched-off kind gets no slot. */
+    public static Plan plan(final ServerLevel level, final DoorFinder.Box box, final int hutLevel, final int maxPerSide,
+                            final DecorLedger ledger, final int colony, final DecorLedger.Owner owner, final boolean costs,
+                            final DecorKinds kinds) {
         final List<DoorFinder.Door> doors = DoorFinder.find(level, box);
         if (doors == null) {
             return Plan.UNLOADED;
         }
-        final Amounts amounts = amounts(hutLevel, maxPerSide);
+        final Amounts amounts = limited(amounts(hutLevel, maxPerSide), kinds);
         final BlockState light = lightsFor(owner.pos());
         final List<DecorPlacer.Slot> slots = new ArrayList<>();
         final int[] counts = new int[4];          // wreaths, garlands, lights, ours

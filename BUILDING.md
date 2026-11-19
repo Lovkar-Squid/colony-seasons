@@ -70,7 +70,14 @@ bash tools/probe.sh csfestival                # the festival events on a real co
 bash tools/probe.sh csfestival nomixin        # the mod rebuilt without its mixin: it loads, the off-duty gathering works
 bash tools/probe.sh csfestival voyager        # Voyager 0.4.0 next to it: both mixins apply, the Astronomer works at night
 bash tools/restart.sh csfestival              # a gift taken and the tree lit, a restart: refused again, still lit, nothing repeated
+bash tools/probe.sh cseffects off             # the three effects switched off: nothing changes (happiness, crop growth, food over a game day)
+bash tools/probe.sh cseffects on              # all three on: the happiness modifier and the client's total, half the growth steps inside a claim,
+                                              # a quarter more food; also the Decorator's hut window page, his kind settings and the planner
 ```
+
+`python -I tools/check_packets.py` (a step of `checks.sh`) reads the Decorator's info module and its view and compares, field
+by field, what the server writes with what the client reads; `tools/check_windows.py` checks that every pane a window class
+asks for is in its BlockUI layout.
 
 `tools/probe.sh <probe> [mode]` builds the mod and the probe, then runs the rig. A probe folder may hold
 `res/` (its own `neoforge.mods.toml`), `rigjars.txt` / `rigjars-<mode>.txt` (extra jars for every mode or one; `%REPO%` is this repo),

@@ -8,6 +8,7 @@ import me.lovkar.seasons.decor.DecorPhase;
 import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.Map;
 
@@ -24,7 +25,8 @@ public class JobDecorator extends AbstractJob<EntityAIWorkDecorator, JobDecorato
     private DecorPhase phase = DecorPhase.OFF_SEASON;
     private final Map<DecoratorState, Integer> visits = new EnumMap<>(DecoratorState.class);
     private int decisions;
-    private String status = "";
+    private String statusKey = "";
+    private String[] statusArgs = new String[0];
 
     public JobDecorator(final ICitizenData citizen) {
         super(citizen);
@@ -78,12 +80,37 @@ public class JobDecorator extends AbstractJob<EntityAIWorkDecorator, JobDecorato
         giftsHanded++;
     }
 
-    /** What he is doing, in English, for anyone who asks (a later chunk shows it in the hut window). */
+    /**
+     * What he is doing, as a lang key of {@link DecoratorTexts} plus its arguments; the hut window translates it for
+     * each player. This text is for logs and probes: the key, then the arguments in brackets.
+     */
     public String status() {
-        return status;
+        return statusArgs.length == 0 ? statusKey : statusKey + " " + Arrays.toString(statusArgs);
     }
 
-    public void setStatus(final String status) {
-        this.status = status == null ? "" : status;
+    /** The lang key of the status line ("" before the first one). */
+    public String statusKey() {
+        return statusKey;
+    }
+
+    /** The arguments of the status line (item ids and plain text), never null. */
+    public String[] statusArgs() {
+        return statusArgs.clone();
+    }
+
+    /** Sets the status line: a {@link DecoratorTexts} key and what it is about. */
+    public void setStatus(final String key, final Object... args) {
+        final String newKey = key == null ? "" : key;
+        final String[] text = new String[args == null ? 0 : args.length];
+        for (int i = 0; i < text.length; i++) {
+            text[i] = String.valueOf(args[i]);
+        }
+        final boolean changed = !newKey.equals(statusKey) || !Arrays.equals(text, statusArgs);
+        statusKey = newKey;
+        statusArgs = text;
+        // the hut window shows this line: a changed line marks the hut dirty so MineColonies sends its page again
+        if (changed && getCitizen() != null && getCitizen().getWorkBuilding() != null) {
+            getCitizen().getWorkBuilding().markDirty();
+        }
     }
 }
