@@ -14,6 +14,7 @@ import me.lovkar.seasons.decor.DecorPhase;
 import me.lovkar.seasons.decor.DecorPlacer;
 import me.lovkar.seasons.decor.DecorWork;
 import me.lovkar.seasons.decor.Kits;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -383,13 +384,18 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
         return AIWorkerState.START_WORKING;
     }
 
-    /** Vanilla blocks of the square (spruce logs and leaves) come from the warehouse like his kits' materials. */
+    /**
+     * Vanilla blocks of the square (spruce logs and leaves) come from the warehouse like his kits' materials; our own
+     * blocks (ornament leaves, the star) only he makes, from his kits, so nobody else is asked for them.
+     */
     private void askForSquare(final DecorWork.Outcome outcome) {
         if (!SeasonsConfig.needsMaterials()) {
             return;
         }
         for (final Map.Entry<Item, Integer> e : outcome.missing().entrySet()) {
-            checkIfRequestForItemExistOrCreateAsync(new ItemStack(e.getKey()), Math.min(64, e.getValue()), 1);
+            if ("minecraft".equals(BuiltInRegistries.ITEM.getKey(e.getKey()).getNamespace())) {
+                checkIfRequestForItemExistOrCreateAsync(new ItemStack(e.getKey()), Math.min(64, e.getValue()), 1);
+            }
         }
     }
 

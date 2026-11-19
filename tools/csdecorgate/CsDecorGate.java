@@ -1205,16 +1205,17 @@ public class CsDecorGate {
                     note("NOTE: the pack '{}' is not in this build (its pieces come from chunk S5); the real pieces are not checked", PieceLoader.PACK);
                     return;
                 }
-                int x = -50;
+                // in the free middle of the claim (the style plots are cleared by now), one after the other
+                int x = -45;
                 for (final String path : paths) {
                     final PieceLoader.Piece piece = real.get(path);
                     if (piece == null) {
                         check("real piece " + path + " loads", false, "missing");
                         continue;
                     }
-                    final BlockPos m = marker(x, 75, Direction.NORTH);
+                    final BlockPos m = marker(x, -40, Direction.NORTH);
                     x += 30;
-                    final DoorFinder.Box box = new DoorFinder.Box(m.offset(-14, -2, -14), m.offset(14, 40, 14), m);
+                    final DoorFinder.Box box = new DoorFinder.Box(m.offset(-20, -3, -20), m.offset(20, 48, 20), m);
                     final Map<BlockPos, BlockState> snap = snapshot(box);
                     final DecorWork.Target target = DecorWork.Target.square(m, Direction.NORTH, PieceLoader.PACK);
                     final int hutLevel = path.equals(PieceLoader.pathFor(5)) ? 5 : path.equals(PieceLoader.pathFor(4)) ? 4 : path.equals(PieceLoader.pathFor(3)) ? 3 : 2;
