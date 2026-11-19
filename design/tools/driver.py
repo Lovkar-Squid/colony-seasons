@@ -13,14 +13,15 @@ SCRATCH = os.environ.get("CS_SCRATCH", os.path.join(os.environ.get("TEMP", "."),
 
 
 def render_jobs(jobs):
-    """jobs: list of dicts with 'blocks' ({(x,y,z): state}) + camera fields; renders all in one Blender run."""
+    """jobs: list of dicts with 'blocks' ({(x,y,z): state}) + camera fields; renders all in one Blender run.
+    An optional 'night' (emission(name, props) -> light level) lights that scene as at midnight."""
     os.makedirs(SCRATCH, exist_ok=True)
     out_jobs = []
     for i, j in enumerate(jobs):
         qpath = os.path.join(SCRATCH, f"scene_{os.path.basename(j['out'])}.json")
-        n = mcmodel.write_scene(j["blocks"], qpath)
+        n = mcmodel.write_scene(j["blocks"], qpath, night=j.get("night"))
         print("scene", j["out"], "quads", n)
-        jj = {k: v for k, v in j.items() if k != "blocks"}
+        jj = {k: v for k, v in j.items() if k not in ("blocks", "night")}
         jj["scene"] = qpath
         out_jobs.append(jj)
     jp = os.path.join(SCRATCH, "jobs.json")

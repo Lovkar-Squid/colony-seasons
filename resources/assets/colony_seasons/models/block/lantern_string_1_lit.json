@@ -1,0 +1,204 @@
+{
+  "parent": "minecraft:block/block",
+  "ambientocclusion": false,
+  "render_type": "minecraft:cutout",
+  "textures": {
+    "tex": "colony_seasons:block/lantern_string_1",
+    "particle": "colony_seasons:block/lantern_string_1",
+    "glow": "colony_seasons:block/lantern_string_1_glow"
+  },
+  "elements": [
+    {
+      "from": [
+        0,
+        0,
+        15
+      ],
+      "to": [
+        16,
+        16,
+        16
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#tex"
+        },
+        "south": {
+          "uv": [
+            16,
+            0,
+            0,
+            16
+          ],
+          "texture": "#tex",
+          "cullface": "south"
+        }
+      }
+    },
+    {
+      "from": [
+        0,
+        0,
+        15
+      ],
+      "to": [
+        16,
+        16,
+        16
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#glow"
+        }
+      },
+      "shade": false,
+      "neoforge_data": {
+        "block_light": 15,
+        "sky_light": 15,
+        "ambient_occlusion": false
+      }
+    },
+    {
+      "from": [
+        10,
+        5,
+        14
+      ],
+      "to": [
+        13,
+        9,
+        15
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            3,
+            7,
+            6,
+            11
+          ],
+          "texture": "#tex"
+        },
+        "east": {
+          "uv": [
+            3,
+            7,
+            6,
+            11
+          ],
+          "texture": "#tex"
+        },
+        "west": {
+          "uv": [
+            3,
+            7,
+            6,
+            11
+          ],
+          "texture": "#tex"
+        },
+        "up": {
+          "uv": [
+            3,
+            7,
+            6,
+            11
+          ],
+          "texture": "#tex"
+        },
+        "down": {
+          "uv": [
+            3,
+            7,
+            6,
+            11
+          ],
+          "texture": "#tex"
+        }
+      },
+      "shade": false,
+      "neoforge_data": {
+        "block_light": 15,
+        "sky_light": 15,
+        "ambient_occlusion": false
+      }
+    },
+    {
+      "from": [
+        3,
+        4,
+        14
+      ],
+      "to": [
+        6,
+        8,
+        15
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            10,
+            8,
+            13,
+            12
+          ],
+          "texture": "#tex"
+        },
+        "east": {
+          "uv": [
+            10,
+            8,
+            13,
+            12
+          ],
+          "texture": "#tex"
+        },
+        "west": {
+          "uv": [
+            10,
+            8,
+            13,
+            12
+          ],
+          "texture": "#tex"
+        },
+        "up": {
+          "uv": [
+            10,
+            8,
+            13,
+            12
+          ],
+          "texture": "#tex"
+        },
+        "down": {
+          "uv": [
+            10,
+            8,
+            13,
+            12
+          ],
+          "texture": "#tex"
+        }
+      },
+      "shade": false,
+      "neoforge_data": {
+        "block_light": 15,
+        "sky_light": 15,
+        "ambient_occlusion": false
+      }
+    }
+  ]
+}

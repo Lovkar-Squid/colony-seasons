@@ -22,5 +22,17 @@
   "com.colony_seasons.command.festival.clear.none": "No festival is on by force.",
 
   "com.colony_seasons.config.show_clothes": "Winter clothes on colonists",
-  "com.colony_seasons.config.show_particles": "Festival particles"
+  "com.colony_seasons.config.show_particles": "Festival particles",
+  "itemGroup.colony_seasons": "Colony Seasons",
+  "block.colony_seasons.wreath": "Wreath",
+  "block.colony_seasons.garland": "Evergreen Garland",
+  "block.colony_seasons.lantern_string": "Lantern String",
+  "block.colony_seasons.fairy_lights": "Fairy Lights",
+  "block.colony_seasons.ornament_leaves": "Ornament Leaves",
+  "block.colony_seasons.tinsel_leaves": "Tinsel Leaves",
+  "block.colony_seasons.tree_star": "Tree Star",
+  "block.colony_seasons.large_star": "Large Tree Star",
+  "block.colony_seasons.gift_pile": "Gift Pile",
+  "block.colony_seasons.firework_crate": "Firework Crate",
+  "block.colony_seasons.festival_marker": "Festival Marker"
 }

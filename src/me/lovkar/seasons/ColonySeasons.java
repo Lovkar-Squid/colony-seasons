@@ -3,6 +3,7 @@ package me.lovkar.seasons;
 import com.minecolonies.api.colony.buildings.registry.BuildingEntry;
 import com.minecolonies.api.colony.jobs.registry.JobEntry;
 import com.minecolonies.apiimp.CommonMinecoloniesAPIImpl;
+import me.lovkar.seasons.block.SeasonsBlocks;
 import me.lovkar.seasons.calendar.CalendarEvents;
 import me.lovkar.seasons.command.SeasonsCommands;
 import me.lovkar.seasons.network.SeasonsNetwork;
@@ -73,6 +74,7 @@ public class ColonySeasons {
         // mod bus: lifecycle and registration events
         modEventBus.addListener(ColonySeasons::onCommonSetup);
         modEventBus.addListener(SeasonsNetwork::registerPayloads);
+        SeasonsBlocks.register(modEventBus);
         // game bus: everything that happens in a running world
         NeoForge.EVENT_BUS.addListener(ColonySeasons::onServerStarted);
         CalendarEvents.register();

@@ -1,0 +1,103 @@
+{
+  "parent": "minecraft:block/block",
+  "ambientocclusion": false,
+  "render_type": "minecraft:cutout",
+  "textures": {
+    "tex": "colony_seasons:block/wreath",
+    "particle": "colony_seasons:block/wreath"
+  },
+  "elements": [
+    {
+      "from": [
+        0,
+        0,
+        15
+      ],
+      "to": [
+        16,
+        16,
+        16
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#tex"
+        },
+        "south": {
+          "uv": [
+            16,
+            0,
+            0,
+            16
+          ],
+          "texture": "#tex",
+          "cullface": "south"
+        }
+      }
+    },
+    {
+      "from": [
+        7,
+        3,
+        14
+      ],
+      "to": [
+        9,
+        5,
+        15
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            7,
+            11,
+            9,
+            13
+          ],
+          "texture": "#tex"
+        },
+        "east": {
+          "uv": [
+            7,
+            11,
+            9,
+            13
+          ],
+          "texture": "#tex"
+        },
+        "west": {
+          "uv": [
+            7,
+            11,
+            9,
+            13
+          ],
+          "texture": "#tex"
+        },
+        "up": {
+          "uv": [
+            7,
+            11,
+            9,
+            13
+          ],
+          "texture": "#tex"
+        },
+        "down": {
+          "uv": [
+            7,
+            11,
+            9,
+            13
+          ],
+          "texture": "#tex"
+        }
+      }
+    }
+  ]
+}

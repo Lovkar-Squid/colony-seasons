@@ -1,0 +1,239 @@
+{
+  "parent": "minecraft:block/block",
+  "render_type": "minecraft:cutout",
+  "textures": {
+    "tex": "colony_seasons:block/festival_marker",
+    "particle": "colony_seasons:block/festival_marker"
+  },
+  "elements": [
+    {
+      "from": [
+        6,
+        0,
+        6
+      ],
+      "to": [
+        10,
+        1,
+        10
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            2,
+            12,
+            6,
+            13
+          ],
+          "texture": "#tex"
+        },
+        "south": {
+          "uv": [
+            2,
+            12,
+            6,
+            13
+          ],
+          "texture": "#tex"
+        },
+        "east": {
+          "uv": [
+            2,
+            12,
+            6,
+            13
+          ],
+          "texture": "#tex"
+        },
+        "west": {
+          "uv": [
+            2,
+            12,
+            6,
+            13
+          ],
+          "texture": "#tex"
+        },
+        "up": {
+          "uv": [
+            2,
+            12,
+            6,
+            16
+          ],
+          "texture": "#tex"
+        },
+        "down": {
+          "uv": [
+            2,
+            12,
+            6,
+            16
+          ],
+          "texture": "#tex",
+          "cullface": "down"
+        }
+      }
+    },
+    {
+      "from": [
+        7,
+        1,
+        7
+      ],
+      "to": [
+        9,
+        15,
+        9
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            1,
+            2,
+            15
+          ],
+          "texture": "#tex"
+        },
+        "south": {
+          "uv": [
+            0,
+            1,
+            2,
+            15
+          ],
+          "texture": "#tex"
+        },
+        "east": {
+          "uv": [
+            0,
+            1,
+            2,
+            15
+          ],
+          "texture": "#tex"
+        },
+        "west": {
+          "uv": [
+            0,
+            1,
+            2,
+            15
+          ],
+          "texture": "#tex"
+        }
+      }
+    },
+    {
+      "from": [
+        7,
+        15,
+        7
+      ],
+      "to": [
+        9,
+        16,
+        9
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            2,
+            0,
+            4,
+            1
+          ],
+          "texture": "#tex"
+        },
+        "south": {
+          "uv": [
+            2,
+            0,
+            4,
+            1
+          ],
+          "texture": "#tex"
+        },
+        "east": {
+          "uv": [
+            2,
+            0,
+            4,
+            1
+          ],
+          "texture": "#tex"
+        },
+        "west": {
+          "uv": [
+            2,
+            0,
+            4,
+            1
+          ],
+          "texture": "#tex"
+        },
+        "up": {
+          "uv": [
+            2,
+            0,
+            4,
+            2
+          ],
+          "texture": "#tex"
+        }
+      }
+    },
+    {
+      "from": [
+        7.5,
+        8,
+        0
+      ],
+      "to": [
+        8.5,
+        15,
+        7
+      ],
+      "faces": {
+        "east": {
+          "uv": [
+            4,
+            0,
+            11,
+            7
+          ],
+          "texture": "#tex"
+        },
+        "west": {
+          "uv": [
+            11,
+            0,
+            4,
+            7
+          ],
+          "texture": "#tex"
+        },
+        "up": {
+          "uv": [
+            4,
+            0,
+            11,
+            1
+          ],
+          "texture": "#tex",
+          "rotation": 90
+        },
+        "north": {
+          "uv": [
+            10,
+            0,
+            11,
+            7
+          ],
+          "texture": "#tex"
+        }
+      }
+    }
+  ]
+}
