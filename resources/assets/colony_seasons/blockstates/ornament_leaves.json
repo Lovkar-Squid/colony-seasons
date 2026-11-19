@@ -1,0 +1,26 @@
+{
+  "variants": {
+    "lit=false": [
+      {
+        "model": "colony_seasons:block/ornament_leaves_0"
+      },
+      {
+        "model": "colony_seasons:block/ornament_leaves_1"
+      },
+      {
+        "model": "colony_seasons:block/ornament_leaves_2"
+      }
+    ],
+    "lit=true": [
+      {
+        "model": "colony_seasons:block/ornament_leaves_0_lit"
+      },
+      {
+        "model": "colony_seasons:block/ornament_leaves_1_lit"
+      },
+      {
+        "model": "colony_seasons:block/ornament_leaves_2_lit"
+      }
+    ]
+  }
+}
