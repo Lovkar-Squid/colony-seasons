@@ -30,3 +30,6 @@ design/string-?.png
 
 # local publishing notes
 publish/
+
+# private terms for tools/check_public.py (one per line)
+tools/private_terms.local.txt
