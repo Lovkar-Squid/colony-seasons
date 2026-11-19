@@ -1,0 +1,16 @@
+{
+  "output": {
+    "item": "colony_seasons:garland",
+    "count": 4
+  },
+  "ingredients": [
+    {
+      "tag": "minecraft:leaves",
+      "count": 4
+    },
+    {
+      "item": "minecraft:string",
+      "count": 2
+    }
+  ]
+}

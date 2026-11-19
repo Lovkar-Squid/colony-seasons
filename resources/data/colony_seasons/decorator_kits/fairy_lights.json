@@ -1,0 +1,20 @@
+{
+  "output": {
+    "item": "colony_seasons:fairy_lights",
+    "count": 4
+  },
+  "ingredients": [
+    {
+      "item": "minecraft:string",
+      "count": 2
+    },
+    {
+      "item": "minecraft:glass_pane",
+      "count": 1
+    },
+    {
+      "item": "minecraft:glowstone_dust",
+      "count": 1
+    }
+  ]
+}
