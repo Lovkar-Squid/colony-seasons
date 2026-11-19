@@ -407,6 +407,11 @@ public final class DecorWork {
         }
         ledger.setSquareProblem(colony, false);
         ledger.plan(colony, target.owner(), festival, hutLevel, path);
+        // a log or leaf of the piece that went missing never told the ledger (only our own blocks do, from onRemove):
+        // its stale entry is forgotten here, so the cell is filled again like any free one (design 4, tending)
+        for (final BlockPos pos : plan.gone()) {
+            ledger.forget(pos);
+        }
         final List<DecorPlacer.Slot> slice = plan.slots().subList(0, Math.min(SQUARE_SLICE, plan.slots().size()));
         final Map<Item, Integer> missing = new LinkedHashMap<>();
         for (final DecorPlacer.Slot slot : slice) {

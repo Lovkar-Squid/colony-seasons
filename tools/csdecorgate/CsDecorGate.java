@@ -1138,6 +1138,49 @@ public class CsDecorGate {
                 check("a missing piece: no tree, no throwable", none.placed() == 0 && changed(snap).isEmpty(), none.status());
             }
         });
+        step(new Step("square: tending puts back what a player broke", 1) {
+            @Override
+            void start() {
+                // all in one tick, so no scheduled leaf tick can change a neighbour's distance in between
+                final BlockPos m = marker(30, 60, Direction.NORTH);
+                final DecorWork.Target target = DecorWork.Target.square(m, Direction.NORTH, TEST_PACK);
+                final Map<BlockPos, BlockState> snap = snapshot(squareBox(m));
+                final DecorWork.Outcome up = DecorWork.decorate(level, colonyId, target, 5, DecorPlacer.Stock.FREE, day(), ledger);
+                // a trunk log and a spruce leaf (vanilla: they never tell the ledger) and one of our ornament leaves
+                final BlockPos log = m.offset(0, 2, -3);
+                final BlockPos leaf = m.offset(-1, 2, -3);
+                final BlockPos ornament = m.offset(0, 2, -2);
+                final Map<BlockPos, BlockState> had = new LinkedHashMap<>();
+                for (final BlockPos pos : List.of(log, leaf, ornament)) {
+                    had.put(pos, level.getBlockState(pos));
+                    level.destroyBlock(pos, false);
+                }
+                check("the square is up, and a player broke a trunk log, a spruce leaf and an ornament leaf",
+                        up.complete() && had.get(log).is(Blocks.SPRUCE_LOG) && had.get(leaf).is(Blocks.SPRUCE_LEAVES)
+                                && had.get(ornament).is(SeasonsBlocks.ORNAMENT_LEAVES.get()) && level.getBlockState(log).isAir()
+                                && level.getBlockState(leaf).isAir() && level.getBlockState(ornament).isAir(), up.status());
+                check("the vanilla log and leaf are still listed (no onRemove of ours), the ornament leaf's entry went with it",
+                        ledger.at(log) != null && ledger.at(leaf) != null && ledger.at(ornament) == null, "");
+                level.setDayTime(level.getDayTime() + 24000L);
+                final DecorWork.Outcome tended = DecorWork.tend(level, colonyId, target, 5, DecorPlacer.Stock.FREE, day(), ledger);
+                final List<String> wrong = new ArrayList<>();
+                for (final Map.Entry<BlockPos, BlockState> e : had.entrySet()) {
+                    final BlockState now = level.getBlockState(e.getKey());
+                    final DecorLedger.Located at = ledger.at(e.getKey());
+                    if (now != e.getValue() || at == null || at.entry().state() != now) {
+                        wrong.add(e.getKey().toShortString() + " " + shortName(now) + (at == null ? " unlisted" : ""));
+                    }
+                }
+                final DecorLedger.GroupView group = ledger.group(colonyId, target.owner());
+                check("tending puts the broken log, leaf and ornament leaf back, each listed exactly", tended.placed() == 3 && wrong.isEmpty()
+                        && group != null && group.size() == TEST_PIECE.size(), tended.status() + (wrong.isEmpty() ? "" : ", " + wrong));
+                invariant("square tended");
+                DecorPlacer.remove(level, ledger, colonyId, target.owner(), DecorPlacer.Stock.FREE);
+                final List<BlockPos> diff = changed(snap);
+                check("the tended square comes down to the snapshot", diff.isEmpty() && ledger.group(colonyId, target.owner()) == null,
+                        diff.size() + " cells differ");
+            }
+        });
         step(new Step("square: a registered marker broken takes its square", 400, true) {
             BlockPos m;
             DecorLedger.Owner square;

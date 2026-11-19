@@ -63,10 +63,14 @@ public final class PieceLoader {
     public record Piece(String pack, String path, Direction facing, List<PieceCell> cells, BlockPos offset, boolean tags) {
     }
 
-    /** What the square needs now. */
+    /**
+     * What the square needs now. {@code gone}: cells this group lists that are air now, because a block of the piece
+     * went without telling the ledger (vanilla logs and leaves have no {@code onRemove} of ours); they are among the
+     * slots, and the visit forgets their entries before it places them again.
+     */
     public record SquarePlan(List<DecorPlacer.Slot> slots, int cells, int blocked, boolean trunkBlocked, boolean fits,
-                             boolean waiting, int ours) {
-        public static final SquarePlan WAITING = new SquarePlan(List.of(), 0, 0, false, false, true, 0);
+                             boolean waiting, int ours, List<BlockPos> gone) {
+        public static final SquarePlan WAITING = new SquarePlan(List.of(), 0, 0, false, false, true, 0, List.of());
     }
 
     private record Key(String pack, String path, Direction facing) {
@@ -221,13 +225,16 @@ public final class PieceLoader {
 
     /**
      * What the square needs: every cell of the piece for this hut level that is not placed yet, trunk first, then
-     * bottom up. A cell is blocked when it is outside the claim or holds something that is not our own entry.
+     * bottom up. A cell is blocked when it is outside the claim or holds something that is not our own entry. A cell
+     * this group lists that is air now went missing (tending puts it back): it is a slot, and it is named in
+     * {@link SquarePlan#gone()} so the visit forgets its stale entry first. Reads only; the ledger is not changed here.
      *
      * @param costs     whether cells cost items (decorator.needsMaterials)
      */
     public static SquarePlan plan(final ServerLevel level, final Piece piece, final BlockPos marker, final int hutLevel,
                                   final DecorLedger ledger, final int colony, final DecorLedger.Owner owner, final boolean costs) {
         final List<DecorPlacer.Slot> slots = new ArrayList<>();
+        final List<BlockPos> gone = new ArrayList<>();
         int cells = 0;
         int blocked = 0;
         int ours = 0;
@@ -251,15 +258,20 @@ public final class PieceLoader {
                 ours++;
                 continue;
             }
-            if (!now.isAir() || at != null || DecorPlacer.colonyAt(level, pos) != colony) {
+            // listed by this very group and air now: ours went missing (a player broke a log); any other entry blocks
+            final boolean missing = at != null && now.isAir() && at.colony() == colony && at.owner().equals(owner);
+            if (!now.isAir() || at != null && !missing || DecorPlacer.colonyAt(level, pos) != colony) {
                 blocked++;
                 trunkBlocked |= cell.trunk();
                 continue;
             }
+            if (missing) {
+                gone.add(pos.immutable());
+            }
             slots.add(new DecorPlacer.Slot(pos, wanted, costs && costsItem(wanted)));
         }
         final boolean fits = cells > 0 && !trunkBlocked && blocked <= Math.floor(cells * MAX_BLOCKED_SHARE);
-        return new SquarePlan(List.copyOf(slots), cells, blocked, trunkBlocked, fits, false, ours);
+        return new SquarePlan(List.copyOf(slots), cells, blocked, trunkBlocked, fits, false, ours, List.copyOf(gone));
     }
 
     /** A square cell costs one item of its block if that item is vanilla or a kit's output; our other blocks are free in 0.1.0. */
