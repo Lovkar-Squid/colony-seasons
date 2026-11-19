@@ -54,9 +54,11 @@ Notes from S7 (19 Nov 2026, probe `csfestival`, all modes and `tools/restart.sh 
 - 14 and 15: proven, nomixin mode included (only off-duty colonists come). Off-duty colonists on MineColonies' own
   leisure trip elsewhere have the trip ended so they come.
 - 16: proven with a fake clock; the dusk show is the first dusk of each real day with a player in the colony.
-- 17: differs. The Decorator stands at the tree and hands out gifts, and on the New Year days he goes to the square and
-  gets the rockets in; but dusk is after the colonists' bedtime, so the server launches the shows from the firework
-  crate (below hut level 3, from a spot with open sky beside the tree) with the rockets of his stock while he sleeps. "Sets off fireworks" needs rewording unless that changes.
+- 17: proven for the dusk shows. The Decorator stands at the tree and hands out gifts; on the New Year days he goes to
+  the square and gets the rockets in, and on the evening the mixin keeps him up past bedtime until he has launched the
+  dusk show there (then he goes to bed). Without the mixin (or when he is ill, hungry or it rains) the server launches
+  it from the square with his rockets. The midnight show comes at a real hour and always goes up from the server, so
+  "sets off the fireworks" holds for the dusk shows; say so if the page names the midnight show.
 - 18: the two festival sounds are made by `tools/sfx/*.py`.
 - 23: built in S7 (`festival/FestivalDirector`), proven by csfestival.
 

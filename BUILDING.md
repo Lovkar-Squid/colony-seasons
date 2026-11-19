@@ -65,10 +65,13 @@ bash tools/probe.sh csdecorgate lifecycle     # only the real colony and the AI
 bash tools/restart.sh csdecorgate             # half a building, the ledger file on disk, a restart, nothing placed twice
 bash tools/probe.sh csfestival                # the festival events on a real colony with the Decorator, a marker and the tree:
                                               # lit by a player and by the Decorator, gifts, the gathering (the mixin's
-                                              # everyone day and the next), dusk fireworks, the midnight show, the season line,
-                                              # three game days of a forced Winter Festival
-bash tools/probe.sh csfestival nomixin        # the mod rebuilt without its mixin: it loads, the off-duty gathering works
-bash tools/probe.sh csfestival voyager        # Voyager 0.4.0 next to it: both mixins apply, the Astronomer works at night
+                                              # everyone day and the next), dusk fireworks (the Decorator stays up and
+                                              # launches them), the midnight show, the season line, three game days of a
+                                              # forced Winter Festival
+bash tools/probe.sh csfestival nomixin        # the mod rebuilt without its mixin: it loads, the off-duty gathering works,
+                                              # the dusk show still goes up (from the server)
+bash tools/probe.sh csfestival voyager        # Voyager 0.4.0 next to it: both mixins apply, the Decorator launches the dusk
+                                              # show, the Astronomer works at night
 bash tools/restart.sh csfestival              # a gift taken and the tree lit, a restart: refused again, still lit, nothing repeated
 bash tools/probe.sh cseffects off             # the three effects switched off: nothing changes (happiness, crop growth, food over a game day)
 bash tools/probe.sh cseffects on              # all three on: the happiness modifier and the client's total, half the growth steps inside a claim,

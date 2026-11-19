@@ -4,6 +4,8 @@ import com.minecolonies.api.colony.ICitizenData;
 import com.minecolonies.api.colony.IColony;
 import com.minecolonies.api.colony.IColonyManager;
 import com.minecolonies.api.colony.buildings.IBuilding;
+import com.minecolonies.api.entity.ai.statemachine.states.CitizenAIState;
+import com.minecolonies.core.entity.citizen.EntityCitizen;
 import it.unimi.dsi.fastutil.ints.IntList;
 import me.lovkar.seasons.SeasonsConfig;
 import me.lovkar.seasons.block.FestivalMarkerBlock;
@@ -14,6 +16,7 @@ import me.lovkar.seasons.colony.BuildingDecorator;
 import me.lovkar.seasons.colony.DecoratorTexts;
 import me.lovkar.seasons.colony.JobDecorator;
 import me.lovkar.seasons.decor.DecorLedger;
+import me.lovkar.seasons.decor.DecorWork;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
@@ -51,9 +54,15 @@ import java.util.function.BiPredicate;
  * own explosions flies as it is, a plain one gets the festival's colours); with {@code decorator.needsMaterials}
  * off they are free. The rockets of a lit tree are a free greeting.
  *
- * <p>The dusk is after the colonists' bedtime, so the server launches the show from the crate; the Decorator's
- * Launching state gets the rockets in beforehand. What a show did is noted in {@link FestivalData} (real day of the
- * big show, game day of the last dusk, the midnight), so a restart never repeats one.</p>
+ * <p>Who launches the dusk show (design 4, Hosting: he "launches the fireworks"): the dusk is after the colonists'
+ * bedtime, so on the New Year evenings the mixin keeps the Decorator at work past bedtime while his colony's show is
+ * still ahead ({@link #keepUp}); his Launching state takes him to the square, he launches the show there at dusk
+ * ({@link #launchDusk}) and goes to bed. The server's own poll ({@link #dusk}) is the fallback: when he is not up (the
+ * mixin is not applied, he is ill, hungry or it rains) it launches the show from the square at once, and when he is
+ * up it waits {@link #LAUNCH_GRACE} ticks for him. {@link #DECORATOR_LAUNCHES} switches his part off. The midnight
+ * show comes at a real hour, whatever the game clock says, so the server launches it. What a show did is noted in
+ * {@link FestivalData} (real day of the big show, game day of the last dusk, the midnight), so a restart never repeats
+ * one.</p>
  */
 public final class Fireworks {
     public static final int SHOW_ROCKETS = 16;
@@ -63,6 +72,14 @@ public final class Fireworks {
     /** Dusk on the game clock: the sky is dark enough from 12500, and the window closes at 13800. */
     public static final int DUSK_FROM = 12500;
     public static final int DUSK_UNTIL = 13800;
+    /**
+     * [O] Whether the Decorator launches the dusk show himself (an owner choice of S7): true, he stays up on the New
+     * Year evenings until his colony's show has gone up; false, he goes to bed like everybody else and the server
+     * launches it from the square.
+     */
+    public static final boolean DECORATOR_LAUNCHES = true;
+    /** Ticks after {@link #DUSK_FROM} the server waits for a Decorator who is up before it launches the show itself. */
+    public static final int LAUNCH_GRACE = 600;
     public static final int COUNTDOWN_SECONDS = 10;
     /** Ticks between two rockets of one show. */
     public static final int LAUNCH_GAP_TICKS = 6;
@@ -71,17 +88,22 @@ public final class Fireworks {
     private record Pending(ResourceKey<Level> dimension, BlockPos at, ItemStack rocket, int delay) {
     }
 
-    /** The kinds of show, each with the Decorator's status line when it went up and when the stock was empty. */
+    /**
+     * The kinds of show, each with the Decorator's status lines: he launched it, it went up from the square without
+     * him (the server), the stock was empty.
+     */
     public enum Show {
-        DUSK(DecoratorTexts.LAUNCHED_DUSK, DecoratorTexts.NO_ROCKETS_DUSK),
-        SPARKLE(DecoratorTexts.LAUNCHED_SPARKLE, DecoratorTexts.NO_ROCKETS_SPARKLE),
-        MIDNIGHT(DecoratorTexts.LAUNCHED_MIDNIGHT, DecoratorTexts.NO_ROCKETS_MIDNIGHT);
+        DUSK(DecoratorTexts.LAUNCHED_DUSK, DecoratorTexts.WENT_UP_DUSK, DecoratorTexts.NO_ROCKETS_DUSK),
+        SPARKLE(DecoratorTexts.LAUNCHED_SPARKLE, DecoratorTexts.WENT_UP_SPARKLE, DecoratorTexts.NO_ROCKETS_SPARKLE),
+        MIDNIGHT(DecoratorTexts.WENT_UP_MIDNIGHT, DecoratorTexts.WENT_UP_MIDNIGHT, DecoratorTexts.NO_ROCKETS_MIDNIGHT);   // always the server's
 
         private final String launched;
+        private final String wentUp;
         private final String empty;
 
-        Show(final String launched, final String empty) {
+        Show(final String launched, final String wentUp, final String empty) {
             this.launched = launched;
+            this.wentUp = wentUp;
             this.empty = empty;
         }
     }
@@ -93,6 +115,9 @@ public final class Fireworks {
     private static int rockets;
     private static int countdowns;
     private static int midnightShows;
+    private static int decoratorShows;
+    private static int serverShows;
+    private static volatile int keptUp;
     /** Tests replace this ("is a player in the colony?"); null asks the level's real players. */
     private static BiPredicate<ServerLevel, IColony> presence;
 
@@ -116,6 +141,21 @@ public final class Fireworks {
 
     public static int midnightShows() {
         return midnightShows;
+    }
+
+    /** Dusk shows the Decorator launched himself. */
+    public static int decoratorShows() {
+        return decoratorShows;
+    }
+
+    /** Dusk shows the server launched without him (the fallback). */
+    public static int serverShows() {
+        return serverShows;
+    }
+
+    /** How often the mixin kept a Decorator up for the show (0 when it is not applied). */
+    public static int keptUp() {
+        return keptUp;
     }
 
     /** Replaces the "a player is in the colony" test (the probe's fake players are not in the level's player list). */
@@ -170,33 +210,149 @@ public final class Fireworks {
         return false;
     }
 
-    /** One colony at one poll: the dusk show of the New Year days. */
+    /** True on the New Year days (forced or real). */
+    private static boolean newYearDays(final CalendarManager.Snapshot snapshot) {
+        return snapshot != null && snapshot.festivals() != null && snapshot.festivals().days().contains(SeasonsConfig.NEW_YEAR);
+    }
+
+    /** True in the dusk hours of the game clock, when the show goes up. */
+    public static boolean isDusk(final Level level) {
+        final long time = level.getDayTime() % 24000L;
+        return time >= DUSK_FROM && time < DUSK_UNTIL;
+    }
+
+    /**
+     * True while the colony's dusk show of this game day is still to come: a New Year day, before the end of dusk, not
+     * shown yet this game day, a player in the colony to see it and a square to launch it from.
+     */
+    public static boolean duskAhead(final ServerLevel level, final IColony colony) {
+        if (!newYearDays(CalendarManager.current()) || level.getDayTime() % 24000L >= DUSK_UNTIL) {
+            return false;
+        }
+        final FestivalData.ColonyState state = FestivalData.of(level).peek(colony.getID());
+        if (state != null && state.lastDuskGameDay() == DecorWork.day(level)) {
+            return false;
+        }
+        return playerIn(level, colony) && site(level, colony) != null;
+    }
+
+    /**
+     * One colony at one poll, the server's part of the dusk show of the New Year days: when the Decorator is up for it
+     * (he launches it himself, {@link #launchDusk}) it waits {@link #LAUNCH_GRACE} ticks for him; when he is not, or
+     * the grace is over, it launches the show from the square itself.
+     */
     static void dusk(final ServerLevel level, final IColony colony, final FestivalData data, final CalendarManager.Snapshot snapshot,
                      final long gameDay) {
-        if (snapshot.festivals() == null || !snapshot.festivals().days().contains(SeasonsConfig.NEW_YEAR)) {
+        if (!newYearDays(snapshot) || !isDusk(level)) {
             return;
         }
-        final long time = level.getDayTime() % 24000L;
-        if (time < DUSK_FROM || time >= DUSK_UNTIL) {
-            return;
-        }
-        final int id = colony.getID();
-        final FestivalData.ColonyState state = data.peek(id);
+        final FestivalData.ColonyState state = data.peek(colony.getID());
         if (state != null && state.lastDuskGameDay() == gameDay) {
             return;
         }
         if (!playerIn(level, colony)) {
             return;                                   // nobody to see it: the rockets wait
         }
+        if (DECORATOR_LAUNCHES && level.getDayTime() % 24000L < DUSK_FROM + LAUNCH_GRACE && decoratorUp(colony)) {
+            return;                                   // he is up for the show: his to launch
+        }
+        launch(level, colony, data, snapshot, gameDay, false);
+    }
+
+    /**
+     * The Decorator launches his colony's dusk show from the square, where he stands (his Launching state, on a New
+     * Year evening). Returns the rockets that went up, or -1 when no show is due now.
+     */
+    public static int launchDusk(final ServerLevel level, final IColony colony) {
+        if (!isDusk(level) || !duskAhead(level, colony)) {
+            return -1;
+        }
+        return launch(level, colony, FestivalData.of(level), CalendarManager.current(), DecorWork.day(level), true);
+    }
+
+    /**
+     * The dusk show of game day {@code gameDay}: the big show at the first dusk of the real day, else a sparkle. The
+     * dusk is noted even when the stock was empty (nothing more tonight), the big show only when rockets went up, so a
+     * later dusk of the same real day can still be the big one. Returns the rockets queued, or -1 without a square or
+     * a Decorator (nothing is noted, the next poll tries again).
+     */
+    private static int launch(final ServerLevel level, final IColony colony, final FestivalData data, final CalendarManager.Snapshot snapshot,
+                              final long gameDay, final boolean byDecorator) {
+        final int id = colony.getID();
+        final FestivalData.ColonyState state = data.peek(id);
         final long realDay = snapshot.date().toEpochDay();
         final boolean big = state == null || state.bigShowRealDay() != realDay;
-        if (show(level, colony, big ? SHOW_ROCKETS : SPARKLE_ROCKETS, big ? Show.DUSK : Show.SPARKLE) < 0) {
-            return;                                   // no square or no Decorator: nothing is noted, the next dusk tries
+        final int queued = show(level, colony, big ? SHOW_ROCKETS : SPARKLE_ROCKETS, big ? Show.DUSK : Show.SPARKLE, byDecorator);
+        if (queued < 0) {
+            return queued;
         }
         data.setDusk(id, gameDay);
-        if (big) {
+        if (big && queued > 0) {
             data.setBigShow(id, realDay);
         }
+        if (byDecorator) {
+            decoratorShows++;
+        } else {
+            serverShows++;
+        }
+        return queued;
+    }
+
+    /**
+     * True while the colony's Decorator is up for the show: awake and at work (MineColonies' WORK, then WORKING; after
+     * bedtime only {@link #keepUp} keeps him so).
+     */
+    static boolean decoratorUp(final IColony colony) {
+        final BuildingDecorator hut = decorator(colony);
+        if (hut == null) {
+            return false;
+        }
+        for (final ICitizenData citizen : hut.getAllAssignedCitizen()) {
+            if (citizen != null && citizen.getEntity().orElse(null) instanceof EntityCitizen entity && entity.getCitizenAI() != null
+                    && (entity.getCitizenAI().getState() == CitizenAIState.WORK || entity.getCitizenAI().getState() == CitizenAIState.WORKING)
+                    && (entity.getCitizenSleepHandler() == null || !entity.getCitizenSleepHandler().isAsleep())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Asked by the mixin at the head of {@code CitizenAI.calculateNextState} on every AI decision: true when this
+     * colonist is a Decorator who should stay at work past bedtime because his colony's dusk show is still ahead this
+     * New Year evening. Only between bedtime and the end of dusk, and never for anybody else (the job is looked at
+     * first, so the question is cheap). Everything MineColonies would rightly stop work for still comes first:
+     * sickness, mourning, a raid, rain; hunger is asked by the mixin itself.
+     */
+    public static boolean keepUp(final EntityCitizen citizen) {
+        if (!DECORATOR_LAUNCHES || citizen == null) {
+            return false;
+        }
+        final ICitizenData data = citizen.getCitizenData();
+        if (data == null || !(data.getJob() instanceof JobDecorator job) || job.getWorkBuilding() == null || data.getColony() == null) {
+            return false;
+        }
+        if (!(citizen.level() instanceof ServerLevel level) || level.isRaining()) {
+            return false;
+        }
+        final long time = level.getDayTime() % 24000L;
+        if (time <= Gathering.BEDTIME || time >= DUSK_UNTIL) {
+            return false;                             // by day he works anyway; after dusk, bed
+        }
+        if (data.getCitizenDiseaseHandler() != null && (data.getCitizenDiseaseHandler().isSick() || data.getCitizenDiseaseHandler().isHurt())) {
+            return false;
+        }
+        if (data.getCitizenMournHandler() != null && data.getCitizenMournHandler().isMourning()) {
+            return false;
+        }
+        if (data.getColony().getRaiderManager() != null && data.getColony().getRaiderManager().isRaided()) {
+            return false;
+        }
+        if (!duskAhead(level, data.getColony())) {
+            return false;
+        }
+        keptUp++;
+        return true;
     }
 
     /** Every poll: the countdown in the last seconds before a New Year midnight, and the show at 00:00. */
@@ -228,7 +384,7 @@ public final class Fireworks {
         tell(server, Component.translatable("com.colony_seasons.festival.happy_new_year"));
         for (final IColony colony : IColonyManager.getInstance().getAllColonies()) {
             if (colony.getWorld() instanceof ServerLevel level) {
-                show(level, colony, MIDNIGHT_ROCKETS, Show.MIDNIGHT);
+                show(level, colony, MIDNIGHT_ROCKETS, Show.MIDNIGHT, false);
             }
         }
     }
@@ -308,10 +464,10 @@ public final class Fireworks {
 
     /**
      * A show of up to {@code count} rockets from the colony's square, taken from the Decorator's stock (free with
-     * {@code decorator.needsMaterials} off). Returns the rockets queued, or -1 when the colony has no square or no
-     * Decorator.
+     * {@code decorator.needsMaterials} off); {@code byDecorator} says whether he launched it (his status line).
+     * Returns the rockets queued, or -1 when the colony has no square or no Decorator.
      */
-    public static int show(final ServerLevel level, final IColony colony, final int count, final Show what) {
+    public static int show(final ServerLevel level, final IColony colony, final int count, final Show what, final boolean byDecorator) {
         final BlockPos site = site(level, colony);
         final BuildingDecorator hut = decorator(colony);
         if (site == null || hut == null) {
@@ -343,7 +499,7 @@ public final class Fireworks {
         shows++;
         if (job != null) {
             if (queued > 0) {
-                job.setStatus(what.launched, queued);
+                job.setStatus(byDecorator ? what.launched : what.wentUp, queued);
             } else {
                 job.setStatus(what.empty);
             }

@@ -6,6 +6,7 @@ import com.minecolonies.api.colony.IColonyManager;
 import com.minecolonies.api.colony.buildings.IBuilding;
 import com.minecolonies.api.colony.permissions.Action;
 import com.minecolonies.core.colony.buildings.modules.WorkerBuildingModule;
+import com.minecolonies.api.entity.ai.statemachine.states.CitizenAIState;
 import com.minecolonies.api.entity.citizen.AbstractEntityCitizen;
 import com.minecolonies.api.tileentities.AbstractTileEntityColonyBuilding;
 import com.minecolonies.core.entity.ai.workers.CitizenAI;
@@ -17,6 +18,7 @@ import me.lovkar.seasons.ai.EntityAIWorkDecorator;
 import me.lovkar.seasons.block.FestivalMarkerBlock;
 import me.lovkar.seasons.block.Lights;
 import me.lovkar.seasons.block.SeasonsBlocks;
+import me.lovkar.seasons.calendar.CalendarEvents;
 import me.lovkar.seasons.calendar.CalendarManager;
 import me.lovkar.seasons.calendar.DateSource;
 import me.lovkar.seasons.calendar.Season;
@@ -104,14 +106,16 @@ import java.util.UUID;
  *       placed refused, the Winter Festival's and New Year's tables, opened into items); the gathering on 25 Dec (the
  *       everyone day: off-duty colonists and workers within 8 blocks of the tree, the Decorator hosting, the leisure
  *       site, the song; back at work after the hours, everyone in bed after bedtime) and the next game day (only the
- *       off-duty ones); New Year dusk fireworks from stock (the big show, a sparkle, nothing without a player, and a
- *       sparkle beside the tree once the crate is gone; every show's rockets climb into the sky); the
- *       midnight show with the fake clock stepping over midnight; the season line; three game days of a forced
- *       Winter Festival;</li>
+ *       off-duty ones); New Year dusk fireworks from stock (the big show the Decorator stays up for and launches
+ *       himself at the square before he goes to bed, a sparkle, nothing without a player, and a sparkle beside the
+ *       tree once the crate is gone; every show's rockets climb into the sky); the midnight show with the fake clock
+ *       stepping over midnight; the season line; three game days of a forced Winter Festival;</li>
  *   <li>nomixin: the mod jar built without its mixin (prepare.sh): it loads, the mixin is absent and never asked, the
- *       off-duty gathering works, the workers stay at work, everyone is in bed after bedtime;</li>
+ *       off-duty gathering works, the workers stay at work, everyone is in bed after bedtime; on New Year's eve the
+ *       Decorator goes to bed too and the server launches the dusk show from the square;</li>
  *   <li>voyager: Voyager 0.4.0 next to the mod: both mixins are in CitizenAI, the workers come on the everyone day,
- *       and the Astronomer works at night while the others sleep;</li>
+ *       the Decorator stays up for the dusk show and launches it, and the Astronomer works at night while the others
+ *       sleep;</li>
  *   <li>{@code restart-save} then {@code restart-load} (tools/restart.sh): a gift taken and the tree lit, the world saved;
  *       after the restart the same player is refused, another one gets a gift, the tree is still lit, no notice and no
  *       season line is sent again.</li>
@@ -135,6 +139,8 @@ public class CsFestival {
     private static final int WITHIN = 8;
     /** MineColonies' bedtime: the citizen state SLEEP and the states of its sleep AI. */
     private static final Set<String> BEDTIME_STATES = Set.of("SLEEP", "WALKING_HOME", "FIND_BED", "SLEEPING");
+    /** MineColonies' citizen AI at work: WORK, then WORKING. */
+    private static final Set<String> AT_WORK = Set.of(CitizenAIState.WORK.toString(), CitizenAIState.WORKING.toString());
     private static final String RESTART_FILE = "csfestival-restart.nbt";
     private static final UUID P1 = UUID.nameUUIDFromBytes("csfestival-player-one".getBytes(StandardCharsets.US_ASCII));
     private static final UUID P2 = UUID.nameUUIDFromBytes("csfestival-player-two".getBytes(StandardCharsets.US_ASCII));
@@ -342,11 +348,13 @@ public class CsFestival {
                 planSetup(false);
                 planTree();
                 planGathering(false);
+                planShow(false);
             }
             case "voyager" -> {
                 planSetup(true);
                 planTree();
                 planGathering(true);
+                planShow(true);
                 planNight();
             }
             case "restart-save" -> {
@@ -1152,12 +1160,14 @@ public class CsFestival {
             @Override
             void start() {
                 boolean ours = false;
+                boolean ours2 = false;
                 boolean theirs = false;
                 for (final Method m : CitizenAI.class.getDeclaredMethods()) {
                     ours |= m.getName().contains("comeToTheGathering");
+                    ours2 |= m.getName().contains("stayUpForTheShow");
                     theirs |= m.getName().contains("keepTheNightWatch");
                 }
-                check("our mixin is applied", ours, "");
+                check("our mixin is applied (the gathering and the show)", ours && ours2, ours + ", " + ours2);
                 check("Voyager's night-shift mixin is applied next to it", theirs, "");
             }
         });
@@ -1194,7 +1204,7 @@ public class CsFestival {
     }
 
     private void planDusk() {
-        dusk("the first dusk of the real day: the big show from stock", true, Fireworks.SHOW_ROCKETS, 20, false);
+        planShow(true);                               // the first dusk of the real day: the big show, by the Decorator
         dusk("the next dusk the same real day: a sparkle", true, Fireworks.SPARKLE_ROCKETS, 0, false);
         dusk("a dusk with nobody in the colony: nothing", false, 0, 0, false);
         // hut levels 1 and 2 build no crate, and the trunk stands on the marker: the rockets must go up beside the tree
@@ -1202,10 +1212,13 @@ public class CsFestival {
     }
 
     private void dusk(final String name, final boolean player, final int expected, final int stock, final boolean noCrate) {
-        step(new Step("fireworks: " + name, 1200, true) {
+        step(new Step("fireworks: " + name, 1600, true) {
             int before;
             int shows0;
             int rockets0;
+            int byHim0;
+            int byServer0;
+            final Set<String> his = new LinkedHashSet<>();
             BlockPos site;
             /** The highest a rocket of this step got above the top of the block it left from, in whole blocks. */
             int rise = -1;
@@ -1229,16 +1242,21 @@ public class CsFestival {
                 before = rocketsInStock();
                 shows0 = Fireworks.shows();
                 rockets0 = Fireworks.rockets();
+                byHim0 = Fireworks.decoratorShows();
+                byServer0 = Fireworks.serverShows();
             }
 
             @Override
             boolean tick() {
+                if (t % 50 == 0) {
+                    his.add(state(decorator));
+                }
                 if (site != null) {
                     for (final FireworkRocketEntity r : level.getEntitiesOfClass(FireworkRocketEntity.class, new AABB(site).inflate(64))) {
                         rise = Math.max(rise, (int) Math.floor(r.getY() - site.getY() - 1));
                     }
                 }
-                return timeOfDay() >= Fireworks.DUSK_FROM + 400;
+                return timeOfDay() >= Fireworks.DUSK_FROM + Fireworks.LAUNCH_GRACE + 300;   // the fallback's time too
             }
 
             @Override
@@ -1258,8 +1276,109 @@ public class CsFestival {
                             site != null && !site.equals(marker) && Fireworks.openSky(level, site.above()), site + ", marker " + marker);
                     invariant("the crate taken away");
                 }
-                note("{} rocket entities about at the end, stock {} -> {}", seen, before, rocketsInStock());
+                note("{} rocket entities about at the end, stock {} -> {}; launched by the Decorator {}, by the server {}; his states {}", seen,
+                        before, rocketsInStock(), Fireworks.decoratorShows() - byHim0, Fireworks.serverShows() - byServer0, his);
                 present = true;
+            }
+        });
+    }
+
+    /**
+     * New Year's eve from the afternoon to after dusk, the first dusk of the real day (the big show from stock). With
+     * the mixin the Decorator stays up past bedtime, waits at the square, launches the show himself and then goes to
+     * bed; without it he goes to bed at bedtime like everybody else and the server launches the show from the square.
+     */
+    private void planShow(final boolean mixin) {
+        final String name = mixin ? "fireworks: the Decorator stays up and launches the first dusk show of the real day"
+                : "fireworks: without the mixin he sleeps and the first dusk show goes up from the square";
+        step(new Step(name, 4200, true) {
+            int before;
+            int byHim0;
+            int byServer0;
+            int kept0;
+            BlockPos site;
+            long launchedAt = -1;
+            /** His distance to the square when the first rocket took off. */
+            double from = Double.MAX_VALUE;
+            /** His citizen AI states between bedtime and dusk, and his status keys from bedtime on. */
+            final Set<String> evening = new LinkedHashSet<>();
+            final Set<String> keys = new LinkedHashSet<>();
+            /** His citizen AI states in the last 400 ticks before dusk. */
+            final Set<String> beforeDusk = new LinkedHashSet<>();
+            String after = "";
+            /** Rockets flown up to the tick before the show (the tree's lighting rockets, if the Decorator lights it now, are not the show's). */
+            int rocketsBefore;
+            int last;
+
+            @Override
+            void start() {
+                setDate(NEW_YEAR_EVE);
+                present = true;
+                addRockets(20);
+                nextDayAt(10000);
+                site = Fireworks.site(level, colony);
+                before = rocketsInStock();
+                last = Fireworks.rockets();
+                byHim0 = Fireworks.decoratorShows();
+                byServer0 = Fireworks.serverShows();
+                kept0 = Fireworks.keptUp();
+            }
+
+            @Override
+            boolean tick() {
+                final long time = timeOfDay();
+                if (time > Gathering.BEDTIME + 100 && time < Fireworks.DUSK_FROM && t % 20 == 0) {
+                    evening.add(state(decorator));
+                    if (time >= Fireworks.DUSK_FROM - 400) {
+                        beforeDusk.add(state(decorator));
+                    }
+                }
+                if (time > Gathering.BEDTIME && job() != null) {
+                    keys.add(job().statusKey());
+                }
+                if (launchedAt < 0 && Fireworks.decoratorShows() + Fireworks.serverShows() > byHim0 + byServer0) {
+                    launchedAt = time;
+                    rocketsBefore = last;
+                    final AbstractEntityCitizen him = decorator.getEntity().orElse(null);
+                    from = him == null || site == null ? Double.MAX_VALUE : Math.sqrt(him.position().distanceToSqr(Vec3.atBottomCenterOf(site)));
+                }
+                last = Fireworks.rockets();
+                if (launchedAt >= 0 && time >= launchedAt + 120 && (BEDTIME_STATES.contains(state(decorator)) || time >= launchedAt + 600)) {
+                    after = state(decorator);
+                    return true;
+                }
+                return false;
+            }
+
+            @Override
+            void end(final boolean done) {
+                checkEq("the first dusk of the real day: the big show from the Decorator's stock", before - rocketsInStock(), Fireworks.SHOW_ROCKETS);
+                checkEq("its rockets flew from the square", launchedAt < 0 ? 0 : Fireworks.rockets() - rocketsBefore, Fireworks.SHOW_ROCKETS);
+                if (mixin) {
+                    check("past bedtime he stays at work for the show (the mixin keeps him up)",
+                            !evening.isEmpty() && AT_WORK.containsAll(evening) && Fireworks.keptUp() > kept0, evening + ", kept up " + (Fireworks.keptUp() - kept0) + " times");
+                    checkEq("he launched it himself", Fireworks.decoratorShows() - byHim0, 1);
+                    checkEq("the server did not launch it for him", Fireworks.serverShows() - byServer0, 0);
+                    check("he stood at the square when the rockets went up", from <= 6, String.format("%.1f blocks from %s", from, site));
+                    check("his status line says he launched it (a lang key)", keys.contains(DecoratorTexts.LAUNCHED_DUSK), keys.toString());
+                    check("after the show he goes to bed (MineColonies' sleep routine)", BEDTIME_STATES.contains(after), after);
+                } else {
+                    // the test colony has no homes, and MineColonies lets a colonist without a home back to work at night
+                    // now and then; what counts here is that nothing of ours kept him up and the show still went up
+                    check("without the mixin bedtime is MineColonies' own: he goes into its sleep routine", evening.stream().anyMatch(BEDTIME_STATES::contains),
+                            evening + ", before dusk " + beforeDusk);
+                    checkEq("the mixin never kept him up", Fireworks.keptUp() - kept0, 0);
+                    checkEq("one dusk show went up", Fireworks.serverShows() - byServer0 + Fireworks.decoratorShows() - byHim0, 1);
+                    check("at dusk, at the latest when the server stops waiting for him", launchedAt >= Fireworks.DUSK_FROM
+                            && launchedAt <= Fireworks.DUSK_FROM + Fireworks.LAUNCH_GRACE + CalendarEvents.POLL_TICKS, String.valueOf(launchedAt));
+                    if (Fireworks.serverShows() > byServer0) {
+                        check("his status line says it went up without him (a lang key)", keys.contains(DecoratorTexts.WENT_UP_DUSK), keys.toString());
+                    }
+                }
+                note("show at {} ({} after dusk began) by the Decorator {}, by the server {}; he stood {} blocks from {}, then {}; evening states {}, "
+                        + "before dusk {}", launchedAt, launchedAt - Fireworks.DUSK_FROM, Fireworks.decoratorShows() - byHim0,
+                        Fireworks.serverShows() - byServer0, String.format("%.1f", from), site, after, evening, beforeDusk);
+                setDate(DECOR_DAY);
             }
         });
     }

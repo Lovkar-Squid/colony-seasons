@@ -16,6 +16,7 @@ import me.lovkar.seasons.calendar.CalendarManager;
 import me.lovkar.seasons.colony.JobDecorator;
 import me.lovkar.seasons.decor.DecorLedger;
 import net.minecraft.core.BlockPos;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.EquipmentSlot;
@@ -88,7 +89,11 @@ public final class Gathering {
     private static int tripsEnded;
     private static int songs;
     private static boolean warned;
-    private static final Map<Integer, Long> lastSong = new HashMap<>();
+    /** When the song last played, per colony: by dimension and id, because MineColonies numbers colonies per dimension. */
+    private static final Map<SongKey, Long> lastSong = new HashMap<>();
+
+    private record SongKey(ResourceKey<Level> dimension, int colony) {
+    }
 
     private Gathering() {
     }
@@ -287,9 +292,10 @@ public final class Gathering {
                 pulls++;
             }
         }
-        final Long sung = lastSong.get(colony.getID());
+        final SongKey key = new SongKey(level.dimension(), colony.getID());
+        final Long sung = lastSong.get(key);
         if (near > 0 && (sung == null || tick - sung >= SONG_TICKS || tick < sung)) {
-            lastSong.put(colony.getID(), tick);
+            lastSong.put(key, tick);
             level.playSound(null, site, FestivalSounds.SONG.get(), SoundSource.RECORDS, 2.0F, 1.0F);
             songs++;
         }

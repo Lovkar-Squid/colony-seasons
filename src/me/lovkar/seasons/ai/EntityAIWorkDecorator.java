@@ -23,6 +23,7 @@ import com.minecolonies.api.entity.citizen.AbstractEntityCitizen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.Items;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.Item;
@@ -49,8 +50,9 @@ import java.util.Map;
  *       per decorated group). Taking down clears one group per visit by the removal rule and puts the items back in
  *       the hut. Hosting (S7): in the gathering hours of the Winter Festival days he stands at the tree and hands the
  *       colonists there gifts (hearts and a thank-you line, no item moves); on the New Year days he goes Launching
- *       (to the square, and asks the warehouse for firework rockets; the server launches the show at dusk, when he
- *       is in bed); at any other hour of a festival day the upkeep goes on;</li>
+ *       (to the square, and asks the warehouse for firework rockets; in the evening the mixin keeps him up past
+ *       bedtime, he waits at the square and launches the show at dusk, then goes to bed); at any other hour of a
+ *       festival day the upkeep goes on;</li>
  *   <li>Preparing goes on in every phase when the hut's "prepare all year" is on, and only while a window is open
  *       when it is off: for every kit below the stock cap he asks the colony for one batch of what is missing (async
  *       requests, MineColonies drops duplicates), and when his pack holds a whole batch he walks to the hut and
@@ -174,7 +176,10 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
             walkAttempts = 0;
             return switch (phase) {
                 case DECORATING -> DecoratorState.DECORATING;
-                case HOSTING -> DecoratorState.HOSTING;
+                case HOSTING -> {
+                    job.recordVisit(DecoratorState.HOSTING);  // once per visit: host() loops through HOSTING
+                    yield DecoratorState.HOSTING;
+                }
                 case TAKING_DOWN -> DecoratorState.TAKING_DOWN;
                 case OFF_SEASON -> AIWorkerState.START_WORKING;
             };
@@ -514,7 +519,6 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
      * days inside a window still see decorating and tending, and decorations after one are still taken down.
      */
     private IAIState hosting() {
-        job.recordVisit(DecoratorState.HOSTING);
         final CalendarManager.Snapshot snapshot = CalendarManager.current();
         if (world instanceof ServerLevel level && snapshot != null && snapshot.festivals() != null) {
             if (Gathering.gatheringDay(snapshot) && Gathering.inHours(level) && !level.isRaining()) {
@@ -522,6 +526,7 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
             }
             if (snapshot.festivals().days().contains(SeasonsConfig.NEW_YEAR)) {
                 walkAttempts = 0;
+                job.recordVisit(DecoratorState.LAUNCHING);    // once per visit: the evening loops through LAUNCHING
                 return DecoratorState.LAUNCHING;
             }
         }
@@ -584,10 +589,12 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
 
     /**
      * Launching, on the New Year days: he walks to the square and makes sure the show has its rockets, asking the
-     * warehouse for the missing ones. The show goes up at dusk (and at midnight) from the server, when he is in bed.
+     * warehouse for the missing ones. By day he then goes back to the upkeep. Past bedtime he is only up because the
+     * mixin keeps him for the show ({@link Fireworks#keepUp}): he stays at the square, launches the dusk show there
+     * when the sky is dark ({@link Fireworks#launchDusk}) and stays until MineColonies sends him to bed. The midnight
+     * show comes at a real hour and goes up from the server.
      */
     private IAIState launching() {
-        job.recordVisit(DecoratorState.LAUNCHING);
         if (!(world instanceof ServerLevel level)) {
             return upkeep();
         }
@@ -605,11 +612,27 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
             job.setStatus(DecoratorTexts.ON_WAY_SHOW);
             return DecoratorState.LAUNCHING;
         }
-        if (SeasonsConfig.needsMaterials()) {
-            job.setStatus(DecoratorTexts.SHOW_READY, rockets);
-        } else {
-            job.setStatus(DecoratorTexts.SHOW_READY_FREE);
+        final boolean evening = level.getDayTime() % 24000L > Gathering.BEDTIME;
+        if (evening && Fireworks.isDusk(level)) {
+            final int launched = Fireworks.launchDusk(level, building.getColony());   // sets his status line
+            if (launched > 0) {
+                worker.swing(InteractionHand.MAIN_HAND);
+                incrementActionsDoneAndDecSaturation();
+            }
+            if (launched >= 0) {
+                return DecoratorState.LAUNCHING;
+            }
         }
-        return upkeep();
+        final boolean ahead = evening && Fireworks.duskAhead(level, building.getColony());
+        if (!evening || ahead) {
+            if (SeasonsConfig.needsMaterials()) {
+                job.setStatus(DecoratorTexts.SHOW_READY, rockets);
+            } else {
+                job.setStatus(DecoratorTexts.SHOW_READY_FREE);
+            }
+        }
+        // past bedtime he is up for the show (the mixin): he waits at the square for it and stays through the dusk, and
+        // MineColonies sends him to bed once the mixin lets go; anything else goes back to the upkeep
+        return ahead || evening && Fireworks.isDusk(level) ? DecoratorState.LAUNCHING : upkeep();
     }
 }

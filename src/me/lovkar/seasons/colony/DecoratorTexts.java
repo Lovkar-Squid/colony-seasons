@@ -40,7 +40,10 @@ public final class DecoratorTexts {
     public static final String SHOW_READY_FREE = "com.colony_seasons.status.show_ready_free";
     public static final String LAUNCHED_DUSK = "com.colony_seasons.status.launched_dusk";
     public static final String LAUNCHED_SPARKLE = "com.colony_seasons.status.launched_sparkle";
-    public static final String LAUNCHED_MIDNIGHT = "com.colony_seasons.status.launched_midnight";
+    // the server launched a show from the square without him: the midnight show, or a dusk show he was not up for
+    public static final String WENT_UP_DUSK = "com.colony_seasons.status.went_up_dusk";
+    public static final String WENT_UP_SPARKLE = "com.colony_seasons.status.went_up_sparkle";
+    public static final String WENT_UP_MIDNIGHT = "com.colony_seasons.status.went_up_midnight";
     public static final String NO_ROCKETS_DUSK = "com.colony_seasons.status.no_rockets_dusk";
     public static final String NO_ROCKETS_SPARKLE = "com.colony_seasons.status.no_rockets_sparkle";
     public static final String NO_ROCKETS_MIDNIGHT = "com.colony_seasons.status.no_rockets_midnight";
