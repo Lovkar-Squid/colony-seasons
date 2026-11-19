@@ -435,6 +435,14 @@ public class CsEffects {
                         client.stock().size() + " rows, next " + client.nextKit());
                 check("an empty hut lacks materials for the next kit", !client.missing().isEmpty(), client.missing().toString());
                 note("page: {}", client);
+                // a new status line marks the hut dirty, so MineColonies sends the page again; the same line does not
+                hut.clearDirty();
+                job().setStatus(DecoratorTexts.ASSEMBLING, "minecraft:string");
+                final boolean dirtyOnChange = hut.isDirty();
+                hut.clearDirty();
+                job().setStatus(DecoratorTexts.ASSEMBLING, "minecraft:string");
+                check("a changed status line marks the hut dirty (the page is sent again), the same line does not",
+                        dirtyOnChange && !hut.isDirty(), "changed " + dirtyOnChange + ", same " + hut.isDirty());
                 // no festival and the summer: the next festival with its days until
                 CalendarManager.setForcedFestival(server, "");
                 setDate(SUMMER);

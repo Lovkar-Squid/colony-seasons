@@ -89,11 +89,17 @@ public class JobDecorator extends AbstractJob<EntityAIWorkDecorator, JobDecorato
 
     /** Sets the status line: a {@link DecoratorTexts} key and what it is about. */
     public void setStatus(final String key, final Object... args) {
-        statusKey = key == null ? "" : key;
+        final String newKey = key == null ? "" : key;
         final String[] text = new String[args == null ? 0 : args.length];
         for (int i = 0; i < text.length; i++) {
             text[i] = String.valueOf(args[i]);
         }
+        final boolean changed = !newKey.equals(statusKey) || !Arrays.equals(text, statusArgs);
+        statusKey = newKey;
         statusArgs = text;
+        // the hut window shows this line: a changed line marks the hut dirty so MineColonies sends its page again
+        if (changed && getCitizen() != null && getCitizen().getWorkBuilding() != null) {
+            getCitizen().getWorkBuilding().markDirty();
+        }
     }
 }
