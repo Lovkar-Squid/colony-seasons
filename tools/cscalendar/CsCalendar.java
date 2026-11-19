@@ -111,6 +111,12 @@ public class CsCalendar {
     // ================================================================ mode: dates
 
     private void runDates(final MinecraftServer server) throws Exception {
+        // this run seeds no config, so startSeason is auto: the fresh world started in the season of the real date
+        // (read through CalendarData.get and the real DateSource, not the pure function alone), on its first day
+        final SeasonState start = CalendarManager.current().season();
+        check("a new world with startSeason auto starts in the season of the real date",
+                start.season() == Season.ofDate(DateSource.system().today()) && start.dayInSeason() == 0,
+                start + ", wanted " + Season.ofDate(DateSource.system().today()) + " day 0");
         checkDateSource();
         checkFestivalWindows();
         checkSeasonMath();
@@ -479,7 +485,7 @@ public class CsCalendar {
 
             // festival force and clear
             final Collector force = run(server, 2, "colonyseasons festival force winter_festival");
-            check("force says so", force.said("com.colony_seasons.command.festival.force"), String.join(" | ", force.keys));
+            check("force says so", force.keys.contains("com.colony_seasons.command.festival.force"), String.join(" | ", force.keys));
             final CalendarManager.Snapshot forced = CalendarManager.current();
             checkEq("forced festival is active in June", forced.festivals().ids(), List.of("winter_festival"));
             checkEq("forced festival has its festival days too", forced.festivals().days(), List.of("winter_festival"));
@@ -492,7 +498,7 @@ public class CsCalendar {
             check("force of an unknown festival is refused", unknown.said("force.unknown"), String.join(" | ", unknown.keys));
             checkEq("... and changes nothing", CalendarManager.data(server).forcedFestival(), "new_year");
             final Collector cleared = run(server, 2, "colonyseasons festival clear");
-            check("clear says so", cleared.said("com.colony_seasons.command.festival.clear"), String.join(" | ", cleared.keys));
+            check("clear says so", cleared.keys.contains("com.colony_seasons.command.festival.clear"), String.join(" | ", cleared.keys));
             checkEq("clear ends the festival", CalendarManager.current().festivals().ids(), List.of());
             checkEq("clear empties the saved data", CalendarManager.data(server).forcedFestival(), "");
             check("clear with nothing forced is refused", run(server, 2, "colonyseasons festival clear").said("clear.none"), "");
