@@ -53,6 +53,14 @@ public final class CalendarManager {
         bridge = replacement == null ? new SereneBridge() : replacement;
     }
 
+    /**
+     * The real date and time of day from the same source the festival windows are read from (the New Year countdown
+     * and the midnight show need the hour). Never the clock itself: {@link DateSource} is the only reader.
+     */
+    public static java.time.LocalDateTime now() {
+        return dates.now();
+    }
+
     /** A new server session: the bridge may try again and the world data is read again. */
     public static void reset() {
         bridge = new SereneBridge();

@@ -4,6 +4,7 @@
 # <probe> is a folder under tools/ (csboot, csconfig, ...). Optional files in that folder:
 #   rigjars.txt             extra jars for the rig in every mode, one per line (%REPO% stands for this repo's folder)
 #   rigjars-<mode>.txt      the same, for -Mode <mode> only (the Serene Seasons stand-in joins only the bridge modes)
+#   modjar-<mode>.txt       one jar run INSTEAD of the mod's jar in that mode (%REPO% as above; csfestival nomixin)
 #   prepare.sh              run as `bash tools/<probe>/prepare.sh <mode>` before the rig starts (builds extra jars)
 #   rigconfig-<mode>/       the config folder for -Mode <mode>
 #   rigconfig/              the config folder when no mode is given, and for a mode without its own folder
@@ -28,7 +29,16 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$RIG_DIR/build-addon.ps1" -
 
 if [ -f "tools/$probe/prepare.sh" ]; then bash "tools/$probe/prepare.sh" "$mode"; fi
 
-jars="$repo/colony_seasons-$version.jar,$RIG_DIR/probes/$probe.jar"
+modjar="$repo/colony_seasons-$version.jar"
+# a mode may run the mod built another way instead (csfestival nomixin: the jar without its mixin, made by prepare.sh)
+if [ -n "$mode" ] && [ -f "tools/$probe/modjar-$mode.txt" ]; then
+  while IFS= read -r line || [ -n "$line" ]; do
+    line="${line%$'\r'}"
+    case "$line" in ''|'#'*) continue ;; esac
+    modjar="${line//%REPO%/$repo}"
+  done < "tools/$probe/modjar-$mode.txt"
+fi
+jars="$modjar,$RIG_DIR/probes/$probe.jar"
 for list in "tools/$probe/rigjars.txt" ${mode:+"tools/$probe/rigjars-$mode.txt"}; do
   if [ -f "$list" ]; then
     while IFS= read -r line || [ -n "$line" ]; do

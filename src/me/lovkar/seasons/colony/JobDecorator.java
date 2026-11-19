@@ -69,6 +69,17 @@ public class JobDecorator extends AbstractJob<EntityAIWorkDecorator, JobDecorato
         decisions++;
     }
 
+    private int giftsHanded;
+
+    /** Gifts he handed to colonists at the gathering since the server started (hearts and a line, no item). */
+    public int giftsHanded() {
+        return giftsHanded;
+    }
+
+    public void countGiftHanded() {
+        giftsHanded++;
+    }
+
     /**
      * What he is doing, as a lang key of {@link DecoratorTexts} plus its arguments; the hut window translates it for
      * each player. This text is for logs and probes: the key, then the arguments in brackets.

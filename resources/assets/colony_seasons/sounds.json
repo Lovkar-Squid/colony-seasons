@@ -1,0 +1,10 @@
+{
+  "festival.chime": {
+    "subtitle": "subtitles.colony_seasons.festival.chime",
+    "sounds": ["colony_seasons:festival/chime"]
+  },
+  "festival.song": {
+    "subtitle": "subtitles.colony_seasons.festival.song",
+    "sounds": [{"name": "colony_seasons:festival/song", "stream": true}]
+  }
+}

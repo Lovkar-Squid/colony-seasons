@@ -17,8 +17,9 @@ import java.util.UUID;
 
 /**
  * The gift pile's saved fields: how many gifts it holds, and for each player the real day (days since 1 Jan 1970,
- * as {@code LocalDate.toEpochDay()}) of the last gift taken. Only the fields are here; who may take a gift, and
- * restocking, come in a later chunk.
+ * as {@code LocalDate.toEpochDay()}) of the last gift taken. The fields of S2; 0.1.0 does not use them: gifts cost
+ * nothing, and who took a gift on which day is kept in festival/FestivalData for the whole server, so a pile that is
+ * broken and put back by the Decorator (a new block entity) can never hand out a second gift.
  */
 public class GiftPileBlockEntity extends BlockEntity {
     private static final String TAG_STOCK = "stock";

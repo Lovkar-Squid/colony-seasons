@@ -1,0 +1,2 @@
+# mode voyager: the Voyager 0.4.0 jar next to the mod (prepare.sh copies it here from the path in tools/rigpaths.sh)
+%REPO%/tools/out/voyager-0.4.0.jar
