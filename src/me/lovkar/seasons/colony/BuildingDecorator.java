@@ -7,6 +7,7 @@ import com.minecolonies.core.colony.buildings.AbstractBuilding;
 import com.minecolonies.core.colony.buildings.modules.settings.BoolSetting;
 import com.minecolonies.core.colony.buildings.modules.settings.SettingKey;
 import me.lovkar.seasons.ColonySeasons;
+import me.lovkar.seasons.decor.DecorKinds;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
@@ -42,6 +43,14 @@ public class BuildingDecorator extends AbstractBuilding {
     /** Setting: assemble decorations all year (on), or only from the first day of a decoration window (off). */
     public static final ISettingKey<BoolSetting> PREPARE_ALL_YEAR =
             new SettingKey<>(BoolSetting.class, ResourceLocation.fromNamespaceAndPath(ColonySeasons.MODID, "prepare_all_year"));
+
+    /** Setting: put decorations up at all (on), or only keep the stock and take things down (off). */
+    public static final ISettingKey<BoolSetting> DECORATE = bool("decorate");
+    /** Settings: which kinds he puts up (all on by default). */
+    public static final ISettingKey<BoolSetting> KIND_WREATHS = bool("kind_wreaths");
+    public static final ISettingKey<BoolSetting> KIND_GARLANDS = bool("kind_garlands");
+    public static final ISettingKey<BoolSetting> KIND_LIGHTS = bool("kind_lights");
+    public static final ISettingKey<BoolSetting> KIND_TREE = bool("kind_tree");
 
     static final String NBT_ASSEMBLED = "cs_assembled";
     static final String NBT_DECORATIONS_UP = "cs_decorations_up";
@@ -122,6 +131,25 @@ public class BuildingDecorator extends AbstractBuilding {
     public boolean prepareAllYear() {
         final Boolean value = getSettingValueOrDefault(PREPARE_ALL_YEAR, Boolean.TRUE);
         return value == null || value;
+    }
+
+    private static ISettingKey<BoolSetting> bool(final String name) {
+        return new SettingKey<>(BoolSetting.class, ResourceLocation.fromNamespaceAndPath(ColonySeasons.MODID, name));
+    }
+
+    private boolean flag(final ISettingKey<BoolSetting> key) {
+        final Boolean value = getSettingValueOrDefault(key, Boolean.TRUE);
+        return value == null || value;
+    }
+
+    /** The "decorate" setting: false means he puts nothing up (he still prepares stock and takes everything down). */
+    public boolean decorateEnabled() {
+        return flag(DECORATE);
+    }
+
+    /** The kinds the hut's settings allow him to put up. */
+    public DecorKinds kinds() {
+        return new DecorKinds(flag(KIND_WREATHS), flag(KIND_GARLANDS), flag(KIND_LIGHTS), flag(KIND_TREE));
     }
 
     /** Batches assembled at this hut so far. */

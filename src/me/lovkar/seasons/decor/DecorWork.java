@@ -161,7 +161,7 @@ public final class DecorWork {
         if (hall != null) {
             order.add(Target.building(hall));
         }
-        final Target square = squareTarget(level, ledger, id);
+        final Target square = stock.kinds().tree() ? squareTarget(level, ledger, id) : null;
         if (square != null) {
             order.add(square);
         }
@@ -192,7 +192,7 @@ public final class DecorWork {
                 continue;
             }
             final DecorPlanner.Plan plan = DecorPlanner.plan(level, target.box(), hutLevel, SeasonsConfig.maxPerSide(), ledger, id,
-                    target.owner(), costs);
+                    target.owner(), costs, stock.kinds());
             if (!plan.loaded()) {
                 continue;
             }
@@ -346,7 +346,7 @@ public final class DecorWork {
             return Outcome.of(0, 0, false, "the building is gone or under construction: skipped");
         }
         final DecorPlanner.Plan plan = DecorPlanner.plan(level, target.box(), hutLevel, SeasonsConfig.maxPerSide(), ledger, colony,
-                target.owner(), SeasonsConfig.needsMaterials());
+                target.owner(), SeasonsConfig.needsMaterials(), stock.kinds());
         if (!plan.loaded()) {
             return Outcome.of(0, 0, false, "waiting for the building's chunks to load");
         }
@@ -502,7 +502,7 @@ public final class DecorWork {
         final IItemHandler store = hut.getItemHandlerCap();
         final Level level = hut.getColony().getWorld();
         final BlockPos at = worker == null ? hut.getPosition() : worker.blockPosition();
-        return handlers(level, at, pack, store);
+        return DecorPlacer.Stock.withKinds(handlers(level, at, pack, store), hut.kinds());
     }
 
     /** Where the sweep puts what it takes down: the colony's first Decorator hut, staffed or not; none: lost (counted). */
