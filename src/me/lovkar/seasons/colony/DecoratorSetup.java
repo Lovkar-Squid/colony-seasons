@@ -84,6 +84,7 @@ public final class DecoratorSetup {
                     .addBuildingModuleProducer(DecoratorModules.INFO)
                     .addBuildingModuleProducer(DecoratorModules.SETTINGS)
                     .addBuildingModuleProducer(DecoratorModules.STOCK)
+                    .addBuildingModuleProducer(DecoratorModules.STORAGE)
                     .createBuildingEntry());
 
     /** The map the Decorator speaks with, by the job it was borrowed from; empty until common setup ran. */

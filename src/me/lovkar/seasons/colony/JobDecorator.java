@@ -80,6 +80,27 @@ public class JobDecorator extends AbstractJob<EntityAIWorkDecorator, JobDecorato
         giftsHanded++;
     }
 
+    private int finishedRequests;
+    private int finishedCancelled;
+
+    /** Requests for finished decorations he made that a warehouse or courier took, since the server started (S10e). */
+    public int finishedRequests() {
+        return finishedRequests;
+    }
+
+    public void countFinishedRequest() {
+        finishedRequests++;
+    }
+
+    /** Requests for finished decorations he cancelled because the player or the retrying resolver held them (S10e). */
+    public int finishedCancelled() {
+        return finishedCancelled;
+    }
+
+    public void countFinishedCancelled() {
+        finishedCancelled++;
+    }
+
     /**
      * What he is doing, as a lang key of {@link DecoratorTexts} plus its arguments; the hut window translates it for
      * each player. This text is for logs and probes: the key, then the arguments in brackets.

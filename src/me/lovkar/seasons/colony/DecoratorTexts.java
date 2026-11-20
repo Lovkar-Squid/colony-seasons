@@ -19,6 +19,8 @@ public final class DecoratorTexts {
     public static final String ASSEMBLED = "com.colony_seasons.status.assembled";
     public static final String NO_ROOM = "com.colony_seasons.status.no_room";
     public static final String WAITING_MATERIALS = "com.colony_seasons.status.waiting_materials";
+    /** S10e: finished pieces asked for from the warehouse; arguments: how many, the item. */
+    public static final String FETCHING = "com.colony_seasons.status.fetching";
     public static final String DECORATING_OFF = "com.colony_seasons.status.decorating_off";
     public static final String TENDING_AT = "com.colony_seasons.status.tending_at";
     public static final String DAY_LIMIT_DECORATING = "com.colony_seasons.status.day_limit_decorating";

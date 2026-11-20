@@ -6,6 +6,8 @@ import com.minecolonies.api.colony.buildings.modules.settings.ISettingKey;
 import com.minecolonies.core.colony.buildings.AbstractBuilding;
 import com.minecolonies.core.colony.buildings.modules.settings.BoolSetting;
 import com.minecolonies.core.colony.buildings.modules.settings.SettingKey;
+import com.minecolonies.core.tileentities.TileEntityColonyBuilding;
+import com.minecolonies.core.tileentities.TileEntityRack;
 import me.lovkar.seasons.ColonySeasons;
 import me.lovkar.seasons.decor.DecorKinds;
 import net.minecraft.core.BlockPos;
@@ -14,6 +16,9 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.neoforged.neoforge.items.IItemHandler;
 import org.jetbrains.annotations.NotNull;
 
@@ -51,6 +56,14 @@ public class BuildingDecorator extends AbstractBuilding {
     public static final ISettingKey<BoolSetting> KIND_GARLANDS = bool("kind_garlands");
     public static final ISettingKey<BoolSetting> KIND_LIGHTS = bool("kind_lights");
     public static final ISettingKey<BoolSetting> KIND_TREE = bool("kind_tree");
+
+    /**
+     * The storage upgrade (S10e), the same as MineColonies' Warehouse: {@link #MAX_STORAGE_STEP} steps of one emerald
+     * block each, offered only once the hut is at {@link #STORAGE_UPGRADE_LEVEL} (the Warehouse offers it at its max
+     * level); each step makes every rack one row of nine slots larger (27, 36, 45, 54).
+     */
+    public static final int MAX_STORAGE_STEP = 3;
+    public static final int STORAGE_UPGRADE_LEVEL = MAX_LEVEL;
 
     static final String NBT_ASSEMBLED = "cs_assembled";
     static final String NBT_DECORATIONS_UP = "cs_decorations_up";
@@ -196,6 +209,55 @@ public class BuildingDecorator extends AbstractBuilding {
         if (decorationsUp != up) {
             decorationsUp = up;
             markDirty();
+        }
+    }
+
+    // ---------------------------------------------------------------- the storage upgrade (S10e)
+
+    /** Storage steps paid for (0 when the module is somehow missing). */
+    public int storageStep() {
+        final DecoratorStorageModule storage = getModule(DecoratorModules.STORAGE);
+        return storage == null ? 0 : storage.step();
+    }
+
+    /** True when the hut window may offer the next storage step: built, at the upgrade level, a step left. */
+    public boolean canUpgradeStorage() {
+        return isBuilt() && getBuildingLevel() >= STORAGE_UPGRADE_LEVEL && storageStep() < MAX_STORAGE_STEP;
+    }
+
+    /**
+     * One storage step, as MineColonies' {@code BuildingWareHouse.upgradeContainers}: every rack of the hut (not the
+     * hut block itself) grows by one row, then the step is counted and the building saved. The price is taken before
+     * this is called ({@link me.lovkar.seasons.network.UpgradeStoragePayload}). Nothing happens past the last step.
+     */
+    public void upgradeStorage(final Level level) {
+        final DecoratorStorageModule storage = getModule(DecoratorModules.STORAGE);
+        if (storage == null || storage.step() >= MAX_STORAGE_STEP) {
+            return;
+        }
+        for (final BlockPos pos : getContainers()) {
+            final BlockEntity entity = level.getBlockEntity(pos);
+            if (entity instanceof TileEntityRack rack && !(entity instanceof TileEntityColonyBuilding)) {
+                rack.upgradeRackSize();
+            }
+        }
+        storage.increment();
+        markDirty();
+    }
+
+    /**
+     * A rack that joins the hut after a storage upgrade (a new level's racks, one the player puts in) comes in at the
+     * paid size, as a rack put into an upgraded Warehouse does. Never marks a rack as a warehouse rack.
+     */
+    @Override
+    public void registerBlockPosition(final @NotNull Block block, final @NotNull BlockPos pos, final @NotNull Level world) {
+        super.registerBlockPosition(block, pos, world);
+        final BlockEntity entity = world.getBlockEntity(pos);
+        if (entity instanceof TileEntityRack rack && !(entity instanceof TileEntityColonyBuilding)) {
+            final int step = storageStep();
+            while (rack.getUpgradeSize() < step) {
+                rack.upgradeRackSize();
+            }
         }
     }
 

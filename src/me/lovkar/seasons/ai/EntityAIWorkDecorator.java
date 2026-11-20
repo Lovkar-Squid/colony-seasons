@@ -1,11 +1,22 @@
 package me.lovkar.seasons.ai;
 
+import com.google.common.reflect.TypeToken;
+import com.minecolonies.api.colony.requestsystem.manager.IRequestManager;
+import com.minecolonies.api.colony.requestsystem.request.IRequest;
+import com.minecolonies.api.colony.requestsystem.request.RequestState;
+import com.minecolonies.api.colony.requestsystem.requestable.Stack;
+import com.minecolonies.api.colony.requestsystem.resolver.IRequestResolver;
+import com.minecolonies.api.colony.requestsystem.resolver.player.IPlayerRequestResolver;
+import com.minecolonies.api.colony.requestsystem.resolver.retrying.IRetryingRequestResolver;
+import com.minecolonies.api.colony.requestsystem.token.IToken;
 import com.minecolonies.api.entity.ai.statemachine.AITarget;
 import com.minecolonies.api.entity.ai.statemachine.states.AIWorkerState;
 import com.minecolonies.api.entity.ai.statemachine.states.IAIState;
 import com.minecolonies.api.util.InventoryUtils;
+import com.minecolonies.api.util.ItemStackUtils;
 import com.minecolonies.core.entity.ai.workers.AbstractEntityAIInteract;
 import com.minecolonies.core.entity.pathfinding.navigation.EntityNavigationUtils;
+import me.lovkar.seasons.ColonySeasons;
 import me.lovkar.seasons.SeasonsConfig;
 import me.lovkar.seasons.block.FestivalMarkerBlock;
 import me.lovkar.seasons.calendar.CalendarManager;
@@ -18,6 +29,7 @@ import me.lovkar.seasons.decor.DecorPlacer;
 import me.lovkar.seasons.decor.DecorWork;
 import me.lovkar.seasons.decor.Kits;
 import me.lovkar.seasons.decor.PieceLoader;
+import me.lovkar.seasons.decor.Supply;
 import me.lovkar.seasons.festival.Fireworks;
 import me.lovkar.seasons.festival.Gathering;
 import me.lovkar.seasons.festival.Gifts;
@@ -37,6 +49,7 @@ import net.neoforged.neoforge.items.ItemHandlerHelper;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -109,6 +122,12 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
     public static final int ASSEMBLY_DELAY_MIN = 20;
     /** When neither the hut nor his pack has room for a batch, he waits this long before he looks again. */
     public static final int FULL_DELAY = 600;
+    /**
+     * After the warehouse could not take a request for a finished piece (it went to the player or the retrying
+     * resolver and was cancelled), the warehouses count as holding none of that item for this many ticks, so he makes
+     * it from ingredients instead of asking again on every pass.
+     */
+    public static final int REFUSED_TICKS = 2400;
 
     /** Decisions spent walking to a building before he works from where he stands (the rules do not need him there). */
     public static final int WALK_ATTEMPTS_OUT = 40;
@@ -134,6 +153,8 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
     private long nextGift;
     private long thankedDay = -1;
     private final java.util.Set<Integer> thanked = new java.util.HashSet<>();
+    // a cache only (S10e): until when the warehouses count as holding none of an item they could not deliver
+    private final Map<Item, Long> refusedUntil = new HashMap<>();
 
     public EntityAIWorkDecorator(final @NotNull JobDecorator job) {
         super(job);
@@ -204,20 +225,48 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
     }
 
     /**
-     * One look at every kit below the cap: ask for what is missing, then assemble the first one a whole batch of
-     * which is in his pack.
+     * One look at every kit below the cap, in the owner's supply order (S10e, {@link Supply}): what his own storage
+     * holds counts first; for the gap he asks the warehouse for finished pieces it holds; only for what is still
+     * missing are the kit's ingredients asked for. Then he assembles the first kit a whole batch of which is in his pack.
      */
     private IAIState prepare() {
         final IItemHandler pack = worker.getInventoryCitizen();
         final int cap = building.stockCap();
+        dropPlayerFinished();
         final List<Kits.Kit> wanted = new ArrayList<>();
+        boolean below = false;
+        Item fetching = null;
+        int fetchingCount = 0;
         for (final Kits.Kit kit : Kits.all()) {
-            if (Kits.wanted(building.stock(kit.output()), kit.count(), cap)) {
+            final Item output = kit.output();
+            final int have = building.stock(output);
+            final int inflight = openFinished(output);
+            if (!Kits.wanted(have + inflight, kit.count(), cap)) {
+                continue;
+            }
+            below = true;
+            final Supply.Plan plan = Supply.plan(have, inflight, heldInWarehouses(output), kit.count(), cap);
+            final boolean requested = plan.finished() > 0 && requestFinished(output, plan.finished());
+            if (requested) {
+                fetching = output;
+                fetchingCount = plan.finished();
+            } else if (inflight > 0 && fetching == null) {
+                fetching = output;
+                fetchingCount = inflight;
+            }
+            // a finished request the warehouse did not take (cancelled at once) leaves the gap to the ingredients
+            if (plan.ingredients() || plan.finished() > 0 && !requested) {
                 wanted.add(kit);
             }
         }
-        if (wanted.isEmpty()) {
+        if (!below) {
             job.setStatus(Kits.all().isEmpty() ? DecoratorTexts.NO_KITS : DecoratorTexts.STOCK_FULL);
+            walkToBuilding();
+            return AIWorkerState.START_WORKING;
+        }
+        if (wanted.isEmpty()) {
+            // every kit below the cap is on its way from the warehouse: nothing to order or make
+            job.setStatus(DecoratorTexts.FETCHING, fetchingCount, itemId(fetching));
             walkToBuilding();
             return AIWorkerState.START_WORKING;
         }
@@ -234,9 +283,111 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
                 return DecoratorState.ASSEMBLE;
             }
         }
-        job.setStatus(DecoratorTexts.WAITING_MATERIALS);
+        if (fetching != null) {
+            job.setStatus(DecoratorTexts.FETCHING, fetchingCount, itemId(fetching));
+        } else {
+            job.setStatus(DecoratorTexts.WAITING_MATERIALS);
+        }
         walkToBuilding();
         return AIWorkerState.START_WORKING;
+    }
+
+    // ---------------------------------------------------------------- finished pieces from the warehouse (S10e)
+
+    /**
+     * How many of {@code output} his open requests for the finished item still wait for (asked for, not yet delivered).
+     * Read from the request system on every pass, never kept here.
+     */
+    private int openFinished(final Item output) {
+        int total = 0;
+        for (final IRequest<? extends Stack> request : building.getOpenRequestsOfTypeFiltered(worker.getCitizenData(),
+                TypeToken.of(Stack.class), r -> r.getRequest().getStack().is(output))) {
+            total += request.getRequest().getCount();
+        }
+        return total;
+    }
+
+    /**
+     * What the colony's warehouses hold of {@code output}, as far as the supply order may use it: 0 for a while after
+     * the warehouse could not deliver a request for it (the stack was held for someone else, say), so that he orders
+     * the ingredients instead of asking again and again.
+     */
+    private int heldInWarehouses(final Item output) {
+        final Long until = refusedUntil.get(output);
+        if (until != null && world.getGameTime() < until) {
+            return 0;
+        }
+        return Supply.held(building.getColony(), output);
+    }
+
+    /**
+     * A request for {@code count} finished pieces, delivered by a courier from the warehouse. The building may not
+     * resolve it from its own racks (those are already counted as his stock). Made only after {@link Supply#held}
+     * found them in a warehouse, in the same tick; if the request system still hands it to the player or to the
+     * retrying resolver, it is cancelled at once, so the player is never left a request to fill for a finished piece.
+     *
+     * @return true when the request stands with a warehouse or a courier
+     */
+    private boolean requestFinished(final Item output, final int count) {
+        final ICitizenData data = worker.getCitizenData();
+        if (data == null || count <= 0) {
+            return false;
+        }
+        final IToken<?> token = data.createRequestAsync(
+                new Stack(new ItemStack(output), true, true, ItemStackUtils.EMPTY, count, 1, false));
+        if (token == null) {
+            return false;
+        }
+        if (cancelIfPlayerHeld(token, output)) {
+            return false;
+        }
+        job.countFinishedRequest();
+        return true;
+    }
+
+    /**
+     * Once a pass: every open request of his for a finished kit output that the player or the retrying resolver
+     * holds is cancelled (it was handed on after its warehouse emptied, or was never taken). Requests a warehouse or
+     * a courier holds are left alone, and so are the ingredient, rocket and square requests.
+     */
+    private void dropPlayerFinished() {
+        final ICitizenData data = worker.getCitizenData();
+        if (data == null) {
+            return;
+        }
+        final List<IRequest<? extends Stack>> finished = new ArrayList<>();
+        for (final Kits.Kit kit : Kits.all()) {
+            final Item output = kit.output();
+            finished.addAll(building.getOpenRequestsOfTypeFiltered(data, TypeToken.of(Stack.class),
+                    r -> r.getRequest().getStack().is(output)));
+        }
+        for (final IRequest<? extends Stack> request : finished) {
+            cancelIfPlayerHeld(request.getId(), request.getRequest().getStack().getItem());
+        }
+    }
+
+    /** Cancels the request when the player's or the retrying resolver holds it; true when it did. */
+    private boolean cancelIfPlayerHeld(final IToken<?> token, final Item output) {
+        final IRequestManager manager = building.getColony().getRequestManager();
+        final IRequestResolver<?> resolver;
+        try {
+            resolver = manager.getResolverForRequest(token);
+        } catch (final IllegalArgumentException unassigned) {
+            return false;
+        }
+        if (!(resolver instanceof IPlayerRequestResolver) && !(resolver instanceof IRetryingRequestResolver)) {
+            return false;
+        }
+        try {
+            manager.updateRequestState(token, RequestState.CANCELLED);
+        } catch (final IllegalArgumentException gone) {
+            return false;
+        }
+        refusedUntil.put(output, world.getGameTime() + REFUSED_TICKS);
+        job.countFinishedCancelled();
+        ColonySeasons.LOGGER.debug("Decorator's request for finished {} went to {}: cancelled",
+                itemId(output), resolver.getClass().getSimpleName());
+        return true;
     }
 
     /**
@@ -286,8 +437,9 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
     private IAIState assembleNow(final Kits.Kit kit) {
         final IItemHandler pack = worker.getInventoryCitizen();
         final IItemHandler hut = building.getItemHandlerCap();
+        // what is on its way from the warehouse counts as stock here too (S10e): the batch is made only for the rest
         if (!SeasonsConfig.needsMaterials() || !Kits.hasBatch(pack, kit)
-                || !Kits.wanted(building.stock(kit.output()), kit.count(), building.stockCap())) {
+                || !Kits.wanted(building.stock(kit.output()) + openFinished(kit.output()), kit.count(), building.stockCap())) {
             return AIWorkerState.START_WORKING;
         }
         final ItemStack output = new ItemStack(kit.output(), kit.count());

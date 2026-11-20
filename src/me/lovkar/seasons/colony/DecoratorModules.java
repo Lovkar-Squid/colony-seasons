@@ -50,6 +50,13 @@ public final class DecoratorModules {
     public static final BuildingEntry.ModuleProducer<DecoratorStockModule, IBuildingModuleView> STOCK =
             new BuildingEntry.ModuleProducer<>("decorator_stock", DecoratorStockModule::new, null);
 
+    /**
+     * The Workshop's storage upgrade (S10e): the step paid for, saved with the building, and its window tab with the
+     * "Upgrade Storage" button (client view: {@link DecoratorStorageModuleView}).
+     */
+    public static final BuildingEntry.ModuleProducer<DecoratorStorageModule, DecoratorStorageModuleView> STORAGE =
+            new BuildingEntry.ModuleProducer<>("decorator_storage", DecoratorStorageModule::new, () -> DecoratorStorageModuleView::new);
+
     private DecoratorModules() {
     }
 }
