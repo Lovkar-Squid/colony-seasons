@@ -1136,23 +1136,33 @@ public class CsStorage {
                 cancelAll();
                 ownTo(wreath, hut.stockCap() - 10);
                 warehouseTo(wreath, 0);
-                marks[0] = job().decisions();
-                marks[1] = job().finishedCancelled();
-                forced[0] = decorator.createRequestAsync(new Stack(new ItemStack(wreath), true, true, ItemStackUtils.EMPTY, 4, 1, false));
-                final IRequestResolver<?> resolver = resolverOf(forced[0]);
-                note("(b3) the forced request went to {}", name(resolver));
-                check("(b3) with an empty warehouse the request lands with the player or the retrying resolver",
-                        resolver instanceof IPlayerRequestResolver || resolver instanceof IRetryingRequestResolver, name(resolver));
+                marks[2] = job().decisions();
             }
 
             @Override
             boolean tick() {
+                // forced right after one of his decisions (from the review): (b2) may end just after a batch, and the
+                // pause after a batch (up to ASSEMBLY_DELAY) plus a pass is longer than PLAYER_HELD_LIMIT, so forcing it
+                // at once measured that pause, not the one pass the rule promises
+                if (forced[0] == null) {
+                    if (job().decisions() > marks[2]) {
+                        marks[0] = job().decisions();
+                        marks[1] = job().finishedCancelled();
+                        forced[0] = decorator.createRequestAsync(new Stack(new ItemStack(wreath), true, true, ItemStackUtils.EMPTY, 4, 1, false));
+                        final IRequestResolver<?> resolver = resolverOf(forced[0]);
+                        note("(b3) the forced request went to {}", name(resolver));
+                        check("(b3) with an empty warehouse the request lands with the player or the retrying resolver",
+                                resolver instanceof IPlayerRequestResolver || resolver instanceof IRetryingRequestResolver, name(resolver));
+                    }
+                    return false;
+                }
                 return job().decisions() - marks[0] >= 2;
             }
 
             @Override
             void end(final boolean done) {
-                final boolean open = finishedRequests(wreath).stream().anyMatch(r -> r.getId().equals(forced[0]));
+                final boolean open = forced[0] == null
+                        || finishedRequests(wreath).stream().anyMatch(r -> r.getId().equals(forced[0]));
                 check("(b3) it is cancelled within one pass", done && !open, "open " + open + " after " + t + " ticks, "
                         + (job().decisions() - marks[0]) + " decisions");
                 checkEq("(b3) he counted the cancel", job().finishedCancelled() - marks[1], 1);
@@ -1161,29 +1171,37 @@ public class CsStorage {
         // from the review: the same while he does not prepare at all (prepare all year off, the window closed), where a
         // request handed on to the player used to wait until the next window
         final IToken<?>[] forcedIdle = new IToken<?>[1];
-        final int[] marksIdle = new int[2];
+        final int[] marksIdle = new int[3];
         step(new Step("(b4) a finished request the player would hold while he does not prepare", 600) {
             @Override
             void start() {
                 cancelAll();
                 setPrepareAllYear(false);
                 warehouseTo(wreath, 0);
-                marksIdle[0] = job().decisions();
-                marksIdle[1] = job().finishedCancelled();
-                forcedIdle[0] = decorator.createRequestAsync(new Stack(new ItemStack(wreath), true, true, ItemStackUtils.EMPTY, 4, 1, false));
-                final IRequestResolver<?> resolver = resolverOf(forcedIdle[0]);
-                check("(b4) the forced request lands with the player or the retrying resolver",
-                        resolver instanceof IPlayerRequestResolver || resolver instanceof IRetryingRequestResolver, name(resolver));
+                marksIdle[2] = job().decisions();
             }
 
             @Override
             boolean tick() {
+                if (forcedIdle[0] == null) {
+                    if (job().decisions() > marksIdle[2]) {          // right after a decision, as in (b3)
+                        marksIdle[0] = job().decisions();
+                        marksIdle[1] = job().finishedCancelled();
+                        forcedIdle[0] = decorator.createRequestAsync(
+                                new Stack(new ItemStack(wreath), true, true, ItemStackUtils.EMPTY, 4, 1, false));
+                        final IRequestResolver<?> resolver = resolverOf(forcedIdle[0]);
+                        check("(b4) the forced request lands with the player or the retrying resolver",
+                                resolver instanceof IPlayerRequestResolver || resolver instanceof IRetryingRequestResolver, name(resolver));
+                    }
+                    return false;
+                }
                 return job().decisions() - marksIdle[0] >= 2;
             }
 
             @Override
             void end(final boolean done) {
-                final boolean open = finishedRequests(wreath).stream().anyMatch(r -> r.getId().equals(forcedIdle[0]));
+                final boolean open = forcedIdle[0] == null
+                        || finishedRequests(wreath).stream().anyMatch(r -> r.getId().equals(forcedIdle[0]));
                 check("(b4) he does not prepare: the window is closed and prepare all year is off",
                         job().status().contains("window_only"), job().status());
                 check("(b4) it is cancelled within one decision", done && !open, "open " + open + " after " + t + " ticks, "
