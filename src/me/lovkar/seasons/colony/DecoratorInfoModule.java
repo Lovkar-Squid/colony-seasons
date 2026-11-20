@@ -3,6 +3,7 @@ package me.lovkar.seasons.colony;
 import com.minecolonies.api.colony.ICitizenData;
 import com.minecolonies.api.colony.IColony;
 import com.minecolonies.api.colony.buildings.modules.AbstractBuildingModule;
+import com.minecolonies.api.colony.buildings.modules.ITickingModule;
 import me.lovkar.seasons.SeasonsConfig;
 import me.lovkar.seasons.calendar.CalendarManager;
 import me.lovkar.seasons.calendar.Festival;
@@ -29,11 +30,27 @@ import java.util.List;
  * <p>The packet {@link #serializeToView} writes is read by {@link DecoratorInfoModuleView#deserialize} field for field;
  * tools/check_packets.py compares the two. Strings are lang keys, ids and plain numbers only: the window does the
  * translating, so each player reads it in their own language.</p>
+ *
+ * <p>MineColonies sends a hut's page again only when the hut is marked dirty. Every colony tick (about every 25
+ * seconds) this module reads the page and marks the hut when anything on it differs from the last reading: a new day,
+ * a new season, a festival, the stock. Nothing changed, nothing is sent.</p>
  */
-public class DecoratorInfoModule extends AbstractBuildingModule {
+public class DecoratorInfoModule extends AbstractBuildingModule implements ITickingModule {
 
     /** The most kit rows and missing-ingredient rows a packet carries (a datapack can add kits). */
     public static final int MAX_ROWS = 24;
+
+    /** The page as the last colony tick read it (never saved: after a restart the first tick sends it once). */
+    private Info lastSeen;
+
+    @Override
+    public void onColonyTick(final @NotNull IColony colony) {
+        final Info now = read();
+        if (!now.equals(lastSeen)) {
+            lastSeen = now;
+            markDirty();
+        }
+    }
 
     @Override
     public void serializeToView(final @NotNull RegistryFriendlyByteBuf buf) {

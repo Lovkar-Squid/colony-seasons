@@ -13,7 +13,7 @@
     <list id="lines" size="168 205" pos="11 31"
           emptytext="$(com.colony_seasons.gui.info.no_calendar)" emptycolor="black">
         <box size="100% 9" linewidth="0">
-            <text id="line" size="164 9" pos="2 1" color="black" textscale="0.8"/>
+            <text id="line" size="156 9" pos="2 1" color="black" textscale="0.8" wrap="false"/>
         </box>
     </list>
 </window>

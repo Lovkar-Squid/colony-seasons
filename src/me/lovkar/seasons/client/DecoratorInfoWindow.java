@@ -36,14 +36,20 @@ import java.util.Optional;
  *
  * <p>The page follows the server while it is open: when the view's info changes (a new packet), the rows are made
  * again (S9, the S8 hand-off). Each row of the layout holds one visual line: a line wider than a row is cut by the
- * client's font into as many rows as it needs, so nothing is cut off; if that fails, the line goes in as it is.</p>
+ * client's font, at a word, into as many rows as it needs, so nothing is cut off; if that fails, the line goes in as it
+ * is. The server sends the page again when anything on it changes ({@link DecoratorInfoModule#onColonyTick}).</p>
  */
 public class DecoratorInfoWindow extends AbstractModuleWindow<DecoratorInfoModuleView> {
 
     private static final ResourceLocation LAYOUT = ResourceLocation.fromNamespaceAndPath(ColonySeasons.MODID, "gui/decorator_info.xml");
 
-    /** A row's text width in font units: the layout's 164 px text box at its text scale 0.8. */
-    static final int ROW_WIDTH = 205;
+    /**
+     * A row's text width in font units. The list is 168 px wide, but BlockUI's scrolling list keeps 8 px of it for the
+     * scrollbar, so a row shows 160 px; the layout's text pane is 156 px at x 2 with text scale 0.8, which is 195 font
+     * units, and a row is filled to a little less so the last letter is never cut (tools/check_windows.py keeps the
+     * three in step). The pane does not wrap: these rows are already one visual line each.
+     */
+    static final int ROW_WIDTH = 192;
 
     private List<Component> rows;
     private DecoratorInfoModule.Info shown;
