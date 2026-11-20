@@ -92,9 +92,13 @@ public final class DecorLedger extends SavedData {
     public record Located(int colony, Owner owner, Entry entry) {
     }
 
-    /** A copy of one group; {@code chargedDay} is the colony's budget day when this owner was counted on it, else -1. */
+    /**
+     * A copy of one group; {@code chargedDay} is the colony's budget day when this owner was counted on it, else -1.
+     * {@code treeDay} (the square only): the game day the cells of the tree itself were all up, else -1 (S10c: the
+     * tree is ready to light then, whatever else of the square is still open).
+     */
     public record GroupView(Owner owner, String festival, int level, String piece, long decoratedDay, long tendedDay,
-                            long chargedDay, boolean removing, Map<BlockPos, Entry> entries) {
+                            long chargedDay, boolean removing, Map<BlockPos, Entry> entries, long treeDay) {
         public int size() {
             return entries.size();
         }
@@ -107,6 +111,7 @@ public final class DecorLedger extends SavedData {
         String piece = "";
         long decoratedDay = -1;
         long tendedDay = -1;
+        long treeDay = -1;
         boolean removing;
         final LinkedHashMap<BlockPos, Entry> entries = new LinkedHashMap<>();
 
@@ -117,9 +122,15 @@ public final class DecorLedger extends SavedData {
         GroupView view(final ColonyRecord record) {
             final long chargedDay = record.charged.contains(owner) ? record.budgetDay : -1;
             return new GroupView(owner, festival, level, piece, decoratedDay, tendedDay, chargedDay, removing,
-                    Collections.unmodifiableMap(new LinkedHashMap<>(entries)));
+                    Collections.unmodifiableMap(new LinkedHashMap<>(entries)), treeDay);
         }
     }
+
+    /** One target's fruitless visits on one game day (S10c); kept in memory only, never saved. */
+    private record Fruit(int colony, Owner owner) {
+    }
+
+    private final Map<Fruit, long[]> fruitless = new HashMap<>();
 
     private static final class ColonyRecord {
         long budgetDay = -1;
@@ -266,6 +277,7 @@ public final class DecorLedger extends SavedData {
         }
         if (!group.piece.equals(newPiece)) {
             group.piece = newPiece;
+            group.treeDay = -1;                       // a new piece: its tree is not up yet
             changed = true;
         }
         if (changed) {
@@ -302,6 +314,41 @@ public final class DecorLedger extends SavedData {
             group.decoratedDay = day;
             setDirty();
         }
+    }
+
+    /**
+     * The cells of the square's tree are all up on game day {@code day}: noted once (only while it is -1), so a leaf
+     * broken later never makes a lit tree unready; a new piece clears it ({@link #plan}).
+     */
+    public void setTreeReady(final int colony, final Owner owner, final long day) {
+        final Group group = group(colony, owner, false);
+        if (group != null && group.treeDay < 0) {
+            group.treeDay = day;
+            setDirty();
+        }
+    }
+
+    // ---------------------------------------------------------------- fruitless visits (S10c), in memory only
+
+    /** Fruitless visits to this target on game day {@code day} (0 on any other day). */
+    public int fruitless(final int colony, final Owner owner, final long day) {
+        final long[] at = fruitless.get(new Fruit(colony, owner));
+        return at == null || at[0] != day ? 0 : (int) at[1];
+    }
+
+    /** One more fruitless visit on game day {@code day} (a new day starts again at 1); returns the count now. */
+    public int addFruitless(final int colony, final Owner owner, final long day) {
+        final long[] at = fruitless.computeIfAbsent(new Fruit(colony, owner), k -> new long[] {day, 0});
+        if (at[0] != day) {
+            at[0] = day;
+            at[1] = 0;
+        }
+        return (int) ++at[1];
+    }
+
+    /** A visit placed something: the count starts again. */
+    public void clearFruitless(final int colony, final Owner owner) {
+        fruitless.remove(new Fruit(colony, owner));
     }
 
     public void setTended(final int colony, final Owner owner, final long day) {
@@ -667,6 +714,7 @@ public final class DecorLedger extends SavedData {
         tag.putString("piece", group.piece);
         tag.putLong("decoratedDay", group.decoratedDay);
         tag.putLong("tendedDay", group.tendedDay);
+        tag.putLong("treeDay", group.treeDay);
         tag.putBoolean("removing", group.removing);
         final List<BlockState> palette = new ArrayList<>();
         final Map<BlockState, Integer> indexOf = new HashMap<>();
@@ -775,6 +823,8 @@ public final class DecorLedger extends SavedData {
         group.piece = tag.getString("piece");
         group.decoratedDay = tag.contains("decoratedDay") ? tag.getLong("decoratedDay") : -1;
         group.tendedDay = tag.contains("tendedDay") ? tag.getLong("tendedDay") : -1;
+        // a file of an earlier build knew no treeDay: a square it marked decorated had its whole tree up
+        group.treeDay = tag.contains("treeDay") ? tag.getLong("treeDay") : group.decoratedDay;
         if (oldFile && tag.contains("chargedDay") && tag.getLong("chargedDay") == record.budgetDay) {
             record.charged.add(owner);                // a file of an earlier build kept the day's count per group
         }

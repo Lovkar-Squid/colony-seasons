@@ -5,7 +5,9 @@ import com.minecolonies.api.entity.ai.statemachine.states.AIWorkerState;
 import com.minecolonies.api.entity.ai.statemachine.states.IAIState;
 import com.minecolonies.api.util.InventoryUtils;
 import com.minecolonies.core.entity.ai.workers.AbstractEntityAIInteract;
+import com.minecolonies.core.entity.pathfinding.navigation.EntityNavigationUtils;
 import me.lovkar.seasons.SeasonsConfig;
+import me.lovkar.seasons.block.FestivalMarkerBlock;
 import me.lovkar.seasons.calendar.CalendarManager;
 import me.lovkar.seasons.colony.BuildingDecorator;
 import me.lovkar.seasons.colony.DecoratorTexts;
@@ -15,6 +17,7 @@ import me.lovkar.seasons.decor.DecorPhase;
 import me.lovkar.seasons.decor.DecorPlacer;
 import me.lovkar.seasons.decor.DecorWork;
 import me.lovkar.seasons.decor.Kits;
+import me.lovkar.seasons.decor.PieceLoader;
 import me.lovkar.seasons.festival.Fireworks;
 import me.lovkar.seasons.festival.Gathering;
 import me.lovkar.seasons.festival.Gifts;
@@ -28,6 +31,7 @@ import net.minecraft.world.item.Items;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.phys.AABB;
 import net.neoforged.neoforge.items.IItemHandler;
 import net.neoforged.neoforge.items.ItemHandlerHelper;
 import org.jetbrains.annotations.NotNull;
@@ -550,10 +554,20 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
     /** At the tree through the gathering hours: every {@link #GIFT_TICKS} ticks a gift to a colonist who has none today. */
     private IAIState host(final ServerLevel level) {
         final BlockPos site = Gathering.site(level, building.getColony());
-        final List<BlockPos> spots = Gathering.spots(level, building.getColony(), site);
-        if (!spots.isEmpty() && !walkToSafePos(spots.get(0)) && ++walkAttempts < WALK_ATTEMPTS_OUT) {
-            job.setStatus(DecoratorTexts.ON_WAY_GATHERING);
-            return DecoratorState.HOSTING;
+        // at the tree: on the ring outside the square's box, walked to the block (S10c: MineColonies' safe walk stops up
+        // to four blocks short, which is inside the box); without a square, the gathering's nearest spot
+        final BlockPos stand = standOutside(level, building.getPosition());
+        if (stand != null) {
+            if (!EntityNavigationUtils.walkToPos(worker, stand, 0, true) && ++walkAttempts < WALK_ATTEMPTS_OUT) {
+                job.setStatus(DecoratorTexts.ON_WAY_GATHERING);
+                return DecoratorState.HOSTING;
+            }
+        } else {
+            final List<BlockPos> spots = Gathering.spots(level, building.getColony(), site);
+            if (!spots.isEmpty() && !walkToSafePos(spots.get(0)) && ++walkAttempts < WALK_ATTEMPTS_OUT) {
+                job.setStatus(DecoratorTexts.ON_WAY_GATHERING);
+                return DecoratorState.HOSTING;
+            }
         }
         job.setStatus(DecoratorTexts.HOSTING);
         final long day = DecorWork.day(level);
@@ -588,6 +602,32 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
     }
 
     /**
+     * Where he waits for the show: the standing place nearest the launch site outside the square's box (S10c: never
+     * inside the tree), else two blocks south of the site as before.
+     */
+    private BlockPos launchStand(final ServerLevel level, final BlockPos site) {
+        final BlockPos stand = standOutside(level, site);
+        return stand != null ? stand : Gathering.standable(level, site.relative(Direction.SOUTH, 2));
+    }
+
+    /**
+     * The standing place outside the box of the colony's square nearest {@code from} ({@link DecorWork#squareStand}),
+     * or {@code null} without a standing festival marker or room round the tree.
+     */
+    private BlockPos standOutside(final ServerLevel level, final BlockPos from) {
+        final int colony = building.getColony().getID();
+        final DecorLedger ledger = ledger();
+        final BlockPos marker = ledger == null ? null : ledger.marker(colony);
+        if (marker == null || !level.hasChunkAt(marker) || !(level.getBlockState(marker).getBlock() instanceof FestivalMarkerBlock)) {
+            return null;
+        }
+        final Direction facing = level.getBlockState(marker).getValue(FestivalMarkerBlock.FACING);
+        final AABB box = DecorWork.squareBox(level, ledger, colony, marker, facing, PieceLoader.PACK,
+                DecorWork.squarePath(ledger, colony, marker, building.getBuildingLevel()));
+        return DecorWork.squareStand(level, box, marker, from);
+    }
+
+    /**
      * Launching, on the New Year days: he walks to the square and makes sure the show has its rockets, asking the
      * warehouse for the missing ones. By day he then goes back to the upkeep. Past bedtime he is only up because the
      * mixin keeps him for the show ({@link Fireworks#keepUp}): he stays at the square, launches the dusk show there
@@ -607,7 +647,7 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
         if (SeasonsConfig.needsMaterials() && rockets < Fireworks.SHOW_ROCKETS) {
             checkIfRequestForItemExistOrCreateAsync(new ItemStack(Items.FIREWORK_ROCKET), Fireworks.SHOW_ROCKETS, 1);
         }
-        final BlockPos stand = Gathering.standable(level, site.relative(Direction.SOUTH, 2));
+        final BlockPos stand = launchStand(level, site);
         if (stand != null && !walkToSafePos(stand) && ++walkAttempts < WALK_ATTEMPTS_OUT) {
             job.setStatus(DecoratorTexts.ON_WAY_SHOW);
             return DecoratorState.LAUNCHING;

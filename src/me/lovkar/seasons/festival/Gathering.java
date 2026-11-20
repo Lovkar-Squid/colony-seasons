@@ -13,9 +13,13 @@ import me.lovkar.seasons.ColonySeasons;
 import me.lovkar.seasons.SeasonsConfig;
 import me.lovkar.seasons.block.FestivalMarkerBlock;
 import me.lovkar.seasons.calendar.CalendarManager;
+import me.lovkar.seasons.colony.BuildingDecorator;
 import me.lovkar.seasons.colony.JobDecorator;
 import me.lovkar.seasons.decor.DecorLedger;
+import me.lovkar.seasons.decor.DecorWork;
+import me.lovkar.seasons.decor.PieceLoader;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundSource;
@@ -24,6 +28,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -159,17 +164,35 @@ public final class Gathering {
         return hall != null ? hall.getPosition() : colony.getCenter();
     }
 
-    /** The radius the tree takes round the site (the square's entries), at least 1. */
+    /**
+     * The radius the tree takes round the site, at least 1: the square's box (the cells of its piece and the ones its
+     * group lists, {@link DecorWork#squareBox}), so the gathering and the Decorator hosting stand outside the tree also
+     * before it is up (S10c: it went up round him).
+     */
     private static int treeRadius(final ServerLevel level, final IColony colony, final BlockPos site) {
         final DecorLedger ledger = DecorLedger.peek(level);
-        final DecorLedger.GroupView square = ledger == null ? null : ledger.group(colony.getID(), DecorLedger.Owner.square(site));
+        AABB box = null;
+        if (ledger != null && level.hasChunkAt(site) && level.getBlockState(site).getBlock() instanceof FestivalMarkerBlock) {
+            final Direction facing = level.getBlockState(site).getValue(FestivalMarkerBlock.FACING);
+            box = DecorWork.squareBox(level, ledger, colony.getID(), site, facing, PieceLoader.PACK,
+                    DecorWork.squarePath(ledger, colony.getID(), site, decoratorLevel(colony)));
+        }
         int r = 1;
-        if (square != null) {
-            for (final BlockPos pos : square.entries().keySet()) {
-                r = Math.max(r, Math.max(Math.abs(pos.getX() - site.getX()), Math.abs(pos.getZ() - site.getZ())));
-            }
+        if (box != null) {
+            r = Math.max(r, Math.max(Math.max(site.getX() - (int) Math.floor(box.minX), (int) Math.ceil(box.maxX) - 1 - site.getX()),
+                    Math.max(site.getZ() - (int) Math.floor(box.minZ), (int) Math.ceil(box.maxZ) - 1 - site.getZ())));
         }
         return Math.min(r, KEEP_RADIUS - 1);
+    }
+
+    /** The level of the colony's Decorator hut (the piece he would put up), or 0 without one. */
+    private static int decoratorLevel(final IColony colony) {
+        for (final IBuilding b : colony.getServerBuildingManager().getBuildings().values()) {
+            if (b instanceof BuildingDecorator hut) {
+                return hut.getBuildingLevel();
+            }
+        }
+        return 0;
     }
 
     /** Standing places round the site, nearest ring first: a solid floor and room for feet and head, not in the tree. */

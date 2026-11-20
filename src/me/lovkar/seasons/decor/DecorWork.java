@@ -12,21 +12,27 @@ import me.lovkar.seasons.SeasonsConfig;
 import me.lovkar.seasons.block.FestivalMarkerBlock;
 import me.lovkar.seasons.calendar.CalendarManager;
 import me.lovkar.seasons.colony.BuildingDecorator;
+import me.lovkar.seasons.festival.Gathering;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.items.IItemHandler;
 import net.neoforged.neoforge.items.ItemHandlerHelper;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * What the Decorator does, as calls the AI, the commands, the events and the placing probe share (design 4,
@@ -44,11 +50,26 @@ import java.util.Map;
  *   <li>{@link #nextToTakeDown} / {@link #takeDown}: one group at a time, by the removal rule, at most
  *       {@link #SQUARE_SLICE} cells a visit (the grand tree comes down over a few visits).</li>
  * </ul>
+ *
+ * <p>The square (S10c, from the third in-game test): he stands outside the piece's box while he builds or tends it
+ * ({@link #squareStand}), and a visit first moves every colonist out of the box ({@link #evict}); no block with
+ * collision goes into a cell an entity stands in. A target whose visits place nothing {@link #MAX_FRUITLESS_VISITS}
+ * times in a game day (a cell that cannot be filled now, such as a lantern on a planter cell the grass keeps) is left
+ * for the rest of that day, and he moves on to the next one; it is back in the order the next day. The tree is ready
+ * to light once the cells of the tree itself are up ({@link DecorLedger#setTreeReady}), whatever else of the square is
+ * still open.</p>
  */
 public final class DecorWork {
 
     /** Cells of the square placed per visit at most, and cells of any group taken down per visit at most. */
     public static final int SQUARE_SLICE = 256;
+    /**
+     * Visits in one game day that place nothing and leave cells open, before the target is left for the rest of that
+     * day (S10c: one cell that could not be filled kept him at the square a whole game day).
+     */
+    public static final int MAX_FRUITLESS_VISITS = 3;
+    /** He stands on a ring this many blocks outside the square's box at most (the nearest ring that has room). */
+    public static final int STAND_RING = 3;
 
     /**
      * One place to work on. {@code building} is null for the square and for a probe's pasted house; {@code stand}
@@ -67,7 +88,13 @@ public final class DecorWork {
         }
 
         public static Target square(final BlockPos marker, final Direction facing, final String pack) {
-            return new Target(DecorLedger.Owner.square(marker), new DoorFinder.Box(marker, marker, marker), null, marker, pack, facing);
+            return square(marker, facing, pack, marker);
+        }
+
+        /** The square with the place he stands at while he works on it (outside the piece's box, {@link #squareStand}). */
+        public static Target square(final BlockPos marker, final Direction facing, final String pack, final BlockPos stand) {
+            return new Target(DecorLedger.Owner.square(marker), new DoorFinder.Box(marker, marker, marker), null,
+                    stand == null ? marker : stand.immutable(), pack, facing);
         }
     }
 
@@ -178,6 +205,9 @@ public final class DecorWork {
             if (done) {
                 continue;
             }
+            if (ledger.fruitless(id, target.owner(), day) >= MAX_FRUITLESS_VISITS) {
+                continue;                             // left for the rest of today (S10c): the next one, back tomorrow
+            }
             // counted today already (also when its group was dropped since, as a work order does): no second slot
             final boolean chargedToday = ledger.chargedOn(id, target.owner(), day);
             if (!chargedToday && !budgetLeft) {
@@ -188,7 +218,7 @@ public final class DecorWork {
             }
             if (target.owner().kind() == DecorLedger.Kind.SQUARE) {
                 if (squareReady(level, ledger, id, target, hutLevel, stock)) {
-                    return target;
+                    return withStand(level, ledger, id, target, hutLevel, from);
                 }
                 continue;
             }
@@ -207,6 +237,126 @@ public final class DecorWork {
             }
         }
         return null;
+    }
+
+    /**
+     * The square target with its stand: the standing place nearest {@code from} on the nearest ring outside the box of
+     * the piece (the group's piece, else the one of this hut level) and of the group's entries; the marker itself only
+     * when there is no room round the tree.
+     */
+    public static Target withStand(final ServerLevel level, final DecorLedger ledger, final int colony, final Target square,
+                                   final int hutLevel, final BlockPos from) {
+        final BlockPos marker = square.owner().pos();
+        final AABB box = squareBox(level, ledger, colony, marker, square.facing(), square.pack(), squarePath(ledger, colony, marker, hutLevel));
+        final BlockPos stand = squareStand(level, box, marker, from);
+        return Target.square(marker, square.facing(), square.pack(), stand);
+    }
+
+    /** The piece path of the colony's square: the one its group was planned for, else the one of this hut level (0: none). */
+    public static String squarePath(final DecorLedger ledger, final int colony, final BlockPos marker, final int hutLevel) {
+        final DecorLedger.GroupView group = ledger.group(colony, DecorLedger.Owner.square(marker));
+        if (group != null && !group.piece().isEmpty()) {
+            return group.piece();
+        }
+        return hutLevel > 0 ? PieceLoader.pathFor(hutLevel) : null;
+    }
+
+    /**
+     * The box the square takes: the cells of its piece at the marker ({@code path}, when that piece is loaded) and the
+     * cells its group lists; {@code null} when neither is known yet.
+     */
+    public static AABB squareBox(final ServerLevel level, final DecorLedger ledger, final int colony, final BlockPos marker,
+                                 final Direction facing, final String pack, final String path) {
+        final PieceLoader.Piece piece = path == null ? null : PieceLoader.request(level, pack, path, facing);
+        return squareBox(ledger, colony, marker, piece);
+    }
+
+    /** The box of a known piece at the marker, joined with the group's entries. */
+    static AABB squareBox(final DecorLedger ledger, final int colony, final BlockPos marker, final PieceLoader.Piece piece) {
+        AABB box = null;
+        if (piece != null) {
+            box = new AABB(Vec3.atLowerCornerOf(marker.offset(piece.min())), Vec3.atLowerCornerOf(marker.offset(piece.max()).offset(1, 1, 1)));
+        }
+        final DecorLedger.GroupView group = ledger.group(colony, DecorLedger.Owner.square(marker));
+        if (group != null) {
+            for (final BlockPos pos : group.entries().keySet()) {
+                box = box == null ? new AABB(pos) : box.minmax(new AABB(pos));
+            }
+        }
+        return box;
+    }
+
+    /**
+     * Where he stands while he works at the square: a standing place ({@link Gathering#standable}) on the nearest ring
+     * 1 to {@link #STAND_RING} blocks outside the box's footprint, at the marker's height, the one nearest
+     * {@code from}; {@code null} without a box or room. Never loads a chunk.
+     */
+    public static BlockPos squareStand(final ServerLevel level, final AABB box, final BlockPos marker, final BlockPos from) {
+        if (box == null) {
+            return null;
+        }
+        final int x0 = (int) Math.floor(box.minX);
+        final int x1 = (int) Math.ceil(box.maxX) - 1;
+        final int z0 = (int) Math.floor(box.minZ);
+        final int z1 = (int) Math.ceil(box.maxZ) - 1;
+        for (int r = 1; r <= STAND_RING; r++) {
+            BlockPos best = null;
+            double bestD = Double.MAX_VALUE;
+            for (int x = x0 - r; x <= x1 + r; x++) {
+                for (int z = z0 - r; z <= z1 + r; z++) {
+                    if (x != x0 - r && x != x1 + r && z != z0 - r && z != z1 + r) {
+                        continue;                     // the ring only
+                    }
+                    final BlockPos stand = Gathering.standable(level, new BlockPos(x, marker.getY(), z));
+                    if (stand == null) {
+                        continue;
+                    }
+                    final double d = stand.distSqr(from);
+                    if (d < bestD || d == bestD && stand.compareTo(best) < 0) {
+                        best = stand;
+                        bestD = d;
+                    }
+                }
+            }
+            if (best != null) {
+                return best;
+            }
+        }
+        return null;
+    }
+
+    /** Colonists moved out of a square's box since the server started (the probe counts them). */
+    private static int evictions;
+
+    public static int evictions() {
+        return evictions;
+    }
+
+    /**
+     * Every colonist (the Decorator among them) whose body is in the square's box is moved to the nearest standing
+     * place outside it and his walk stopped, so the tree never goes up round him (S10c). One asleep in his bed, or
+     * riding something, is left; players and other entities are never moved (the cell rule keeps their cells open).
+     * Returns how many were moved.
+     */
+    public static int evict(final ServerLevel level, final AABB box, final BlockPos marker) {
+        if (box == null) {
+            return 0;
+        }
+        int moved = 0;
+        for (final AbstractEntityCitizen citizen : level.getEntitiesOfClass(AbstractEntityCitizen.class, box, Entity::isAlive)) {
+            if (citizen.isPassenger() || citizen.getCitizenSleepHandler() != null && citizen.getCitizenSleepHandler().isAsleep()) {
+                continue;
+            }
+            final BlockPos to = squareStand(level, box, marker, citizen.blockPosition());
+            if (to == null) {
+                continue;
+            }
+            citizen.teleportTo(to.getX() + 0.5, to.getY(), to.getZ() + 0.5);
+            citizen.getNavigation().stop();
+            moved++;
+            evictions++;
+        }
+        return moved;
     }
 
     /** The colony's square, if a marker is registered and still stands (or its chunk is not loaded). */
@@ -246,17 +396,18 @@ public final class DecorWork {
         if (first && !plan.fits()) {
             return true;
         }
-        return !plan.slots().isEmpty() && anyInStock(placeable(plan.slots()), stock);
+        return !plan.slots().isEmpty() && anyInStock(placeable(level, ledger, colony, plan.slots()), stock);
     }
 
     /**
      * The square's slots in the order they may go up: with {@code decorator.needsMaterials} on, a free cell (the gift
-     * pile, the firework crate, the large star, the tinsel leaves: {@link PieceLoader#costsItem} false) waits until no
-     * cell that costs an item is open, so the tree is built from its materials first and nothing free stands on its own
-     * (S9, H8); a visit that puts up the last of them goes on with the free cells. With decorations free every slot may
-     * go up.
+     * pile, the firework crate, the large star, the tinsel leaves: {@link PieceLoader#costsItem} false) waits while a
+     * cell that costs an item is open for its item or held by an entity, so the tree is built from its materials first
+     * and nothing free stands on its own (S9, H8); a visit that puts up the last of them goes on with the free cells. A
+     * costed cell the cell rule refuses for another reason (a lantern that cannot stand where the grass keeps its
+     * planter cell, a wall, the claim) holds nothing back (S10c). With decorations free every slot may go up.
      */
-    static List<DecorPlacer.Slot> placeable(final List<DecorPlacer.Slot> slots) {
+    static List<DecorPlacer.Slot> placeable(final ServerLevel level, final DecorLedger ledger, final int colony, final List<DecorPlacer.Slot> slots) {
         if (!SeasonsConfig.needsMaterials()) {
             return slots;
         }
@@ -266,7 +417,20 @@ public final class DecorWork {
                 costed.add(slot);
             }
         }
-        return costed.isEmpty() ? slots : costed;
+        return costed.isEmpty() || holding(level, ledger, colony, costed).isEmpty() ? slots : costed;
+    }
+
+    /** The costed slots that hold the free cells back: the cell takes the block now (it waits for its item) or an entity stands in it. */
+    static List<DecorPlacer.Slot> holding(final ServerLevel level, final DecorLedger ledger, final int colony, final List<DecorPlacer.Slot> costed) {
+        final List<Entity> near = DecorPlacer.blockers(level, costed);
+        final List<DecorPlacer.Slot> out = new ArrayList<>();
+        for (final DecorPlacer.Slot slot : costed) {
+            final String why = DecorPlacer.refusal(level, ledger, colony, slot.pos(), DecorPlacer.normalise(slot.state(), slot.pos()), true, near);
+            if (why == null || "entity".equals(why)) {
+                out.add(slot);
+            }
+        }
+        return out;
     }
 
     private static boolean anyInStock(final List<DecorPlacer.Slot> slots, final DecorPlacer.Stock stock) {
@@ -297,7 +461,11 @@ public final class DecorWork {
             found.add(target);
         }
         found.sort(Comparator.comparingDouble((Target t) -> t.owner().pos().distSqr(from)).thenComparing(t -> t.owner().pos()));
-        return found.isEmpty() ? null : found.get(0);
+        if (found.isEmpty()) {
+            return null;
+        }
+        final Target next = found.get(0);
+        return next.owner().kind() == DecorLedger.Kind.SQUARE ? withStand(level, ledger, id, next, 0, from) : next;
     }
 
     /** The next group with entries to take down (nearest first, loaded ones only), or {@code null}. */
@@ -373,8 +541,10 @@ public final class DecorWork {
         }
         final String festival = festival();
         ledger.plan(colony, target.owner(), festival, hutLevel, "");
-        final int placed = DecorPlacer.place(level, ledger, colony, target.owner(), festival, hutLevel, plan.slots(), stock);
+        final DecorPlacer.PlaceResult result = DecorPlacer.place(level, ledger, colony, target.owner(), festival, hutLevel, plan.slots(), stock);
+        final int placed = result.count();
         final int open = plan.slots().size() - placed;
+        final String fruit = fruitless(level, ledger, colony, target, day, tending, placed, open, result);
         if (placed > 0 && !tending) {
             ledger.charge(colony, target.owner(), day);
         }
@@ -387,7 +557,34 @@ public final class DecorWork {
         }
         tended(ledger, colony, target, day, tending);
         ledger.flush(level);
-        return Outcome.of(placed, open, complete, placed + " placed, " + open + " still open (" + plan.doors() + " doors)");
+        return Outcome.of(placed, open, complete, placed + " placed, " + open + " still open (" + plan.doors() + " doors)" + fruit);
+    }
+
+    /**
+     * Counts a decorating visit that ran its placing step, placed nothing and left cells open; any placing starts the
+     * count again. At {@link #MAX_FRUITLESS_VISITS} in one game day the target is left for the rest of that day
+     * ({@link #nextToDecorate} skips it), with one INFO line naming it and why its cells stayed open. Tending visits
+     * come once a day and are not counted. Returns a note for the status line.
+     */
+    private static String fruitless(final ServerLevel level, final DecorLedger ledger, final int colony, final Target target, final long day,
+                                    final boolean tending, final int placed, final int open, final DecorPlacer.PlaceResult result) {
+        if (tending) {
+            return "";
+        }
+        if (placed > 0) {
+            ledger.clearFruitless(colony, target.owner());
+            return "";
+        }
+        if (open <= 0) {
+            return "";
+        }
+        final int n = ledger.addFruitless(colony, target.owner(), day);
+        if (n == MAX_FRUITLESS_VISITS) {
+            ColonySeasons.LOGGER.info("Decorator of colony {}: {} left for today (game day {}) after {} visits that placed nothing; "
+                    + "{} cells cannot be filled now: {}", colony, target.owner(), day, n, open, result.reasons());
+            return ", left for today";
+        }
+        return "";
     }
 
     private static Outcome square(final ServerLevel level, final int colony, final Target target, final int hutLevel,
@@ -421,6 +618,8 @@ public final class DecorWork {
             ledger.flush(level);
             return Outcome.of(0, 0, false, "no tree piece " + path + " in pack " + target.pack());
         }
+        // nobody stands in the tree while it goes up (S10c): every colonist in its box, the Decorator too, steps out first
+        evict(level, squareBox(ledger, colony, marker, piece), marker);
         final PieceLoader.SquarePlan plan = PieceLoader.plan(level, piece, target.owner().pos(), hutLevel, ledger, colony,
                 target.owner(), SeasonsConfig.needsMaterials());
         if (plan.waiting()) {
@@ -447,7 +646,7 @@ public final class DecorWork {
         for (final BlockPos pos : plan.gone()) {
             ledger.forget(pos);
         }
-        final List<DecorPlacer.Slot> order = placeable(plan.slots());
+        final List<DecorPlacer.Slot> order = placeable(level, ledger, colony, plan.slots());
         final List<DecorPlacer.Slot> slice = order.subList(0, Math.min(SQUARE_SLICE, order.size()));
         final Map<Item, Integer> missing = new LinkedHashMap<>();
         for (final DecorPlacer.Slot slot : slice) {
@@ -456,14 +655,25 @@ public final class DecorWork {
                 missing.merge(item, 1, Integer::sum);
             }
         }
-        int placed = DecorPlacer.place(level, ledger, colony, target.owner(), festival, hutLevel, slice, stock);
-        if (order.size() < plan.slots().size() && placed == order.size() && placed < SQUARE_SLICE) {
-            // every cell that costs an item went up in this visit: the free ones follow at once, in what is left of the slice
-            final List<DecorPlacer.Slot> free = new ArrayList<>(plan.slots());
-            free.removeAll(order);
-            placed += DecorPlacer.place(level, ledger, colony, target.owner(), festival, hutLevel,
-                    free.subList(0, Math.min(SQUARE_SLICE - placed, free.size())), stock);
+        DecorPlacer.PlaceResult result = DecorPlacer.place(level, ledger, colony, target.owner(), festival, hutLevel, slice, stock);
+        if (order.size() < plan.slots().size() && result.count() < SQUARE_SLICE) {
+            // no cell that costs an item waits for it or for an entity any more: the free ones follow at once, in what
+            // is left of the slice (a costed cell the cell rule refuses for good holds nothing back, S10c)
+            final Set<BlockPos> up = new HashSet<>(result.placed());
+            final List<DecorPlacer.Slot> costedLeft = new ArrayList<>();
+            for (final DecorPlacer.Slot slot : order) {
+                if (!up.contains(slot.pos())) {
+                    costedLeft.add(slot);
+                }
+            }
+            if (holding(level, ledger, colony, costedLeft).isEmpty()) {
+                final List<DecorPlacer.Slot> free = new ArrayList<>(plan.slots());
+                free.removeAll(order);
+                result = result.plus(DecorPlacer.place(level, ledger, colony, target.owner(), festival, hutLevel,
+                        free.subList(0, Math.min(SQUARE_SLICE - result.count(), free.size())), stock));
+            }
         }
+        final int placed = result.count();
         if (placed > 0) {
             DecorPlacer.settleLeaves(level, ledger, colony, target.owner());
             if (!tending) {
@@ -475,9 +685,14 @@ public final class DecorWork {
         if (complete) {
             ledger.setDecorated(colony, target.owner(), day);
         }
+        // the tree is ready once no cell of the tree itself is still open (cells blocked when it was planned do not count)
+        if (new HashSet<>(result.placed()).containsAll(plan.treeSlots())) {
+            ledger.setTreeReady(colony, target.owner(), day);
+        }
+        final String fruit = fruitless(level, ledger, colony, target, day, tending, placed, open, result);
         tended(ledger, colony, target, day, tending);
         ledger.flush(level);
-        return new Outcome(placed, open, complete, "square: " + placed + " placed, " + open + " still open", Map.copyOf(missing));
+        return new Outcome(placed, open, complete, "square: " + placed + " placed, " + open + " still open" + fruit, Map.copyOf(missing));
     }
 
     /** A tending visit that really looked at its target notes the day (a dropped group notes nothing). */

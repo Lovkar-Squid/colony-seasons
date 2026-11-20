@@ -1,7 +1,9 @@
 package me.lovkar.seasons.colony;
 
 import com.minecolonies.api.colony.ICitizenData;
+import com.minecolonies.api.colony.buildings.HiringMode;
 import com.minecolonies.api.colony.buildings.IBuilding;
+import com.minecolonies.api.colony.buildings.modules.IAssignsCitizen;
 import com.minecolonies.api.colony.buildings.modules.IAssignsJob;
 import com.minecolonies.api.colony.jobs.IJob;
 import com.minecolonies.api.colony.jobs.registry.JobEntry;
@@ -13,6 +15,8 @@ import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.function.Function;
 
 /**
@@ -62,13 +66,21 @@ public class DecoratorWorkModule extends WorkerBuildingModule {
         return hired;
     }
 
-    /** What the fire button at the citizen's old hut does: each job module there that lists him lets him go. */
+    /**
+     * What the fire button at the citizen's old hut does: each job module there that lists him lets him go. The old
+     * hut's hiring mode is noted first and put back afterwards wherever it changed (S10c: a hut a player left on
+     * automatic hiring must stay so, and fill the place again itself).
+     */
     private void release(final ICitizenData citizen) {
         final IJob<?> old = citizen.getJob();
         final String oldJob = old.getJobRegistryEntry() == null ? "?" : String.valueOf(old.getJobRegistryEntry().getKey());
         final IBuilding oldBuilding = citizen.getWorkBuilding();
         final BlockPos oldPos = oldBuilding == null ? null : oldBuilding.getID();
+        final Map<IAssignsCitizen, HiringMode> modes = new LinkedHashMap<>();
         if (oldBuilding != null) {
+            for (final IAssignsCitizen module : oldBuilding.getModulesByType(IAssignsCitizen.class)) {
+                modes.put(module, module.getHiringMode());
+            }
             for (final IAssignsJob module : oldBuilding.getModulesByType(IAssignsJob.class)) {
                 if (module.hasAssignedCitizen(citizen)) {
                     module.removeCitizen(citizen);
@@ -79,8 +91,19 @@ public class DecoratorWorkModule extends WorkerBuildingModule {
             // a job no module listed: take it off him the same way
             citizen.getJob().onRemoval();
         }
-        ColonySeasons.LOGGER.info("Decorator's Workshop at {}: citizen {} leaves his job {} at {} to be hired here",
+        boolean restored = false;
+        for (final Map.Entry<IAssignsCitizen, HiringMode> e : modes.entrySet()) {
+            if (e.getKey().getHiringMode() != e.getValue()) {
+                e.getKey().setHiringMode(e.getValue());
+                restored = true;
+            }
+        }
+        if (restored) {
+            oldBuilding.markDirty();
+        }
+        ColonySeasons.LOGGER.info("Decorator's Workshop at {}: citizen {} leaves his job {} at {} to be hired here; that hut keeps its hiring mode {}{}",
                 building == null ? "?" : building.getID().toShortString(), citizen.getId(), oldJob,
-                oldPos == null ? "no building" : oldPos.toShortString());
+                oldPos == null ? "no building" : oldPos.toShortString(), modes.isEmpty() ? "(none)" : modes.values(),
+                restored ? " (put back)" : "");
     }
 }

@@ -1,0 +1,19 @@
+{
+ "variants": {
+  "facing=north": {
+   "model": "colonyseasons:block/sq_lantern_post_a"
+  },
+  "facing=east": {
+   "model": "colonyseasons:block/sq_lantern_post_a",
+   "y": 90
+  },
+  "facing=south": {
+   "model": "colonyseasons:block/sq_lantern_post_a",
+   "y": 180
+  },
+  "facing=west": {
+   "model": "colonyseasons:block/sq_lantern_post_a",
+   "y": 270
+  }
+ }
+}

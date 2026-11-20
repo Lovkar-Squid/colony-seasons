@@ -17,6 +17,7 @@ import com.minecolonies.core.colony.buildings.modules.WorkerBuildingModule;
 import com.minecolonies.core.colony.workorders.WorkOrderBuilding;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import me.lovkar.seasons.ColonySeasons;
+import me.lovkar.seasons.SeasonsConfig;
 import me.lovkar.seasons.block.FestivalMarkerBlock;
 import me.lovkar.seasons.block.LanternStringBlock;
 import me.lovkar.seasons.block.Lights;
@@ -136,9 +137,9 @@ public class CsDecorGate {
     /** The probe's test piece, cell by cell, drawn facing north (the same list as make_piece.py). */
     static final BlockPos PIECE_ANCHOR = new BlockPos(2, 0, 4);
     static final List<Object[]> TEST_PIECE = List.of(
-            new Object[]{2, 0, 1, "minecraft:spruce_log"}, new Object[]{2, 1, 1, "minecraft:spruce_log"},
-            new Object[]{2, 2, 1, "minecraft:spruce_log"}, new Object[]{2, 3, 1, "minecraft:spruce_log"},
-            new Object[]{2, 4, 1, "minecraft:spruce_log"}, new Object[]{3, 2, 1, "minecraft:spruce_log"},
+            new Object[]{2, 0, 1, "colony_seasons:festival_trunk"}, new Object[]{2, 1, 1, "colony_seasons:festival_trunk"},
+            new Object[]{2, 2, 1, "colony_seasons:festival_trunk"}, new Object[]{2, 3, 1, "colony_seasons:festival_trunk"},
+            new Object[]{2, 4, 1, "colony_seasons:festival_trunk"}, new Object[]{3, 2, 1, "colony_seasons:festival_trunk"},
             new Object[]{1, 2, 1, "minecraft:spruce_leaves"}, new Object[]{2, 2, 0, "minecraft:spruce_leaves"},
             new Object[]{2, 2, 2, "colony_seasons:ornament_leaves"}, new Object[]{4, 2, 1, "minecraft:spruce_leaves"},
             new Object[]{1, 2, 2, "minecraft:spruce_leaves"}, new Object[]{1, 3, 1, "colony_seasons:ornament_leaves"},
@@ -1090,7 +1091,7 @@ public class CsDecorGate {
                     if (e.getValue().equals("minecraft:spruce_leaves")) {
                         leaves.add(m.offset(e.getKey()));
                     }
-                    if (e.getValue().equals("minecraft:spruce_log") && e.getKey().getY() == 1) {
+                    if (e.getValue().equals("colony_seasons:festival_trunk") && e.getKey().getY() == 1) {
                         trunk = m.offset(e.getKey());
                     }
                 }
@@ -1149,7 +1150,7 @@ public class CsDecorGate {
                 final DecorWork.Target target = DecorWork.Target.square(m, Direction.NORTH, TEST_PACK);
                 final Map<BlockPos, BlockState> snap = snapshot(squareBox(m));
                 final DecorWork.Outcome up = DecorWork.decorate(level, colonyId, target, 5, DecorPlacer.Stock.FREE, day(), ledger);
-                // a trunk log and a spruce leaf (vanilla: they never tell the ledger) and one of our ornament leaves
+                // a trunk cell (our festival trunk: it tells the ledger), a spruce leaf (vanilla: it never does) and one of our ornament leaves
                 final BlockPos log = m.offset(0, 2, -3);
                 final BlockPos leaf = m.offset(-1, 2, -3);
                 final BlockPos ornament = m.offset(0, 2, -2);
@@ -1158,12 +1159,12 @@ public class CsDecorGate {
                     had.put(pos, level.getBlockState(pos));
                     level.destroyBlock(pos, false);
                 }
-                check("the square is up, and a player broke a trunk log, a spruce leaf and an ornament leaf",
-                        up.complete() && had.get(log).is(Blocks.SPRUCE_LOG) && had.get(leaf).is(Blocks.SPRUCE_LEAVES)
+                check("the square is up, and a player broke a trunk cell, a spruce leaf and an ornament leaf",
+                        up.complete() && had.get(log).is(SeasonsBlocks.FESTIVAL_TRUNK.get()) && had.get(leaf).is(Blocks.SPRUCE_LEAVES)
                                 && had.get(ornament).is(SeasonsBlocks.ORNAMENT_LEAVES.get()) && level.getBlockState(log).isAir()
                                 && level.getBlockState(leaf).isAir() && level.getBlockState(ornament).isAir(), up.status());
-                check("the vanilla log and leaf are still listed (no onRemove of ours), the ornament leaf's entry went with it",
-                        ledger.at(log) != null && ledger.at(leaf) != null && ledger.at(ornament) == null, "");
+                check("the vanilla leaf is still listed (no onRemove of ours), the trunk's and the ornament leaf's entries went with them",
+                        ledger.at(log) == null && ledger.at(leaf) != null && ledger.at(ornament) == null, "");
                 level.setDayTime(level.getDayTime() + 24000L);
                 final DecorWork.Outcome tended = DecorWork.tend(level, colonyId, target, 5, DecorPlacer.Stock.FREE, day(), ledger);
                 final List<String> wrong = new ArrayList<>();
@@ -1297,6 +1298,102 @@ public class CsDecorGate {
                     }
                     check("real piece " + path + ": taking it down gives back the snapshot", differ == 0, differ + " cells differ");
                 }
+            }
+        });
+        planGrassOnPlanter();
+    }
+
+    /**
+     * The stuck square of the third in-game test (S10c): the grand tree with short grass on one of the planter's chiseled
+     * stone brick cells, decorations costing items (the config default) from a stock that has everything. The grass
+     * keeps that brick cell (the cell rule places only into air), so the lantern on it cannot stand ("survive"): it
+     * holds nothing back, the free cells (the large star, the tinsel, the gifts, the crate) go up, the tree is ready, and
+     * after three visits that place nothing the square is left for the day. Taking it down gives back the world.
+     */
+    private void planGrassOnPlanter() {
+        step(new Step("square: the grand tree with short grass on a planter cell, decorations from stock (S10c)", 400, true) {
+            PieceLoader.Piece piece;
+
+            @Override
+            boolean tick() {
+                piece = PieceLoader.request(level, PieceLoader.PACK, PieceLoader.pathFor(5), Direction.NORTH);
+                return piece != null || PieceLoader.missing(PieceLoader.PACK, PieceLoader.pathFor(5), Direction.NORTH);
+            }
+
+            @Override
+            void end(final boolean done) {
+                check("the grand tree piece loads", piece != null, PieceLoader.pathFor(5));
+                if (piece == null) {
+                    return;
+                }
+                check("decorations cost items here (decorator.needsMaterials, the config default)", SeasonsConfig.needsMaterials(), "");
+                final BlockPos m = marker(-45, -40, Direction.NORTH);
+                BlockPos lantern = null;
+                final Map<BlockPos, BlockState> cells = new HashMap<>();
+                for (final PieceLoader.PieceCell c : piece.cells()) {
+                    cells.put(c.rel(), c.state());
+                }
+                for (final PieceLoader.PieceCell c : piece.cells()) {
+                    final BlockState below = cells.get(c.rel().below());
+                    if (lantern == null && c.state().is(Blocks.LANTERN) && below != null && below.is(Blocks.CHISELED_STONE_BRICKS)) {
+                        lantern = m.offset(c.rel());
+                    }
+                }
+                check("the piece has a lantern on a chiseled stone brick of the planter", lantern != null, "");
+                if (lantern == null) {
+                    level.setBlock(m, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+                    return;
+                }
+                final BlockPos brick = lantern.below();
+                set(brick, Blocks.SHORT_GRASS.defaultBlockState());
+                final DoorFinder.Box box = new DoorFinder.Box(m.offset(-8, -2, -8), m.offset(8, 20, 8), m);
+                final Map<BlockPos, BlockState> snap = snapshot(box);
+                final DecorWork.Target target = DecorWork.Target.square(m, Direction.NORTH, PieceLoader.PACK);
+                final long today = day();
+                final List<String> visits = new ArrayList<>();
+                DecorWork.Outcome o;
+                int zero = 0;
+                for (int i = 0; i < 12 && zero < DecorWork.MAX_FRUITLESS_VISITS; i++) {
+                    o = DecorWork.decorate(level, colonyId, target, 5, DecorPlacer.Stock.FREE, today, ledger);
+                    visits.add(o.status());
+                    zero = o.placed() == 0 ? zero + 1 : 0;
+                }
+                final DecorLedger.GroupView g = ledger.group(colonyId, target.owner());
+                final BlockState lanternState = DecorPlacer.normalise(Blocks.LANTERN.defaultBlockState(), lantern);
+                check("the lantern on the grassy brick cell is refused: it cannot stand there", level.getBlockState(lantern).isAir()
+                        && "survive".equals(DecorPlacer.refusal(level, ledger, colonyId, lantern, lanternState, true)),
+                        DecorPlacer.refusal(level, ledger, colonyId, lantern, lanternState, true) + ", brick cell " + shortName(level.getBlockState(brick)));
+                int gifts = 0;
+                int pieceGifts = 0;
+                for (final PieceLoader.PieceCell c : piece.cells()) {
+                    pieceGifts += c.giftPile() ? 1 : 0;
+                }
+                boolean star = false;
+                boolean tinsel = false;
+                boolean crate = false;
+                if (g != null) {
+                    for (final DecorLedger.Entry e : g.entries().values()) {
+                        gifts += e.state().is(SeasonsBlocks.GIFT_PILE.get()) ? 1 : 0;
+                        star |= e.state().is(SeasonsBlocks.LARGE_STAR.get());
+                        tinsel |= e.state().is(SeasonsBlocks.TINSEL_LEAVES.get());
+                        crate |= e.state().is(SeasonsBlocks.FIREWORK_CRATE.get());
+                    }
+                }
+                check("the free cells go up all the same: the large star, the tinsel, every gift pile, the crate",
+                        star && tinsel && crate && gifts == pieceGifts && pieceGifts > 0, "star " + star + ", tinsel " + tinsel + ", crate "
+                                + crate + ", gifts " + gifts + " of " + pieceGifts);
+                check("the tree itself is up: its ready day is noted", g != null && g.treeDay() == today && g.decoratedDay() < 0,
+                        g == null ? "no group" : "tree " + g.treeDay() + ", decorated " + g.decoratedDay());
+                check("after " + DecorWork.MAX_FRUITLESS_VISITS + " visits that place nothing the square is left for today",
+                        ledger.fruitless(colonyId, target.owner(), today) >= DecorWork.MAX_FRUITLESS_VISITS
+                                && visits.get(visits.size() - 1).contains("left for today"), visits.toString());
+                invariant("the grand tree on grass");
+                DecorPlacer.remove(level, ledger, colonyId, target.owner(), DecorPlacer.Stock.FREE);
+                final List<BlockPos> diff = changed(snap);
+                check("taking the grand tree down gives back the snapshot, the grass included", diff.isEmpty() && ledger.group(colonyId, target.owner()) == null,
+                        diff.size() + " cells differ" + (diff.isEmpty() ? "" : ", first " + diff.get(0).toShortString() + " " + level.getBlockState(diff.get(0))));
+                set(brick, Blocks.AIR.defaultBlockState());
+                level.setBlock(m, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
             }
         });
     }

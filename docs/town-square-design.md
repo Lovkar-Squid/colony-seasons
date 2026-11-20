@@ -556,3 +556,9 @@ the colony (snowman, lantern post, garland across a street, planter); see docs/I
 ledger groups and the collision rule the owner approved for player-chosen places. Its own chunk (wand item, spot store
 per colony, pieces for snowmen and lantern posts, probe) adds roughly 3 to 4 points; the look of the new pieces goes into
 the 0.2.0 picture round.
+
+## Owner answers, pictures round (20 Nov 2026) [B]
+
+- Look A, village plaza; size 21 x 21 at every level; hut block A, the notice board; name Town Square.
+- Street pieces for the marking wand: snowman A as the default and B as the second variant; lantern post B, the crook.
+- Trade Post stalls: A, striped awnings; about 1 coin per stall per day; they sell festival goods only.

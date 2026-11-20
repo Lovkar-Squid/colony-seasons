@@ -929,7 +929,60 @@ public class CsHire {
         toLevel(5);
         round(5);
         calendarSteps();
+        hiringModeSteps();
         now("the end", () -> note("citizens at the end: {}", colony.getCitizenManager().getCurrentCitizenCount()));
+    }
+
+    // ================================================================ the old hut's hiring mode (S10c)
+
+    private static String modes(final IBuilding building) {
+        final List<String> out = new ArrayList<>();
+        for (final IAssignsCitizen module : building.getModulesByType(IAssignsCitizen.class)) {
+            out.add(String.valueOf(module.getHiringMode()));
+        }
+        return String.join(",", out);
+    }
+
+    /**
+     * The window's hire of a citizen who works elsewhere, with the player at the Workshop (the fire at the old hut is
+     * dropped, so the Workshop's hire takes him off it): the old hut keeps its hiring mode, whatever it was, right after
+     * the hire and after the colony's building ticks (its auto-hire among them). The in-game test found the old hut on
+     * Manual after such a hire.
+     */
+    private void hiringModeSteps() {
+        now("the old hut keeps its hiring mode after a window hire", () -> {
+            for (final HiringMode mode : List.of(HiringMode.DEFAULT, HiringMode.AUTO, HiringMode.MANUAL)) {
+                look("hiring mode " + mode + ": before", citizenW, Want.OLD, lumber, lumberEntry);
+                for (final IAssignsCitizen module : lumber.getModulesByType(IAssignsCitizen.class)) {
+                    module.setHiringMode(mode);
+                }
+                final String before = modes(lumber);
+                stand(hutPos);
+                fireAtOldHut(citizenW, lumber);
+                hireAtWorkshop(citizenW);
+                look("hiring mode " + mode + ": hired at the Workshop from far away", citizenW, Want.DECORATOR, lumber, lumberEntry);
+                checkEq("hiring mode " + mode + ": the lumberjack's hut keeps it right after the hire", modes(lumber), before);
+                for (int i = 0; i < 3; i++) {
+                    colony.getServerBuildingManager().onColonyTick(colony);
+                }
+                checkEq("hiring mode " + mode + ": and after three colony ticks", modes(lumber), before);
+                // back as it was (not under test): fired at the Workshop, whoever auto-hire put in his place let go, employed again
+                stand(hutPos.offset(0, 0, 3));
+                fireAtWorkshop(citizenW);
+                final IAssignsJob lumberModule = jobModule(lumber, "lumberjack");
+                for (final ICitizenData other : new ArrayList<>(lumberModule.getAssignedCitizen())) {
+                    if (other != citizenW) {
+                        lumberModule.removeCitizen(other);
+                    }
+                }
+                if (citizenW.getWorkBuilding() == null) {
+                    employ(citizenW, lumber, "lumberjack");
+                }
+            }
+            for (final IAssignsCitizen module : lumber.getModulesByType(IAssignsCitizen.class)) {
+                module.setHiringMode(HiringMode.MANUAL);
+            }
+        });
     }
 
     private void planRestartSave() {

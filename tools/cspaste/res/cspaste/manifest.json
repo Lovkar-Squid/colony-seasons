@@ -1295,11 +1295,11 @@
    "anchorBlock": "minecraft:air",
    "anchorEntity": "colony_seasons:festival_marker",
    "counts": {
+    "colony_seasons:festival_trunk": 6,
     "colony_seasons:gift_pile": 3,
     "colony_seasons:ornament_leaves": 19,
     "colony_seasons:tree_star": 1,
-    "minecraft:spruce_leaves": 36,
-    "minecraft:spruce_log": 6
+    "minecraft:spruce_leaves": 36
    },
    "ours": [
     [
@@ -1365,6 +1365,12 @@
     [
      0,
      1,
+     0,
+     "colony_seasons:festival_trunk[axis=y]"
+    ],
+    [
+     0,
+     1,
      2,
      "colony_seasons:ornament_leaves[lit=false]"
     ],
@@ -1373,6 +1379,12 @@
      2,
      -1,
      "colony_seasons:ornament_leaves[lit=false]"
+    ],
+    [
+     0,
+     2,
+     0,
+     "colony_seasons:festival_trunk[axis=y]"
     ],
     [
      0,
@@ -1382,9 +1394,33 @@
     ],
     [
      0,
+     3,
+     0,
+     "colony_seasons:festival_trunk[axis=y]"
+    ],
+    [
+     0,
+     4,
+     0,
+     "colony_seasons:festival_trunk[axis=y]"
+    ],
+    [
+     0,
      5,
      -1,
      "colony_seasons:ornament_leaves[lit=false]"
+    ],
+    [
+     0,
+     5,
+     0,
+     "colony_seasons:festival_trunk[axis=y]"
+    ],
+    [
+     0,
+     6,
+     0,
+     "colony_seasons:festival_trunk[axis=y]"
     ],
     [
      0,
@@ -1443,13 +1479,13 @@
    ],
    "subst": [],
    "palette": [
+    "colony_seasons:festival_trunk[axis=y]",
     "colony_seasons:gift_pile[facing=east]",
     "colony_seasons:gift_pile[facing=north]",
     "colony_seasons:gift_pile[facing=west]",
     "colony_seasons:ornament_leaves[lit=false]",
     "colony_seasons:tree_star[lit=false]",
-    "minecraft:spruce_leaves[persistent=true]",
-    "minecraft:spruce_log[axis=y]"
+    "minecraft:spruce_leaves[persistent=true]"
    ],
    "tags": [
     [
@@ -1500,12 +1536,12 @@
    "anchorBlock": "minecraft:air",
    "anchorEntity": "colony_seasons:festival_marker",
    "counts": {
+    "colony_seasons:festival_trunk": 10,
     "colony_seasons:firework_crate": 1,
     "colony_seasons:gift_pile": 5,
     "colony_seasons:ornament_leaves": 32,
     "colony_seasons:tree_star": 1,
-    "minecraft:spruce_leaves": 112,
-    "minecraft:spruce_log": 10
+    "minecraft:spruce_leaves": 112
    },
    "ours": [
     [
@@ -1606,9 +1642,33 @@
     ],
     [
      0,
+     1,
+     0,
+     "colony_seasons:festival_trunk[axis=y]"
+    ],
+    [
+     0,
      2,
      -1,
      "colony_seasons:ornament_leaves[lit=false]"
+    ],
+    [
+     0,
+     2,
+     0,
+     "colony_seasons:festival_trunk[axis=y]"
+    ],
+    [
+     0,
+     3,
+     0,
+     "colony_seasons:festival_trunk[axis=y]"
+    ],
+    [
+     0,
+     4,
+     0,
+     "colony_seasons:festival_trunk[axis=y]"
     ],
     [
      0,
@@ -1619,8 +1679,20 @@
     [
      0,
      5,
+     0,
+     "colony_seasons:festival_trunk[axis=y]"
+    ],
+    [
+     0,
+     5,
      2,
      "colony_seasons:ornament_leaves[lit=false]"
+    ],
+    [
+     0,
+     6,
+     0,
+     "colony_seasons:festival_trunk[axis=y]"
     ],
     [
      0,
@@ -1631,8 +1703,20 @@
     [
      0,
      7,
+     0,
+     "colony_seasons:festival_trunk[axis=y]"
+    ],
+    [
+     0,
+     7,
      2,
      "colony_seasons:ornament_leaves[lit=false]"
+    ],
+    [
+     0,
+     8,
+     0,
+     "colony_seasons:festival_trunk[axis=y]"
     ],
     [
      0,
@@ -1642,9 +1726,21 @@
     ],
     [
      0,
+     9,
+     0,
+     "colony_seasons:festival_trunk[axis=y]"
+    ],
+    [
+     0,
      10,
      -1,
      "colony_seasons:ornament_leaves[lit=false]"
+    ],
+    [
+     0,
+     10,
+     0,
+     "colony_seasons:festival_trunk[axis=y]"
     ],
     [
      0,
@@ -1745,6 +1841,7 @@
    ],
    "subst": [],
    "palette": [
+    "colony_seasons:festival_trunk[axis=y]",
     "colony_seasons:firework_crate",
     "colony_seasons:gift_pile[facing=east]",
     "colony_seasons:gift_pile[facing=north]",
@@ -1752,8 +1849,7 @@
     "colony_seasons:gift_pile[facing=west]",
     "colony_seasons:ornament_leaves[lit=false]",
     "colony_seasons:tree_star[lit=false]",
-    "minecraft:spruce_leaves[persistent=true]",
-    "minecraft:spruce_log[axis=y]"
+    "minecraft:spruce_leaves[persistent=true]"
    ],
    "tags": [
     [
@@ -1822,12 +1918,12 @@
    "anchorBlock": "minecraft:air",
    "anchorEntity": "colony_seasons:festival_marker",
    "counts": {
+    "colony_seasons:festival_trunk": 10,
     "colony_seasons:firework_crate": 1,
     "colony_seasons:gift_pile": 7,
     "colony_seasons:ornament_leaves": 64,
     "colony_seasons:tree_star": 1,
-    "minecraft:spruce_leaves": 80,
-    "minecraft:spruce_log": 10
+    "minecraft:spruce_leaves": 80
    },
    "ours": [
     [
@@ -2018,15 +2114,33 @@
     ],
     [
      0,
+     1,
+     0,
+     "colony_seasons:festival_trunk[axis=y]"
+    ],
+    [
+     0,
      2,
      -1,
      "colony_seasons:ornament_leaves[lit=false]"
     ],
     [
      0,
+     2,
+     0,
+     "colony_seasons:festival_trunk[axis=y]"
+    ],
+    [
+     0,
      3,
      -3,
      "colony_seasons:ornament_leaves[lit=false]"
+    ],
+    [
+     0,
+     3,
+     0,
+     "colony_seasons:festival_trunk[axis=y]"
     ],
     [
      0,
@@ -2039,6 +2153,12 @@
      4,
      -2,
      "colony_seasons:ornament_leaves[lit=false]"
+    ],
+    [
+     0,
+     4,
+     0,
+     "colony_seasons:festival_trunk[axis=y]"
     ],
     [
      0,
@@ -2054,9 +2174,21 @@
     ],
     [
      0,
+     5,
+     0,
+     "colony_seasons:festival_trunk[axis=y]"
+    ],
+    [
+     0,
      6,
      -1,
      "colony_seasons:ornament_leaves[lit=false]"
+    ],
+    [
+     0,
+     6,
+     0,
+     "colony_seasons:festival_trunk[axis=y]"
     ],
     [
      0,
@@ -2073,6 +2205,12 @@
     [
      0,
      7,
+     0,
+     "colony_seasons:festival_trunk[axis=y]"
+    ],
+    [
+     0,
+     7,
      2,
      "colony_seasons:ornament_leaves[lit=false]"
     ],
@@ -2085,14 +2223,32 @@
     [
      0,
      8,
+     0,
+     "colony_seasons:festival_trunk[axis=y]"
+    ],
+    [
+     0,
+     8,
      1,
      "colony_seasons:ornament_leaves[lit=false]"
+    ],
+    [
+     0,
+     9,
+     0,
+     "colony_seasons:festival_trunk[axis=y]"
     ],
     [
      0,
      10,
      -1,
      "colony_seasons:ornament_leaves[lit=false]"
+    ],
+    [
+     0,
+     10,
+     0,
+     "colony_seasons:festival_trunk[axis=y]"
     ],
     [
      0,
@@ -2271,6 +2427,7 @@
    ],
    "subst": [],
    "palette": [
+    "colony_seasons:festival_trunk[axis=y]",
     "colony_seasons:firework_crate",
     "colony_seasons:gift_pile[facing=east]",
     "colony_seasons:gift_pile[facing=north]",
@@ -2278,8 +2435,7 @@
     "colony_seasons:gift_pile[facing=west]",
     "colony_seasons:ornament_leaves[lit=false]",
     "colony_seasons:tree_star[lit=false]",
-    "minecraft:spruce_leaves[persistent=true]",
-    "minecraft:spruce_log[axis=y]"
+    "minecraft:spruce_leaves[persistent=true]"
    ],
    "tags": [
     [
@@ -2360,6 +2516,7 @@
    "anchorBlock": "minecraft:air",
    "anchorEntity": "colony_seasons:festival_marker",
    "counts": {
+    "colony_seasons:festival_trunk": 14,
     "colony_seasons:firework_crate": 1,
     "colony_seasons:gift_pile": 5,
     "colony_seasons:large_star": 2,
@@ -2369,7 +2526,6 @@
     "minecraft:lantern": 4,
     "minecraft:podzol": 68,
     "minecraft:spruce_leaves": 185,
-    "minecraft:spruce_log": 14,
     "minecraft:stone_bricks": 36
    },
    "ours": [
@@ -2543,15 +2699,39 @@
     ],
     [
      0,
+     1,
+     0,
+     "colony_seasons:festival_trunk[axis=y]"
+    ],
+    [
+     0,
      2,
      -4,
      "colony_seasons:tinsel_leaves[lit=false]"
     ],
     [
      0,
+     2,
+     0,
+     "colony_seasons:festival_trunk[axis=y]"
+    ],
+    [
+     0,
+     3,
+     0,
+     "colony_seasons:festival_trunk[axis=y]"
+    ],
+    [
+     0,
      3,
      3,
      "colony_seasons:tinsel_leaves[lit=false]"
+    ],
+    [
+     0,
+     4,
+     0,
+     "colony_seasons:festival_trunk[axis=y]"
     ],
     [
      0,
@@ -2561,6 +2741,12 @@
     ],
     [
      0,
+     5,
+     0,
+     "colony_seasons:festival_trunk[axis=y]"
+    ],
+    [
+     0,
      6,
      -2,
      "colony_seasons:ornament_leaves[lit=false]"
@@ -2568,8 +2754,20 @@
     [
      0,
      6,
+     0,
+     "colony_seasons:festival_trunk[axis=y]"
+    ],
+    [
+     0,
+     6,
      2,
      "colony_seasons:tinsel_leaves[lit=false]"
+    ],
+    [
+     0,
+     7,
+     0,
+     "colony_seasons:festival_trunk[axis=y]"
     ],
     [
      0,
@@ -2579,9 +2777,21 @@
     ],
     [
      0,
+     8,
+     0,
+     "colony_seasons:festival_trunk[axis=y]"
+    ],
+    [
+     0,
      9,
      -2,
      "colony_seasons:ornament_leaves[lit=false]"
+    ],
+    [
+     0,
+     9,
+     0,
+     "colony_seasons:festival_trunk[axis=y]"
     ],
     [
      0,
@@ -2591,9 +2801,21 @@
     ],
     [
      0,
+     10,
+     0,
+     "colony_seasons:festival_trunk[axis=y]"
+    ],
+    [
+     0,
      11,
      -2,
      "colony_seasons:tinsel_leaves[lit=false]"
+    ],
+    [
+     0,
+     11,
+     0,
+     "colony_seasons:festival_trunk[axis=y]"
     ],
     [
      0,
@@ -2604,8 +2826,26 @@
     [
      0,
      12,
+     0,
+     "colony_seasons:festival_trunk[axis=y]"
+    ],
+    [
+     0,
+     12,
      1,
      "colony_seasons:tinsel_leaves[lit=false]"
+    ],
+    [
+     0,
+     13,
+     0,
+     "colony_seasons:festival_trunk[axis=y]"
+    ],
+    [
+     0,
+     14,
+     0,
+     "colony_seasons:festival_trunk[axis=y]"
     ],
     [
      0,
@@ -2760,6 +3000,7 @@
    ],
    "subst": [],
    "palette": [
+    "colony_seasons:festival_trunk[axis=y]",
     "colony_seasons:firework_crate",
     "colony_seasons:gift_pile[facing=east]",
     "colony_seasons:gift_pile[facing=south]",
@@ -2772,7 +3013,6 @@
     "minecraft:lantern[hanging=false]",
     "minecraft:podzol",
     "minecraft:spruce_leaves[persistent=true]",
-    "minecraft:spruce_log[axis=y]",
     "minecraft:stone_bricks"
    ],
    "tags": [

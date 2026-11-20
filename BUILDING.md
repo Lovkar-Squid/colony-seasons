@@ -58,7 +58,8 @@ bash tools/restart.sh csdecorator             # stock, cs_assembled, cs_decorati
 bash tools/probe.sh cspaste                   # every blueprint of the pack loaded and pasted through Structurize, the
                                               # world read back against tools/cspaste/res/cspaste/manifest.json
 bash tools/probe.sh csdecorgate               # placing, the ledger and taking down: real huts of six style packs, edge cases,
-                                              # the square with the probe's test piece, a real colony and the Decorator's AI
+                                              # the square with the probe's test piece, a real colony and the Decorator's AI,
+                                              # the grand tree with grass on a planter cell (a lantern that cannot stand)
 bash tools/probe.sh csdecorgate styles        # only the pasted huts (with their per-style and per-door lines) and the edge cases
 bash tools/probe.sh csdecorgate square        # only the square
 bash tools/probe.sh csdecorgate lifecycle     # only the real colony and the AI
@@ -72,7 +73,16 @@ bash tools/probe.sh csfestival nomixin        # the mod rebuilt without its mixi
                                               # the dusk show still goes up (from the server)
 bash tools/probe.sh csfestival voyager        # Voyager 0.4.0 next to it: both mixins apply, the Decorator launches the dusk
                                               # show, the Astronomer works at night
+                                              # ...then the square of the third in-game test: the tree put up by his AI
+                                              # while he and a colonist stand in its cells (nobody boxed in, he stands
+                                              # outside, another building the same day), an armor stand in a gift cell
+                                              # (left for the day after 3 empty visits, the tree ready and lit anyway)
+bash tools/probe.sh csfestival newyear        # the New Year dusk of the in-game test replayed (sprinted from 11800), and the
+                                              # Decorator asleep in the rain: the server launches the show from the crate,
+                                              # from his stock and free
 bash tools/restart.sh csfestival              # a gift taken and the tree lit, a restart: refused again, still lit, nothing repeated
+bash tools/probe.sh csforester                # MineColonies' Forester with the festival tree and a natural oak in his work
+                                              # area, three game days: he cuts the oak and never the festival tree
 bash tools/probe.sh cseffects off             # the three effects switched off: nothing changes (happiness, crop growth, food over a game day)
 bash tools/probe.sh cseffects on              # all three on: the happiness modifier and the client's total, half the growth steps inside a claim,
                                               # a quarter more food; also the Decorator's hut window page, his kind settings and the planner
@@ -187,7 +197,9 @@ run the script again. The only outside input is the vanilla spruce-leaf texture,
 tinted for the ornament and tinsel leaves. A light that shines at night has its own model element with NeoForge's
 `neoforge_data` (`block_light` and `sky_light` 15) in the `lit=true` model. `tools/check_blocks.py` (in `checks.sh`)
 checks that every block has its blockstate, models, item model, lang line, loot table and recipe, and that lit models
-glow and unlit ones do not. `tools/render_decor.py` uses the design's renderer (`design/tools`): `mcmodel.py` reads the
+glow and unlit ones do not. One named exception: the festival tree's trunk (`festival_trunk`, S10c) has no item of its
+own, so no item model and no recipe, and its loot table drops a spruce log (`gen_blockdata.py` writes it, `tree.py` its
+blockstate on vanilla's spruce log models). `tools/render_decor.py` uses the design's renderer (`design/tools`): `mcmodel.py` reads the
 mod's assets and, for a night scene, lights it with block and sky light and vanilla's lightmap; Blender is found at
 its default path or through `BLENDER`.
 
@@ -221,7 +233,8 @@ run (`tools/nbt.py` is a small NBT writer, so the scripts need no packages and r
   `village_spruce_full`, `village_spruce_rich` (tree A) and `grand_tree` (tree B) of `design/src/trees.py`. A piece is
   drawn facing north; its anchor is the marker's cell and stays air; tags `gift_pile`, `firework_crate`, `star`
   (positions relative to the anchor, read with Structurize's `BlueprintTagUtils.getBlueprintTags`) and `invisible`
-  (the build tool does not list the pieces). Trunk cells are the spruce logs; decorations are unlit.
+  (the build tool does not list the pieces). Trunk cells are `colony_seasons:festival_trunk` (spruce log textures, not a
+  log for the Forester: our own block in no log tag, S10c; it costs and drops a spruce log); decorations are unlit.
 - `tools/build_pack.py` (copied from Voyager's and adapted, with `tools/voxel.py`, `tools/floatcheck.py` and
   `tools/walkcheck.py`): every block id against the client jar, our blockstates and the mod jars with real properties;
   decorations unlit; no floating blocks; nothing that would drop (ladders and wall decorations need a whole block

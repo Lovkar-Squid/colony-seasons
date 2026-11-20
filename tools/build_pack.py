@@ -18,7 +18,8 @@ real properties and values; our decorations are drawn unlit; no floating blocks;
 lanterns, wall decorations, doors, carpets); no bed; the hut block is reachable from the door and every floor cell from
 the hut block; the levels share one box and one anchor; level 5 and the full and grand trees differ from the owner's
 picked designs only where decorator_hut.DESIGN_CHANGES / tree_pieces.DESIGN_CHANGES say; the piece contract (air
-anchor, tags, trunk, open sky over the crate); and a read-back of every written file.
+anchor, tags, the trunk a column of colony_seasons:festival_trunk and no log block in a piece, open sky over the
+crate); and a read-back of every written file.
 """
 import gzip
 import io
@@ -58,6 +59,7 @@ MANIFEST = os.path.join(TOOLS, "cspaste", "res", "cspaste", "manifest.json")
 EXTRA_PROPS = {"waterlogged": {"true", "false"}, "powered": {"true", "false"}}
 LEAF_PROPS = {"persistent": {"true", "false"}, "distance": {str(i) for i in range(1, 8)}}
 NS = "colony_seasons"
+TRUNK = f"{NS}:festival_trunk"                    # the trunk of every tree piece: a spruce log to look at, in no log tag (S10c)
 
 problems = []
 
@@ -289,10 +291,14 @@ def check_piece(label, s):
     if unknown:
         problem(f"{label}: unknown tags {unknown}")
         ok = False
-    logs = sorted(p for p, b in s.blocks.items() if voxel.parse_state(b)[0] == "minecraft:spruce_log")
+    logs = sorted(p for p, b in s.blocks.items() if voxel.parse_state(b)[0] == TRUNK)
     column = [(0, y, 0) for y in range(a[1] + 1, a[1] + 1 + len(logs))]
-    if logs != column:
-        problem(f"{label}: the trunk {logs[:3]}... is not one log column standing on the marker")
+    if not logs or logs != column:
+        problem(f"{label}: the trunk {logs[:3]}... is not one {TRUNK} column standing on the marker")
+        ok = False
+    vanilla_logs = sorted(p for p, b in s.blocks.items() if voxel.parse_state(b)[0].endswith(("_log", "_wood", "_stem", "_hyphae")))
+    if vanilla_logs:
+        problem(f"{label}: log blocks {vanilla_logs[:3]} in the piece (the Forester would cut the tree; the trunk is {TRUNK})")
         ok = False
     for p, b in s.blocks.items():
         if voxel.parse_state(b)[0] == f"{NS}:firework_crate":

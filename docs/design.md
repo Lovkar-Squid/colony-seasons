@@ -257,3 +257,17 @@ The `bunting` block drawn on hut B is not needed (hut A was picked).
 | 8 | Default year length | 48 game days |
 
 Not shown to him yet and still his to judge when they exist: the lights at night, the clothes (scarf colours, wool hat), the Decorator's skin, the gift and its contents, the sounds, the logo and page text.
+
+## Owner answers of 20 Nov 2026 (after the in-game tests) [B]
+
+- Doorless huts get one wreath on the outside wall nearest the hut block.
+- Decorations the Decorator placed for free (and the gift pile and firework crate) drop nothing when broken; paid ones drop their item as before.
+- On the day everyone comes to the gathering, guards stay at their posts; the other workers come.
+- A second festival marker in a colony: the colony's managers get a message that only the first one counts.
+- Take-down also removes a vanilla tree leaf whose only change is its distance property.
+- New Year: the server launches the dusk and midnight shows from the firework crate with the Decorator's rockets while he sleeps.
+- Auto-hire stays as in MineColonies (a new hut is filled last), with the README line; no chat notice.
+- Ornament and tinsel leaves use the game's own spruce-leaf texture with the spruce tint and our ornaments on top (no copied Mojang pixels).
+- Kept as built: every look the owner has seen (lights at night, blocks, scarves and hats, the Decorator's skin, the hut block, the five hut levels, the four trees, the gifts and sounds), logo A, the name Decorator's Workshop, hat colour equal to the scarf, no scarf over chest armour, tinsel leaves lit at night, mushroom-stem plaster, the own happiness reason shown in the hut window.
+- Links in the mod (his decision of 20 Nov, see the supporter perks plan): Patreon https://www.patreon.com/cw/Lovkar and the Discord invite https://discord.gg/BVztrTtXFu in the mods.toml description with a short thank-you; one chat line the first time a player joins a world, once per player across all his mods (a shared neutral marker on the player), with a config switch: "Thanks for playing Lovkar's mods! News, help and test builds on Discord: discord.gg/BVztrTtXFu · Support the mods on Patreon: patreon.com/cw/Lovkar" (approved word for word); a "Discord / Support" line in the Decorator's Workshop window.
+- The final page text goes to him for approval after the in-game test.

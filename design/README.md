@@ -138,3 +138,21 @@ names. A piece built from `src/trees.py` or `src/walls.py` maps them like this (
 | `gift_pile[facing]` | `gift_pile[facing]` |
 | (none) | `firework_crate`, `festival_marker[facing]` |
 | `string_bunting` | not shipped (hut A was picked) |
+
+## Town Square picture round (0.2.0, chunk Q0, 20 Nov 2026)
+
+Pictures for `docs/town-square-design.md` section 5 and the marking wand addendum, in `square/`:
+`sheet-square-looks` (A village plaza, B market square, C formal plaza at levels 5 and 1, winter set),
+`sheet-square-levels` (look A, levels 1 to 5), `sheet-square-hutblock` (notice board, well, lamp post with a sign,
+fountain base), `sheet-square-seasons` (spring, summer, autumn, winter touches at level 3), `square-night`,
+`sheet-street-pieces` (snowmen A to C, lantern posts A and B) and `sheet-stalls` (Trade Post stalls: awnings, timber,
+hand carts), plus one PNG per scene. The square is 21 x 21. Trees are the shipped winter pieces.
+
+```
+cd design\src
+python square_standins.py     (draft models for blocks that do not exist yet: src/square_assets/colonyseasons)
+python squares.py             (or a group: looks levels hutblock seasons night street stalls; --sheets = sheets only)
+```
+
+Draft models (`sq_*`, `snowman_a/b`) are look drafts only: the hut block options, water surface, autumn leaves
+(oak leaves recoloured), hand cart, lantern posts and snowmen. Snowman C is vanilla blocks.

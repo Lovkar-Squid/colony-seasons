@@ -54,6 +54,8 @@ import net.minecraft.tags.BlockTags;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.FireworkRocketEntity;
 import net.minecraft.world.item.ItemStack;
@@ -72,7 +74,9 @@ import net.minecraft.world.level.storage.loot.LootTable;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.VoxelShape;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.neoforge.common.ModConfigSpec;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.common.util.FakePlayer;
 import net.neoforged.neoforge.common.util.FakePlayerFactory;
@@ -109,7 +113,16 @@ import java.util.UUID;
  *       off-duty ones); New Year dusk fireworks from stock (the big show the Decorator stays up for and launches
  *       himself at the square before he goes to bed, a sparkle, nothing without a player, and a sparkle beside the
  *       tree once the crate is gone; every show's rockets climb into the sky); the midnight show with the fake clock
- *       stepping over midnight; the season line; three game days of a forced Winter Festival;</li>
+ *       stepping over midnight; the season line; three game days of a forced Winter Festival; then the square of the
+ *       third in-game test (S10c): the tree put up by the Decorator's own AI while he and a colonist stand in its cells
+ *       (nobody is boxed in, he stands outside the box, the square completes and another building follows the same game
+ *       day), and with an armor stand in a gift pile's cell (that cell refused, the square left for the day after three
+ *       visits that place nothing, the tree ready all the same and lit by the Decorator two game days later, the square
+ *       complete the day after the stand is gone);</li>
+ *   <li>newyear (S10c): the New Year dusk of the third in-game test replayed (a forced New Year, the clock sprinted from
+ *       11800 through the dusk with decorations free: the show goes up and he goes to bed), then the Decorator asleep
+ *       through the dusk in the rain, with rockets from his stock and with decorations free: the server launches the
+ *       show from the crate; a fake player in the claim is the colony's audience, found by the real claim test;</li>
  *   <li>nomixin: the mod jar built without its mixin (prepare.sh): it loads, the mixin is absent and never asked, the
  *       off-duty gathering works, the workers stay at work, everyone is in bed after bedtime; on New Year's eve the
  *       Decorator goes to bed too and the server launches the dusk show from the square;</li>
@@ -171,6 +184,10 @@ public class CsFestival {
     private final List<ICitizenData> offDuty = new ArrayList<>();
     private BlockPos marker;
     private boolean present = true;
+    private IBuilding lumberjackHut;
+    private IBuilding masonHut;
+    /** newyear: the colony's audience, a fake player in the claim about 20 blocks from the marker. */
+    private FakePlayer watcher;
 
     private final List<Step> steps = new ArrayList<>();
     private int stepIndex;
@@ -343,6 +360,13 @@ public class CsFestival {
                 planMidnight();
                 planSeasonLine();
                 planForcedRun();
+                planBoxedIn();
+                planHeld();
+            }
+            case "newyear" -> {
+                planSetup(false);
+                planTree();
+                planNewYear();
             }
             case "nomixin" -> {
                 planSetup(false);
@@ -636,6 +660,8 @@ public class CsFestival {
                         "Medieval Oak", "fundamentals/lumberjack1.blueprint");
                 final IBuilding mason = register("minecolonies:blockhutstonemason", house(-22, 16, 11, 7, -17), 1,
                         "Medieval Oak", "craftsmanship/masonry/stonemason1.blueprint");
+                lumberjackHut = lumberjack;
+                masonHut = mason;
                 check("the buildings are registered", townHall != null && hut != null && lumberjack != null && mason != null, "");
                 if (hut == null || lumberjack == null || mason == null) {
                     finish();
@@ -777,6 +803,9 @@ public class CsFestival {
                                 && firstOf(s -> s.is(SeasonsBlocks.FIREWORK_CRATE.get())) != null, "");
                 checkEq("the colony's players are told once that the tree is finished", TreeLighting.notices() - notices0, 1);
                 checkEq("the day it was finished is saved (the Decorator's two-day timer)", festival().treeReadyDay(), day());
+                checkEq("the ledger notes the day the tree itself was up", g == null ? -1L : g.treeDay(), day());
+                check("its trunk is the festival trunk, in no log tag (the Forester never takes it for a tree)",
+                        firstOf(st -> st.is(SeasonsBlocks.FESTIVAL_TRUNK.get())) != null && firstOf(st -> st.is(BlockTags.LOGS)) == null, "");
                 check("the tree is not lit yet", !festival().treeLit() && lights()[0] == 0, lights()[1] + " unlit lights");
                 invariant("the tree up");
             }
@@ -795,7 +824,7 @@ public class CsFestival {
             void start() {
                 lightings0 = TreeLighting.lightings();
                 rockets0 = Fireworks.rockets();
-                final BlockPos log = firstOf(s -> s.is(BlockTags.LOGS));
+                final BlockPos log = firstOf(s -> s.is(SeasonsBlocks.FESTIVAL_TRUNK.get()));
                 if (log != null) {
                     click(visitor, log);
                     check("a visitor (not of the colony) cannot light the tree", !festival().treeLit() && lights()[0] == 0
@@ -820,7 +849,7 @@ public class CsFestival {
                 checkEq("one lighting, with the chime", TreeLighting.lightings() - lightings0, 1);
                 checkEq("a few rockets went up from the square", Fireworks.rockets() - rockets0, Fireworks.LIGHTING_ROCKETS);
                 invariant("lit by a player");
-                final InteractionResult again = click(one, firstOf(s -> s.is(BlockTags.LOGS)));
+                final InteractionResult again = click(one, firstOf(s -> s.is(SeasonsBlocks.FESTIVAL_TRUNK.get())));
                 checkEq("a second click on the lit tree lights nothing again", TreeLighting.lightings() - lightings0, 1);
                 note("second click: {}", again);
             }
@@ -1025,6 +1054,8 @@ public class CsFestival {
             int handed0;
             int songs0;
             int trips0;
+            int hostSamples;
+            int hostInside;
             final Set<String> statusKeys = new LinkedHashSet<>();
 
             @Override
@@ -1047,6 +1078,10 @@ public class CsFestival {
                     leisure |= colony.getServerBuildingManager().getLeisureSites().contains(marker);
                     if (job() != null) {
                         statusKeys.add(job().statusKey());
+                        if (DecoratorTexts.HOSTING.equals(job().statusKey())) {
+                            hostSamples++;
+                            hostInside += inside(decorator, treeBox()) ? 1 : 0;
+                        }
                     }
                 }
                 return time >= SeasonsConfig.DEFAULT_GATHER_UNTIL_TICK - 40;
@@ -1074,6 +1109,7 @@ public class CsFestival {
                 check("the Decorator hosts at the tree and hands colonists gifts (hearts, a line)", hosting > 0 && handed > 0,
                         hosting + " hosting visits, " + handed + " gifts, status '" + (job() == null ? "-" : job().status()) + "'");
                 check("his status line in the hours is the hosting one (a lang key)", statusKeys.contains(DecoratorTexts.HOSTING), statusKeys.toString());
+                check("he hosts standing outside the tree's box (S10c)", hostSamples > 0 && hostInside == 0, hostInside + " of " + hostSamples + " samples inside");
                 note("{} leisure trips to other places ended so the colonist could come", Gathering.tripsEnded() - trips0);
             }
         });
@@ -1515,13 +1551,522 @@ public class CsFestival {
         });
     }
 
+    // ================================================================ the square of the third in-game test (S10c)
+
+    /** decorator.needsMaterials set at once through the config spec (what a server owner's edit of the file does). */
+    private void needsMaterials(final boolean on) {
+        try {
+            final java.lang.reflect.Field f = SeasonsConfig.class.getDeclaredField("NEEDS_MATERIALS");
+            f.setAccessible(true);
+            final ModConfigSpec.BooleanValue b = (ModConfigSpec.BooleanValue) f.get(null);
+            b.set(on);
+            b.clearCache();
+        } catch (final ReflectiveOperationException | ClassCastException unreadable) {
+            check("decorator.needsMaterials can be set", false, unreadable.getClass().getSimpleName().replace("Exception", ""));
+        }
+        checkEq("decorator.needsMaterials is now " + on, SeasonsConfig.needsMaterials(), on);
+    }
+
+    /** The colony's square piece (hut level 3, facing north), loaded since the tree went up from it. */
+    private PieceLoader.Piece piece() {
+        return PieceLoader.request(level, PieceLoader.PACK, PieceLoader.pathFor(3), Direction.NORTH);
+    }
+
+    private AABB treeBox() {
+        return DecorWork.squareBox(level, ledger, colonyId, marker, Direction.NORTH, PieceLoader.PACK, PieceLoader.pathFor(3));
+    }
+
+    private boolean inside(final ICitizenData c, final AABB box) {
+        final AbstractEntityCitizen e = c == null ? null : c.getEntity().orElse(null);
+        return e != null && box != null && e.getBoundingBox().intersects(box);
+    }
+
+    /** A listed cell of the square with collision that a living body overlaps, or "" (there must never be one). */
+    private String boxedIn() {
+        final DecorLedger.GroupView g = ledger.group(colonyId, square());
+        final AABB box = treeBox();
+        if (g == null || box == null) {
+            return "";
+        }
+        final List<LivingEntity> bodies = level.getEntitiesOfClass(LivingEntity.class, box.inflate(1), LivingEntity::isAlive);
+        for (final Map.Entry<BlockPos, DecorLedger.Entry> e : g.entries().entrySet()) {
+            final VoxelShape shape = e.getValue().state().getCollisionShape(level, e.getKey());
+            if (shape.isEmpty()) {
+                continue;
+            }
+            for (final AABB part : shape.toAabbs()) {
+                final AABB at = part.move(e.getKey());
+                for (final LivingEntity body : bodies) {
+                    if (body.getBoundingBox().intersects(at)) {
+                        return body.getType().toShortString() + " in " + e.getKey().toShortString() + " " + shortName(e.getValue().state());
+                    }
+                }
+            }
+        }
+        return "";
+    }
+
+    private static String shortName(final BlockState state) {
+        return BuiltInRegistries.BLOCK.getKey(state.getBlock()).getPath();
+    }
+
+    /** A building of the colony other than the town hall counted against the day's budget on game day {@code d}. */
+    private String otherCharged(final long d) {
+        for (final IBuilding b : List.of(hut, lumberjackHut, masonHut)) {
+            if (b != null && ledger.chargedOn(colonyId, DecorLedger.Owner.building(b.getPosition()), d)) {
+                return BuiltInRegistries.BLOCK.getKey(level.getBlockState(b.getPosition()).getBlock()).getPath();
+            }
+        }
+        return "";
+    }
+
+    /** Everything of the colony taken down and the tree forgotten, a fresh game day: the square as if never decorated. */
+    private void clearColony() {
+        DecorPlacer.removeColony(level, ledger, colonyId, DecorPlacer.Stock.FREE);
+        ledger.dropEmptyGroups(colonyId);
+        ledger.flush(level);
+        data().resetTree(colonyId);
+        hut.setDecorationsUp(false);
+        nextDayAt(MORNING);
+        checkEq("the colony's decorations are down", ledger.count(colonyId), 0);
+    }
+
+    /** Two cells of the tree a body standing on the ground takes with its head (the lowest ring of boughs, not the trunk). */
+    private List<BlockPos> bodyCells() {
+        final List<BlockPos> out = new ArrayList<>();
+        final PieceLoader.Piece p = piece();
+        if (p == null) {
+            return out;
+        }
+        final Set<BlockPos> taken = new java.util.HashSet<>();
+        for (final PieceLoader.PieceCell c : p.cells()) {
+            taken.add(c.rel());
+        }
+        for (final PieceLoader.PieceCell c : p.cells()) {
+            final BlockPos r = c.rel();
+            if (c.tree() && !c.trunk() && r.getY() == 1 && Math.abs(r.getX()) + Math.abs(r.getZ()) == 2 && !taken.contains(r.below())
+                    && out.size() < 2 && (out.isEmpty() || out.get(0).distSqr(marker.offset(r.below())) > 4)) {
+                out.add(marker.offset(r.below()));        // the feet cell; the head is in the tree cell above
+            }
+        }
+        return out;
+    }
+
+    private static void put(final ICitizenData c, final BlockPos feet) {
+        final AbstractEntityCitizen e = c.getEntity().orElse(null);
+        if (e != null) {
+            e.teleportTo(feet.getX() + 0.5, feet.getY(), feet.getZ() + 0.5);
+            e.getNavigation().stop();
+        }
+    }
+
+    private void planBoxedIn() {
+        final List<BlockPos> cells = new ArrayList<>();
+        final long[] today = new long[1];
+        step(new Step("square, boxed in: the tree down, the Decorator and a colonist stand in its cells", 1) {
+            @Override
+            void start() {
+                setDate(DECOR_DAY);
+                needsMaterials(false);
+                clearColony();
+                today[0] = day();
+                cells.addAll(bodyCells());
+                check("two cells of the tree where a body stands", cells.size() == 2, cells.toString());
+                if (cells.size() == 2) {
+                    put(decorator, cells.get(0));
+                    put(offDuty.get(0), cells.get(1));
+                }
+                final AABB box = treeBox();
+                check("the Decorator and a colonist stand in the tree's box", inside(decorator, box) && inside(offDuty.get(0), box),
+                        "box " + box);
+            }
+        });
+        step(new Step("square, boxed in: the Decorator's AI puts the tree up, nobody is boxed in, he goes on", 12000, true) {
+            String boxed = "";
+            String heInside = "";
+            int rounds;
+            int evictions0;
+            boolean outsideAtFirst;
+            int size;
+
+            @Override
+            void start() {
+                evictions0 = DecorWork.evictions();
+            }
+
+            @Override
+            boolean tick() {
+                final DecorLedger.GroupView g = ledger.group(colonyId, square());
+                final int now = g == null ? 0 : g.size();
+                final AABB box = treeBox();
+                if (now == 0 && cells.size() == 2) {
+                    put(offDuty.get(0), cells.get(1));        // he stands there until the tree goes up
+                }
+                if (now > size) {
+                    rounds++;
+                    if (inside(decorator, box)) {
+                        heInside = "at " + now + " cells";
+                    }
+                    if (size == 0) {
+                        outsideAtFirst = !inside(decorator, box) && !inside(offDuty.get(0), box);
+                    }
+                    size = now;
+                }
+                if (boxed.isEmpty() && t % 5 == 0) {
+                    boxed = boxedIn();
+                }
+                return g != null && g.decoratedDay() >= 0 && !otherCharged(today[0]).isEmpty();
+            }
+
+            @Override
+            void end(final boolean done) {
+                final DecorLedger.GroupView g = ledger.group(colonyId, square());
+                check("no living body is ever in a listed block of the tree", boxed.isEmpty(), boxed);
+                check("both stood outside the box when the tree went up (the colonist moved out)", outsideAtFirst
+                        && DecorWork.evictions() > evictions0, "evictions " + (DecorWork.evictions() - evictions0));
+                check("the Decorator stood outside the box whenever cells of the square went up", heInside.isEmpty() && rounds > 0,
+                        rounds + " rounds" + (heInside.isEmpty() ? "" : ", inside " + heInside));
+                check("the square is complete", g != null && g.decoratedDay() >= 0, g == null ? "no group" : g.size() + " cells");
+                check("another building than the town hall is decorated the same game day", !otherCharged(today[0]).isEmpty() && day() == today[0],
+                        "'" + otherCharged(today[0]) + "', day " + day() + " (started " + today[0] + ")");
+                invariant("the tree up round where they stood");
+            }
+        });
+    }
+
+    private void planHeld() {
+        final BlockPos[] gift = new BlockPos[1];
+        final ArmorStand[] stand = new ArmorStand[1];
+        final long[] ready = new long[1];
+        final int[] notices0 = new int[1];
+        step(new Step("square, held: the tree down, an armor stand in a gift pile's cell", 1) {
+            @Override
+            void start() {
+                clearColony();
+                final PieceLoader.Piece p = piece();
+                if (p != null) {
+                    for (final PieceLoader.PieceCell c : p.cells()) {
+                        if (c.giftPile() && gift[0] == null) {
+                            gift[0] = marker.offset(c.rel());
+                        }
+                    }
+                }
+                check("the piece has a gift pile cell", gift[0] != null, "");
+                if (gift[0] == null) {
+                    return;
+                }
+                stand[0] = new ArmorStand(level, gift[0].getX() + 0.5, gift[0].getY(), gift[0].getZ() + 0.5);
+                check("an armor stand stands in the gift pile's cell", level.addFreshEntity(stand[0]), gift[0].toShortString());
+                notices0[0] = TreeLighting.notices();
+            }
+        });
+        step(new Step("square, held: that cell is refused, the square is left for today, the other buildings go on", 12000, true) {
+            final long[] today = new long[1];
+
+            @Override
+            void start() {
+                today[0] = day();
+            }
+
+            @Override
+            boolean tick() {
+                return ledger.fruitless(colonyId, square(), today[0]) >= DecorWork.MAX_FRUITLESS_VISITS && !otherCharged(today[0]).isEmpty()
+                        && TreeLighting.notices() > notices0[0];
+            }
+
+            @Override
+            void end(final boolean done) {
+                final DecorLedger.GroupView g = ledger.group(colonyId, square());
+                final BlockState giftState = SeasonsBlocks.GIFT_PILE.get().defaultBlockState();
+                check("the gift pile's cell is refused for the stand (the cell rule says entity)", gift[0] != null && level.getBlockState(gift[0]).isAir()
+                        && "entity".equals(DecorPlacer.refusal(level, ledger, colonyId, gift[0], DecorPlacer.normalise(giftState, gift[0]), true)),
+                        gift[0] == null ? "-" : DecorPlacer.refusal(level, ledger, colonyId, gift[0], giftState, true));
+                check("after " + DecorWork.MAX_FRUITLESS_VISITS + " visits that place nothing the square is left for today",
+                        ledger.fruitless(colonyId, square(), today[0]) >= DecorWork.MAX_FRUITLESS_VISITS, ledger.fruitless(colonyId, square(), today[0]) + " visits");
+                check("another building is decorated that game day", !otherCharged(today[0]).isEmpty() && day() == today[0], otherCharged(today[0]));
+                check("the square is not complete, its tree is up all the same", g != null && g.decoratedDay() < 0 && g.treeDay() == today[0],
+                        g == null ? "no group" : "decorated " + g.decoratedDay() + ", tree " + g.treeDay());
+                checkEq("the colony's players are told once that the tree is ready", TreeLighting.notices() - notices0[0], 1);
+                ready[0] = festival().treeReadyDay();
+                checkEq("the two-day timer starts today", ready[0], today[0]);
+                check("not lit yet", !festival().treeLit(), "");
+                invariant("the square held");
+            }
+        });
+        step(new Step("square, held: one game day later it is still dark", 400, true) {
+            @Override
+            void start() {
+                nextDayAt(MORNING);
+            }
+
+            @Override
+            boolean tick() {
+                return t >= 300;
+            }
+
+            @Override
+            void end(final boolean done) {
+                check("one day later it is still dark", !festival().treeLit(), "day " + day() + ", ready " + ready[0]);
+            }
+        });
+        step(new Step("square, held: two game days later the Decorator lights it, the gift cell still open", 400, true) {
+            int lightings0;
+
+            @Override
+            void start() {
+                lightings0 = TreeLighting.lightings();
+                nextDayAt(MORNING);
+            }
+
+            @Override
+            boolean tick() {
+                return t >= 60 && festival().treeLit();
+            }
+
+            @Override
+            void end(final boolean done) {
+                check("two game days after the tree was up the Decorator lit it", done && TreeLighting.BY_DECORATOR.equals(festival().litBy())
+                        && TreeLighting.lightings() == lightings0 + 1, "day " + day() + ", ready " + ready[0] + ", by '" + festival().litBy() + "'");
+                check("the gift pile's cell is still open (the stand is there)", gift[0] != null && level.getBlockState(gift[0]).isAir()
+                        && stand[0] != null && stand[0].isAlive(), "");
+                checkEq("no second notice", TreeLighting.notices() - notices0[0], 1);
+                invariant("lit with the gift cell open");
+            }
+        });
+        step(new Step("square, held: the stand gone, the next day's visit completes the square", 9000, true) {
+            @Override
+            void start() {
+                if (stand[0] != null) {
+                    stand[0].discard();
+                }
+                nextDayAt(MORNING);
+            }
+
+            @Override
+            boolean tick() {
+                final DecorLedger.GroupView g = ledger.group(colonyId, square());
+                return g != null && g.decoratedDay() >= 0;
+            }
+
+            @Override
+            void end(final boolean done) {
+                final DecorLedger.GroupView g = ledger.group(colonyId, square());
+                check("the square is complete, the gift pile in its cell and listed", done && gift[0] != null
+                        && level.getBlockState(gift[0]).is(SeasonsBlocks.GIFT_PILE.get()) && ledger.at(gift[0]) != null,
+                        g == null ? "no group" : "decorated " + g.decoratedDay());
+                checkEq("the tree stays lit", festival().treeLit(), true);
+                invariant("the square complete");
+                needsMaterials(true);
+            }
+        });
+    }
+
+    // ================================================================ New Year (S10c)
+
+    private static final LocalDate NY_A = LocalDate.of(2027, 1, 2);
+    private static final LocalDate NY_B = LocalDate.of(2027, 1, 1);
+    private static final LocalDate NY_C = LocalDate.of(2026, 12, 31);
+
+    /** Every firework rocket out of the hut and his pack, then {@code n} into the hut. */
+    private void rocketsInHut(final int n) {
+        for (final net.neoforged.neoforge.items.IItemHandler h : new net.neoforged.neoforge.items.IItemHandler[] {hut.getItemHandlerCap(),
+                decorator.getInventory()}) {
+            for (int slot = 0; slot < h.getSlots(); slot++) {
+                if (h.getStackInSlot(slot).is(Items.FIREWORK_ROCKET)) {
+                    h.extractItem(slot, 64, false);
+                }
+            }
+        }
+        if (n > 0) {
+            addRockets(n);
+        }
+    }
+
+    private int rocketsHeld() {
+        int n = rocketsInStock();
+        final net.neoforged.neoforge.items.IItemHandler pack = decorator.getInventory();
+        for (int slot = 0; slot < pack.getSlots(); slot++) {
+            n += pack.getStackInSlot(slot).is(Items.FIREWORK_ROCKET) ? pack.getStackInSlot(slot).getCount() : 0;
+        }
+        return n;
+    }
+
+    private void planNewYear() {
+        step(new Step("newyear: the audience is a fake player in the claim, found by the real claim test", 1) {
+            @Override
+            void start() {
+                watcher = FakePlayerFactory.get(level, new GameProfile(UUID.nameUUIDFromBytes("csfestival-watcher".getBytes(StandardCharsets.US_ASCII)),
+                        "csfestival_watcher"));
+                watcher.setPos(marker.getX() - 20 + 0.5, marker.getY(), marker.getZ() + 0.5);
+                Fireworks.setPresence((lvl, c) -> c.getID() == colonyId && Fireworks.playersIn(lvl, c, List.of(watcher)));
+                check("the claim test finds the watcher 20 blocks from the marker in the colony", Fireworks.playersIn(level, colony, List.of(watcher)),
+                        watcher.blockPosition().toShortString());
+                CalendarManager.setForcedFestival(server, SeasonsConfig.NEW_YEAR);
+                // lit now, so the Decorator's lighting two game days on (and its greeting rockets) is not in the shows below
+                TreeLighting.light(level, colony, TreeLighting.BY_PLAYER, null);
+            }
+        });
+        // (a) the third in-game test: the clock sprinted from 11800 through the dusk, decorations free
+        final long[] shownAt = {-1};
+        final String[] by = {""};
+        step(new Step("newyear (a): a forced New Year, decorations free, the Decorator gets the show ready by day", 2000, true) {
+            int launching0;
+
+            @Override
+            void start() {
+                setDate(NY_A);
+                needsMaterials(false);
+                rocketsInHut(0);
+                nextDayAt(6000);
+                launching0 = job() == null ? 0 : job().visits(EntityAIWorkDecorator.DecoratorState.LAUNCHING);
+            }
+
+            @Override
+            boolean tick() {
+                return job() != null && job().visits(EntityAIWorkDecorator.DecoratorState.LAUNCHING) > launching0 && t >= 200;
+            }
+
+            @Override
+            void end(final boolean done) {
+                check("New Year is on by force", CalendarManager.current().festivals().days().contains(SeasonsConfig.NEW_YEAR), "");
+                check("on the New Year day he goes Launching", done, "status " + (job() == null ? "-" : job().statusKey()));
+            }
+        });
+        step(new Step("newyear (a): at 11800 the clock is sprinted 1000 ticks, as in the test", 1000, true) {
+            int byHim0;
+            int byServer0;
+            int midnight0;
+
+            @Override
+            void start() {
+                setTimeOfDay(11800);
+                byHim0 = Fireworks.decoratorShows();
+                byServer0 = Fireworks.serverShows();
+                midnight0 = Fireworks.midnightShows();
+                note("at 11800: the Decorator is {}, status {}", state(decorator), job() == null ? "-" : job().statusKey());
+            }
+
+            @Override
+            boolean tick() {
+                if (shownAt[0] < 0 && Fireworks.decoratorShows() + Fireworks.serverShows() > byHim0 + byServer0) {
+                    shownAt[0] = timeOfDay();
+                    by[0] = Fireworks.decoratorShows() > byHim0 ? "the Decorator" : "the server";
+                }
+                return false;
+            }
+
+            @Override
+            void end(final boolean done) {
+                note("the sprint ended at {}; the show went up at {}; the Decorator is {}", timeOfDay(), shownAt[0], state(decorator));
+                checkEq("no midnight show on the way", Fireworks.midnightShows() - midnight0, 0);
+            }
+        });
+        step(new Step("newyear (a): to 13100, the dusk over", 400, true) {
+            int byHim0;
+            int byServer0;
+
+            @Override
+            void start() {
+                byHim0 = Fireworks.decoratorShows();
+                byServer0 = Fireworks.serverShows();
+            }
+
+            @Override
+            boolean tick() {
+                return timeOfDay() >= 13100;
+            }
+
+            @Override
+            void end(final boolean done) {
+                check("the dusk show went up inside the sprint, from 12500 and before 12806 (the test's look at the clock)",
+                        shownAt[0] >= Fireworks.DUSK_FROM && shownAt[0] < 12806, "at " + shownAt[0]);
+                note("RUN 3 replay: the show went up at {} of the game day, launched by {}", shownAt[0], by[0]);
+                final FestivalData.ColonyState st = data().peek(colonyId);
+                checkEq("the dusk of this game day is noted", st == null ? -1L : st.lastDuskGameDay(), day());
+                check("by 13100 the Decorator is in bed (MineColonies' sleep routine)", BEDTIME_STATES.contains(state(decorator)), state(decorator));
+                checkEq("no second show this dusk", Fireworks.decoratorShows() - byHim0 + Fireworks.serverShows() - byServer0, 0);
+            }
+        });
+        asleep("(b)", NY_B, true);
+        asleep("(c)", NY_C, false);
+        step(new Step("newyear: the end", 1) {
+            @Override
+            void start() {
+                CalendarManager.setForcedFestival(server, "");
+                needsMaterials(true);
+            }
+        });
+    }
+
+    /** He sleeps through the dusk (rain, so nothing keeps him up): the server launches the show from the crate. */
+    private void asleep(final String label, final LocalDate date, final boolean materials) {
+        step(new Step("newyear " + label + ": rain, he sleeps through the dusk, decorations " + (materials ? "from stock" : "free"), 4200, true) {
+            int byHim0;
+            int byServer0;
+            int rockets0;
+            int midnight0;
+            int held0;
+            BlockPos crate;
+            BlockPos site;
+            long launchedAt = -1;
+            String hisState = "";
+            int rise = -1;
+
+            @Override
+            void start() {
+                setDate(date);
+                needsMaterials(materials);
+                rocketsInHut(Fireworks.SHOW_ROCKETS);
+                nextDayAt(9000);
+                level.setWeatherParameters(0, 24000, true, false);
+                crate = firstOf(s -> s.is(SeasonsBlocks.FIREWORK_CRATE.get()));
+                site = Fireworks.site(level, colony);
+                byHim0 = Fireworks.decoratorShows();
+                byServer0 = Fireworks.serverShows();
+                rockets0 = Fireworks.rockets();
+                midnight0 = Fireworks.midnightShows();
+                held0 = rocketsHeld();
+            }
+
+            @Override
+            boolean tick() {
+                if (launchedAt < 0 && Fireworks.decoratorShows() + Fireworks.serverShows() > byHim0 + byServer0) {
+                    launchedAt = timeOfDay();
+                    hisState = state(decorator);
+                }
+                if (site != null) {
+                    for (final FireworkRocketEntity r : level.getEntitiesOfClass(FireworkRocketEntity.class, new AABB(site).inflate(64))) {
+                        rise = Math.max(rise, (int) Math.floor(r.getY() - site.getY() - 1));
+                    }
+                }
+                return launchedAt >= 0 && timeOfDay() >= launchedAt + 200 || timeOfDay() >= Fireworks.DUSK_UNTIL;
+            }
+
+            @Override
+            void end(final boolean done) {
+                level.setWeatherParameters(24000 * 20, 0, false, false);
+                check("the show went up at dusk " + label, launchedAt >= Fireworks.DUSK_FROM && launchedAt < Fireworks.DUSK_UNTIL, "at " + launchedAt);
+                // the test colony has no beds: MineColonies' sleep routine, or idle in the rain, but never at work (nothing keeps him up)
+                check("he was not up when it went up (not at work: asleep or idle) " + label, !hisState.isEmpty() && !"none".equals(hisState)
+                        && !AT_WORK.contains(hisState), hisState);
+                checkEq("the server launched it " + label, Fireworks.serverShows() - byServer0, 1);
+                checkEq("not he " + label, Fireworks.decoratorShows() - byHim0, 0);
+                check("from the firework crate " + label, crate != null && crate.equals(site), site + ", crate " + crate);
+                checkEq("rockets that flew " + label, Fireworks.rockets() - rockets0, Fireworks.SHOW_ROCKETS);
+                checkEq("rockets taken from his stock " + label, held0 - rocketsHeld(), materials ? Fireworks.SHOW_ROCKETS : 0);
+                check("the rockets climb into the sky " + label, rise >= 3, rise + " blocks above " + site);
+                checkEq("no midnight show on the way " + label, Fireworks.midnightShows() - midnight0, 0);
+            }
+        });
+    }
+
     // ================================================================ restart
 
     private void planRestartSave() {
         step(new Step("restart-save: the tree lit and a gift taken, then the world saved", 80, true) {
             @Override
             void start() {
-                final BlockPos log = firstOf(s -> s.is(BlockTags.LOGS));
+                final BlockPos log = firstOf(s -> s.is(SeasonsBlocks.FESTIVAL_TRUNK.get()));
                 click(one, log);
                 check("the tree is lit before the restart", festival().treeLit() && lights()[1] == 0, "");
                 final BlockPos pile = firstOf(s -> s.is(SeasonsBlocks.GIFT_PILE.get()));
@@ -1532,6 +2077,9 @@ public class CsFestival {
                 facts.putLong("marker", marker.asLong());
                 facts.putLong("pile", pile.asLong());
                 facts.putLong("log", log.asLong());
+                final DecorLedger.GroupView tree = ledger.group(colonyId, square());
+                facts.putLong("treeDay", tree == null ? -1 : tree.treeDay());
+                check("the tree's ready day is in the ledger before the restart", tree != null && tree.treeDay() >= 0, "");
                 facts.putString("season", data().lastSeason());
                 try {
                     NbtIo.writeCompressed(facts, server.getWorldPath(LevelResource.ROOT).resolve(RESTART_FILE));
@@ -1603,6 +2151,8 @@ public class CsFestival {
                 check("the tree is still lit, by the player", festival().treeLit() && TreeLighting.BY_PLAYER.equals(festival().litBy())
                         && lights()[1] == 0 && lights()[0] > 0, lights()[0] + " lit, " + lights()[1] + " unlit");
                 checkEq("no second notice that the tree is finished", TreeLighting.notices(), 0);
+                final DecorLedger.GroupView tree = DecorLedger.get(level).group(colonyId, DecorLedger.Owner.square(marker));
+                checkEq("the tree's ready day survives the restart", tree == null ? -2L : tree.treeDay(), facts[0].getLong("treeDay"));
                 checkEq("no season line after the restart (the season told is saved)", FestivalDirector.seasonLines(), 0);
                 checkEq("the season told is read back", data().lastSeason(), facts[0].getString("season"));
                 invariant("after the restart");

@@ -7,6 +7,7 @@ import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
@@ -51,6 +52,12 @@ public final class SeasonsBlocks {
             () -> new TreeStarBlock(star().lightLevel(Lights.whenLit(Lights.TREE_STAR))));
     public static final DeferredBlock<LargeStarBlock> LARGE_STAR = ColonySeasons.BLOCKS.register("large_star",
             () -> new LargeStarBlock(star().lightLevel(Lights.whenLit(Lights.LARGE_STAR))));
+    /**
+     * The festival tree's trunk (S10c): a spruce log to look at, in no log tag, so MineColonies' Forester never cuts the
+     * tree. No item, no recipe and not in {@link #ALL}: only the Decorator places it, and it drops a spruce log.
+     */
+    public static final DeferredBlock<FestivalTrunkBlock> FESTIVAL_TRUNK = ColonySeasons.BLOCKS.register("festival_trunk",
+            () -> new FestivalTrunkBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.SPRUCE_LOG)));
 
     // ---- on the square
     public static final DeferredBlock<GiftPileBlock> GIFT_PILE = ColonySeasons.BLOCKS.register("gift_pile",

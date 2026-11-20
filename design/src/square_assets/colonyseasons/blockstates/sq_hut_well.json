@@ -1,0 +1,19 @@
+{
+ "variants": {
+  "facing=north": {
+   "model": "colonyseasons:block/sq_hut_well"
+  },
+  "facing=east": {
+   "model": "colonyseasons:block/sq_hut_well",
+   "y": 90
+  },
+  "facing=south": {
+   "model": "colonyseasons:block/sq_hut_well",
+   "y": 180
+  },
+  "facing=west": {
+   "model": "colonyseasons:block/sq_hut_well",
+   "y": 270
+  }
+ }
+}

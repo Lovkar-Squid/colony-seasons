@@ -2,7 +2,8 @@
 
 It follows the S4/S5 contract for the festival pieces (BUILDING.md, PieceLoader): drawn facing north; the primary
 offset is the festival marker's cell, which is air in the piece (it carries the anchor's block entity data with the
-position tags); tags gift_pile, firework_crate and star; the trunk is the log blocks. The same piece is written under
+position tags); tags gift_pile, firework_crate and star; the trunk is colony_seasons:festival_trunk, as in the real
+pieces (S10c: a spruce log to look at, in no log tag, so MineColonies' Forester never cuts the tree). The same piece is written under
 the four file names the Decorator asks for per hut level, so the probe can drive the real code path.
 
 Pack folder: tools/csdecorgate/res/blueprints/colonyseasonsdecorgate/cstest/ (pack name "Colony Seasons Test").
@@ -31,13 +32,13 @@ ANCHOR = (2, 0, 4)           # the marker's cell: air in the piece
 LEAVES = "minecraft:spruce_leaves[distance=1,persistent=true,waterlogged=false]"
 CELLS = [
     # trunk
-    ((2, 0, 1), "minecraft:spruce_log[axis=y]"),
-    ((2, 1, 1), "minecraft:spruce_log[axis=y]"),
-    ((2, 2, 1), "minecraft:spruce_log[axis=y]"),
-    ((2, 3, 1), "minecraft:spruce_log[axis=y]"),
-    ((2, 4, 1), "minecraft:spruce_log[axis=y]"),
+    ((2, 0, 1), "colony_seasons:festival_trunk[axis=y]"),
+    ((2, 1, 1), "colony_seasons:festival_trunk[axis=y]"),
+    ((2, 2, 1), "colony_seasons:festival_trunk[axis=y]"),
+    ((2, 3, 1), "colony_seasons:festival_trunk[axis=y]"),
+    ((2, 4, 1), "colony_seasons:festival_trunk[axis=y]"),
     # one branch to the east, so a turn is easy to see
-    ((3, 2, 1), "minecraft:spruce_log[axis=x]"),
+    ((3, 2, 1), "colony_seasons:festival_trunk[axis=x]"),
     # leaves and ornaments
     ((1, 2, 1), LEAVES),
     ((2, 2, 0), LEAVES),

@@ -69,7 +69,12 @@ what his hut level allows. A higher level means more decorations on each buildin
 | 4 | garland and lights four on each side | full-size spruce with more ornaments |
 | 5 | up to six on each side, the second door too | the grand tiered tree with the large star |
 
-The gift pile and the firework crate go up last, once the tree's own logs, leaves, ornaments and star are in place.
+The gift pile and the firework crate go up last, once the tree's own trunk, leaves, ornaments and star are in place.
+The trunk looks like spruce logs but is the mod's own block, so a Forester never takes the festival tree for a tree
+to cut. Colonists standing where the tree goes are moved aside first, and he never builds round a player or an
+animal. A cell of the square that cannot be filled for now (someone standing in it, a lantern with grass where its
+planter brick should be) does not hold him up: after a few tries he goes on to the other buildings and tries again the
+next day, and the tree is ready to light as soon as the tree itself stands.
 
 While the window lasts he looks over his work once a game day, puts back what went missing and refills the
 gift pile. On festival days he stands at the tree, hands out gifts and sets off the fireworks. After the
@@ -227,7 +232,7 @@ the game alone and says so; use Serene Seasons' own command.
 - The text is English only.
 
 If you take the mod out of a world, run `/colonyseasons decor remove` for each colony first. The decoration
-blocks disappear with the mod, but the logs and leaves of the tree stay where they are.
+blocks disappear with the mod (the tree's trunk too), but the spruce leaves of the tree stay where they are.
 
 ## Building from source
 

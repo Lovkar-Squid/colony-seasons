@@ -7,6 +7,7 @@ import com.minecolonies.api.colony.buildings.IBuilding;
 import com.minecolonies.api.entity.ai.statemachine.states.CitizenAIState;
 import com.minecolonies.core.entity.citizen.EntityCitizen;
 import it.unimi.dsi.fastutil.ints.IntList;
+import me.lovkar.seasons.ColonySeasons;
 import me.lovkar.seasons.SeasonsConfig;
 import me.lovkar.seasons.block.FestivalMarkerBlock;
 import me.lovkar.seasons.block.SeasonsBlocks;
@@ -38,6 +39,8 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -63,6 +66,12 @@ import java.util.function.BiPredicate;
  * show comes at a real hour, whatever the game clock says, so the server launches it. What a show did is noted in
  * {@link FestivalData} (real day of the big show, game day of the last dusk, the midnight), so a restart never repeats
  * one.</p>
+ *
+ * <p>The server log tells what the dusk did (S10c: in the third in-game test the clock was sprinted through the dusk,
+ * the show went up unseen and nothing said so): one INFO line for every dusk show that goes up (colony, rockets, where
+ * from, the time of day, the game day, by the Decorator or by the server), and one per colony and game day whenever
+ * the reason a due dusk show has not gone up changes (no player in the colony, waiting for the Decorator, no square,
+ * no Decorator, no rockets).</p>
  */
 public final class Fireworks {
     public static final int SHOW_ROCKETS = 16;
@@ -120,6 +129,8 @@ public final class Fireworks {
     private static volatile int keptUp;
     /** Tests replace this ("is a player in the colony?"); null asks the level's real players. */
     private static BiPredicate<ServerLevel, IColony> presence;
+    /** Why each colony's due dusk show has not gone up, by dimension and colony id: the game day and the reason last logged. */
+    private static final Map<String, String> WAITING = new HashMap<>();
 
     private Fireworks() {
     }
@@ -165,6 +176,7 @@ public final class Fireworks {
 
     static void reset() {
         QUEUE.clear();
+        WAITING.clear();
         lastNow = null;
         lastCountdown = -1;
     }
@@ -202,8 +214,13 @@ public final class Fireworks {
         if (presence != null) {
             return presence.test(level, colony);
         }
-        for (final ServerPlayer player : level.players()) {
-            if (colony.isCoordInColony(level, player.blockPosition())) {
+        return playersIn(level, colony, level.players());
+    }
+
+    /** True when one of {@code players} stands in this level inside the colony's claim (the probe hands its fake players in here). */
+    public static boolean playersIn(final ServerLevel level, final IColony colony, final Collection<? extends Player> players) {
+        for (final Player player : players) {
+            if (player.level() == level && colony.isCoordInColony(level, player.blockPosition())) {
                 return true;
             }
         }
@@ -251,12 +268,34 @@ public final class Fireworks {
             return;
         }
         if (!playerIn(level, colony)) {
+            waiting(level, colony, gameDay, "no player in the colony to see it");
             return;                                   // nobody to see it: the rockets wait
         }
         if (DECORATOR_LAUNCHES && level.getDayTime() % 24000L < DUSK_FROM + LAUNCH_GRACE && decoratorUp(colony)) {
+            waiting(level, colony, gameDay, "waiting for the Decorator, who is up to launch it");
             return;                                   // he is up for the show: his to launch
         }
-        launch(level, colony, data, snapshot, gameDay, false);
+        if (site(level, colony) == null) {
+            waiting(level, colony, gameDay, "no square (no festival marker)");
+            return;
+        }
+        if (decorator(colony) == null) {
+            waiting(level, colony, gameDay, "no Decorator works in the colony");
+            return;
+        }
+        if (launch(level, colony, data, snapshot, gameDay, false) == 0) {
+            waiting(level, colony, gameDay, "no firework rockets in the Decorator's stock");
+        }
+    }
+
+    /** One INFO line per colony and game day whenever the reason its due dusk show has not gone up changes. */
+    private static void waiting(final ServerLevel level, final IColony colony, final long gameDay, final String why) {
+        final String key = level.dimension().location() + "#" + colony.getID();
+        final String now = gameDay + ":" + why;
+        if (!now.equals(WAITING.put(key, now))) {
+            ColonySeasons.LOGGER.info("New Year dusk of colony {} (game day {}, time {}): the show has not gone up yet: {}", colony.getID(),
+                    gameDay, level.getDayTime() % 24000L, why);
+        }
     }
 
     /**
@@ -288,6 +327,10 @@ public final class Fireworks {
         if (queued <= 0) {
             return queued;
         }
+        ColonySeasons.LOGGER.info("New Year dusk of colony {} (game day {}, time {}): the {} went up, {} rockets from {}, launched by {}",
+                id, gameDay, level.getDayTime() % 24000L, big ? "big show" : "sparkle", queued, site(level, colony).toShortString(),
+                byDecorator ? "the Decorator" : "the server");
+        WAITING.remove(level.dimension().location() + "#" + id);
         data.setDusk(id, gameDay);
         if (big) {
             data.setBigShow(id, realDay);

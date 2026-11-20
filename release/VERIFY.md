@@ -49,10 +49,13 @@ hostile review's ids (H1 to H19) are the attacks of `tools/csfullcycle/Hostile.j
 9. The festival marker: the tree stands where it is placed, facing as the marker faces; with at most a tenth
    of the cells blocked (and no trunk cell) he builds the rest, otherwise nothing and a note in the hut window.
    Proof: csdecorgate square (the position formula in four facings, the 10 % rule, the trunk rule, the note); csfullcycle base.
-10. Uninstalling: `decor remove` first; the tree's logs and leaves stay (design 3.3).
+10. Uninstalling: `decor remove` first; the tree's leaves stay (design 3.3; since S10c its trunk is the mod's own
+   `festival_trunk` and goes with the mod).
    Proof: hostile-world H18: decor remove in the middle of the festival leaves nothing listed, the square as it was before
-   the tree and every paid item back in the hut; without it, the tree's 122 vanilla logs and leaves (village spruce, full
-   size) would stay. The README sentence holds as written.
+   the tree and every paid item back in the hut; without it, the tree's vanilla spruce leaves would stay (S9 counted 122
+   vanilla logs and leaves on the full-size village spruce, before the trunk became our block).
+   Changed (S10c): README and `release/curseforge-description.md`, "the decoration blocks disappear with the mod (the
+   tree's trunk too), but the spruce leaves of the tree stay".
 
 ## Rests on S5 (hut and tree blueprints)
 
@@ -170,6 +173,9 @@ Notes from S7 (19 Nov 2026, probe `csfestival`, all modes and `tools/restart.sh 
     tinsel leaves) go up last, once every log, leaf, ornament and the star the Decorator pays for is in place.
    Changed: README (the Decorator's level table, the sentence below it). Proof: hostile-world H8 (no stock: nothing
    placed; logs only: the trunk and nothing free); csfullcycle emptywarehouse (nothing ever placed).
+   Changed (S10c): README "once the tree's own trunk, leaves, ornaments and star are in place"; a paid cell the cell
+   rule refuses for good (a lantern whose planter brick cell holds grass) no longer holds the free ones back.
+   Proof: csdecorgate square ("the grand tree with short grass on a planter cell").
 31. With no rockets in his stock the New Year dusk waits for them and no show is counted; see item 16. Proof:
    csfullcycle emptywarehouse.
 32. The Decorator takes a big tree down over a few visits, at most 256 blocks a visit. Not in the pages (a detail).
@@ -185,6 +191,22 @@ Notes from S7 (19 Nov 2026, probe `csfestival`, all modes and `tools/restart.sh 
     lumberjack with the player at the Workshop; the control: the same far move into a MineColonies hut fails) and
     `tools/restart.sh cshire`. MineColonies ticks its buildings in the order they were added (its building map is
     rebuilt with the new hut last), which cshire logs. S10 retry: hire a fletcher or a knight from the Workshop.
+
+## Added by S10c
+
+34. README: the trunk looks like spruce logs but is the mod's own block, so a Forester never takes the festival tree
+    for a tree to cut.
+    Proof: csforester (the trunk in no log tag at runtime, MineColonies' own tree test says no tree at every trunk
+    cell, the Forester cuts a natural oak and leaves the festival tree whole for three game days); `tools/build_pack.py`
+    (no log block in any piece). MineColonies' tree test also turns the tree down for its persistent leaves, so the
+    trunk block is what keeps it safe from anything that cuts `#minecraft:logs`.
+35. README: colonists standing where the tree goes are moved aside first, and he never builds round a player or an
+    animal; a cell of the square that cannot be filled for now does not hold him up: after a few tries he goes on to
+    the other buildings and tries again the next day, and the tree is ready to light as soon as the tree itself stands.
+    Proof: csfestival (the square boxed in: nobody in a listed block, the colonist moved out, another building the same
+    game day; the square held by an armor stand in a gift cell: the cell rule says "entity", left for the day after 3
+    visits, the tree ready and lit by the Decorator two game days later); csdecorgate square (grass on a planter cell).
+    S10 retry: watch the Decorator build the grand tree and go on to the other buildings the same game day.
 
 ## Built already and shown in the pages
 

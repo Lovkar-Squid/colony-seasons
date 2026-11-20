@@ -61,8 +61,8 @@ colonists still dress for the season and gather at the festival marker (or the t
 citizen window, only in the Decorator's hut window. MineColonies' own crops probably ignore the winter
 slowdown. The text is English only.
 
-If you remove the mod from a world, run `/colonyseasons decor remove` for each colony first. The logs and
-leaves of the tree stay in the world.
+If you remove the mod from a world, run `/colonyseasons decor remove` for each colony first. The decoration
+blocks disappear with the mod (the tree's trunk too), but the spruce leaves of the tree stay in the world.
 
 ## Requirements
 

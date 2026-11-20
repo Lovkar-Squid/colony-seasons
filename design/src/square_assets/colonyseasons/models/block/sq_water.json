@@ -1,0 +1,26 @@
+{
+ "textures": {
+  "w": "colonyseasons:block/sq_water",
+  "particle": "colonyseasons:block/sq_water"
+ },
+ "elements": [
+  {
+   "from": [
+    0,
+    0,
+    0
+   ],
+   "to": [
+    16,
+    7,
+    16
+   ],
+   "faces": {
+    "up": {
+     "texture": "#w"
+    }
+   }
+  }
+ ],
+ "ambientocclusion": false
+}

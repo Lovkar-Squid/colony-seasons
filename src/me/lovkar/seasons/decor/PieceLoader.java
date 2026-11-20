@@ -6,8 +6,12 @@ import com.ldtteam.structurize.blueprints.v1.BlueprintTagUtils;
 import com.ldtteam.structurize.storage.StructurePacks;
 import com.ldtteam.structurize.util.BlockInfo;
 import me.lovkar.seasons.ColonySeasons;
+import me.lovkar.seasons.block.FestivalTrunkBlock;
 import me.lovkar.seasons.block.FireworkCrateBlock;
 import me.lovkar.seasons.block.GiftPileBlock;
+import me.lovkar.seasons.block.LargeStarBlock;
+import me.lovkar.seasons.block.OrnamentLeavesBlock;
+import me.lovkar.seasons.block.TreeStarBlock;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -16,6 +20,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.level.block.LeavesBlock;
 import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.ArrayList;
@@ -34,7 +39,9 @@ import java.util.concurrent.ConcurrentHashMap;
  * <p>Contract with the pieces (chunk S5): pack "Colony Seasons"; {@link #pathFor} names the file per hut level; a
  * piece is drawn facing north and the marker's facing turns it; its primary offset is the marker's cell, which is
  * air in the piece (the marker is never replaced); position tags {@code gift_pile} (skipped below hut level 2),
- * {@code firework_crate} (below level 3) and {@code star}; trunk cells are the log blocks.</p>
+ * {@code firework_crate} (below level 3) and {@code star}; trunk cells are our {@link FestivalTrunkBlock} (S10c: a
+ * spruce log to look at, in no log tag, so MineColonies' Forester never cuts the tree), or a log block of an older or
+ * a pack maker's piece.</p>
  *
  * <p>Loading never blocks: {@code getBlueprintFuture} reads on Structurize's own threads, and the result is turned
  * and read on the server thread in one go, because the pack hands out one cached Blueprint per file that other
@@ -55,22 +62,31 @@ public final class PieceLoader {
     /** At most this share of a piece's cells may be blocked for the rest to be placed (and no trunk cell). */
     public static final double MAX_BLOCKED_SHARE = 0.10;
 
-    /** One cell of a turned piece, relative to the marker. */
-    public record PieceCell(BlockPos rel, BlockState state, boolean trunk, boolean giftPile, boolean fireworkCrate, boolean star) {
+    /**
+     * One cell of a turned piece, relative to the marker. {@code tree}: a cell of the tree itself (trunk, leaves,
+     * ornament and tinsel leaves, star), as opposed to what stands round it (gift piles, the crate, the planter, its
+     * lanterns): the tree is ready to light once these are up (S10c).
+     */
+    public record PieceCell(BlockPos rel, BlockState state, boolean trunk, boolean giftPile, boolean fireworkCrate, boolean star, boolean tree) {
     }
 
-    /** A piece turned for one facing. {@code tags} says whether the anchor carried position tags. */
-    public record Piece(String pack, String path, Direction facing, List<PieceCell> cells, BlockPos offset, boolean tags) {
+    /**
+     * A piece turned for one facing. {@code tags} says whether the anchor carried position tags; {@code min} and
+     * {@code max} are the corners of its cells, relative to the marker (the square's box, S10c).
+     */
+    public record Piece(String pack, String path, Direction facing, List<PieceCell> cells, BlockPos offset, boolean tags,
+                        BlockPos min, BlockPos max) {
     }
 
     /**
      * What the square needs now. {@code gone}: cells this group lists that are air now, because a block of the piece
-     * went without telling the ledger (vanilla logs and leaves have no {@code onRemove} of ours); they are among the
-     * slots, and the visit forgets their entries before it places them again.
+     * went without telling the ledger (vanilla leaves have no {@code onRemove} of ours); they are among the slots, and
+     * the visit forgets their entries before it places them again. {@code treeSlots}: the slots that are cells of the
+     * tree itself ({@link PieceCell#tree}); none of them left open means the tree is ready (S10c).
      */
     public record SquarePlan(List<DecorPlacer.Slot> slots, int cells, int blocked, boolean trunkBlocked, boolean fits,
-                             boolean waiting, int ours, List<BlockPos> gone) {
-        public static final SquarePlan WAITING = new SquarePlan(List.of(), 0, 0, false, false, true, 0, List.of());
+                             boolean waiting, int ours, List<BlockPos> gone, Set<BlockPos> treeSlots) {
+        public static final SquarePlan WAITING = new SquarePlan(List.of(), 0, 0, false, false, true, 0, List.of(), Set.of());
     }
 
     private record Key(String pack, String path, Direction facing) {
@@ -185,6 +201,12 @@ public final class PieceLoader {
         blueprint.setRotationMirror(turn, level);
         final BlockPos offset = blueprint.getPrimaryBlockOffset();
         final List<PieceCell> cells = new ArrayList<>();
+        int x0 = 0;
+        int y0 = 0;
+        int z0 = 0;
+        int x1 = 0;
+        int y1 = 0;
+        int z1 = 0;
         for (final BlockInfo info : blueprint.getBlockInfoAsList()) {
             final BlockState state = info.getState();
             if (state == null || state.isAir() || isSubstitution(state)) {
@@ -196,9 +218,29 @@ public final class PieceLoader {
             }
             final boolean gift = state.getBlock() instanceof GiftPileBlock || has(tagged, TAG_GIFT_PILE, rel);
             final boolean crate = state.getBlock() instanceof FireworkCrateBlock || has(tagged, TAG_FIREWORK_CRATE, rel);
-            cells.add(new PieceCell(rel, state, state.is(BlockTags.LOGS), gift, crate, has(tagged, TAG_STAR, rel)));
+            final boolean star = has(tagged, TAG_STAR, rel);
+            final boolean trunk = isTrunk(state);
+            cells.add(new PieceCell(rel, state, trunk, gift, crate, star, trunk || star || isTreeBlock(state)));
+            x0 = Math.min(x0, rel.getX());
+            y0 = Math.min(y0, rel.getY());
+            z0 = Math.min(z0, rel.getZ());
+            x1 = Math.max(x1, rel.getX());
+            y1 = Math.max(y1, rel.getY());
+            z1 = Math.max(z1, rel.getZ());
         }
-        return new Piece(key.pack(), key.path(), key.facing(), List.copyOf(cells), offset, !tagMap.isEmpty());
+        return new Piece(key.pack(), key.path(), key.facing(), List.copyOf(cells), offset, !tagMap.isEmpty(),
+                new BlockPos(x0, y0, z0), new BlockPos(x1, y1, z1));
+    }
+
+    /** A trunk cell: our festival trunk, or a log block (an older piece, or a pack maker's own). */
+    static boolean isTrunk(final BlockState state) {
+        return state.getBlock() instanceof FestivalTrunkBlock || state.is(BlockTags.LOGS);
+    }
+
+    /** A block of the tree itself besides the trunk: leaves (vanilla or ours) and the stars. */
+    static boolean isTreeBlock(final BlockState state) {
+        return state.getBlock() instanceof LeavesBlock || state.getBlock() instanceof OrnamentLeavesBlock
+                || state.getBlock() instanceof TreeStarBlock || state.getBlock() instanceof LargeStarBlock;
     }
 
     private static boolean has(final Map<String, Set<BlockPos>> tagged, final String name, final BlockPos rel) {
@@ -235,6 +277,7 @@ public final class PieceLoader {
                                   final DecorLedger ledger, final int colony, final DecorLedger.Owner owner, final boolean costs) {
         final List<DecorPlacer.Slot> slots = new ArrayList<>();
         final List<BlockPos> gone = new ArrayList<>();
+        final Set<BlockPos> treeSlots = new HashSet<>();
         int cells = 0;
         int blocked = 0;
         int ours = 0;
@@ -269,9 +312,12 @@ public final class PieceLoader {
                 gone.add(pos.immutable());
             }
             slots.add(new DecorPlacer.Slot(pos, wanted, costs && costsItem(wanted)));
+            if (cell.tree()) {
+                treeSlots.add(pos.immutable());
+            }
         }
         final boolean fits = cells > 0 && !trunkBlocked && blocked <= Math.floor(cells * MAX_BLOCKED_SHARE);
-        return new SquarePlan(List.copyOf(slots), cells, blocked, trunkBlocked, fits, false, ours, List.copyOf(gone));
+        return new SquarePlan(List.copyOf(slots), cells, blocked, trunkBlocked, fits, false, ours, List.copyOf(gone), Set.copyOf(treeSlots));
     }
 
     /** A square cell costs one item of its block if that item is vanilla or a kit's output; our other blocks are free in 0.1.0. */

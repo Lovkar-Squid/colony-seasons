@@ -20,6 +20,7 @@ PLACEABLE = {
     "wreath": "WallDecorationBlock", "garland": "WallDecorationBlock", "lantern_string": "LanternStringBlock",
     "fairy_lights": "LitWallDecorationBlock", "ornament_leaves": "OrnamentLeavesBlock", "tinsel_leaves": "OrnamentLeavesBlock",
     "tree_star": "TreeStarBlock", "large_star": "LargeStarBlock", "gift_pile": "GiftPileBlock", "firework_crate": "FireworkCrateBlock",
+    "festival_trunk": "FestivalTrunkBlock",
 }
 EXTENDS = re.compile(r"class\s+(\w+)\s+extends\s+(\w+)")
 
