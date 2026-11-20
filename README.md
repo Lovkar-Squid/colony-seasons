@@ -65,6 +65,8 @@ what his hut level allows. A higher level means more decorations on each buildin
 | 4 | garland and lights four on each side | full-size spruce with more ornaments |
 | 5 | up to six on each side, the second door too | the grand tiered tree with the large star |
 
+The gift pile and the firework crate go up last, once the tree's own logs, leaves, ornaments and star are in place.
+
 While the window lasts he looks over his work once a game day, puts back what went missing and refills the
 gift pile. On festival days he stands at the tree, hands out gifts and sets off the fireworks. After the
 window he visits every building he decorated, takes his decorations down and keeps them in his hut for next
@@ -120,7 +122,8 @@ there is not enough room.
   (`colony_seasons:gifts/winter_daily`), so a pack maker can change what is in it.
 - On 24 to 26 December, come to the gathering. In the afternoon of the game day the colonists walk to the
   tree, the Decorator hands out gifts, and a short tune plays. The gift of these days is better.
-- On New Year, watch the fireworks from the square at dusk. The gift of the day holds a few rockets.
+- On New Year, watch the fireworks from the square at dusk. If the Decorator has no rockets yet, the show
+  waits through the dusk for them. The gift of the day holds a few rockets.
 
 By default, once per real day every colonist comes to the gathering, so work stops for those afternoon hours
 on one game day. On the other game days of the festival only colonists who are off duty come. You can
@@ -206,8 +209,9 @@ the game alone and says so; use Serene Seasons' own command.
 
 - Only the Winter Festival and New Year are in 0.1.0. Spring Bloom, Harvest Fair and Night of Lanterns come
   later, each before its real date.
-- No Decorator, no decorations. Without his hut the colonists still dress for the season, and players still
-  get the season line, but there is no tree, no gift pile and no fireworks.
+- No Decorator, no decorations. Without his hut the colonists still dress for the season, players still get
+  the season line, and on the festival days the off-duty colonists gather at the festival marker (at the town
+  hall without one), but there is no tree, no gift pile and no fireworks.
 - Streets are not decorated. MineColonies has no road network to hang things on, and solid blocks on a
   street can block colonists.
 - Festival dates are read from the server's clock. On a hosted server in another time zone, set

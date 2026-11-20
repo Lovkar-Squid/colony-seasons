@@ -57,7 +57,7 @@ materials and the gifts.
 
 Only the Winter Festival and New Year are in this version. The other festivals come later, each before its
 real date. Without a Decorator's Workshop there is no tree, no gifts and no fireworks, though the
-colonists still dress for the season. Streets are not decorated. The happiness bonus does not show in the
+colonists still dress for the season and gather at the festival marker (or the town hall) on the festival days. Streets are not decorated. The happiness bonus does not show in the
 citizen window, only in the Decorator's hut window. MineColonies' own crops probably ignore the winter
 slowdown. The text is English only.
 

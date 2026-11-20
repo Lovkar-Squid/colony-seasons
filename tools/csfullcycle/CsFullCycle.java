@@ -1354,6 +1354,7 @@ public class CsFullCycle {
             int sampleSize;
             double farthest;
             BlockPos site;
+            String seen = "";
 
             @Override
             void start() {
@@ -1375,9 +1376,13 @@ public class CsFullCycle {
                 if (hostingAtEnd < 0 && time >= hours[1] && job() != null) {
                     hostingAtEnd = job().visits(EntityAIWorkDecorator.DecoratorState.HOSTING);
                 }
-                if (time >= hours[0] + 800 && time < hours[1] - 100 && t % 40 == 0) {
+                if (time >= hours[0] + 400 && time < hours[1] - 100 && t % 40 == 0) {
                     site = Gathering.site(level, colony);
                     final List<ICitizenData> off = jobless();
+                    sampleSize = Math.max(sampleSize, off.size());
+                    if (samples == 20) {
+                        seen = where(off, site);
+                    }
                     int near = 0;
                     for (final ICitizenData c : off) {
                         final double dist = distTo(c, site);
@@ -1387,10 +1392,7 @@ public class CsFullCycle {
                         }
                     }
                     samples++;
-                    if (near > bestNear) {
-                        bestNear = near;
-                        sampleSize = off.size();
-                    }
+                    bestNear = Math.max(bestNear, near);
                 }
             }
 
@@ -1400,7 +1402,8 @@ public class CsFullCycle {
                 check(label + ": the off-duty colonists gather at " + (want == null ? "-" : want.toShortString()) + " in the hours",
                         site != null && site.equals(want) && samples > 0 && bestNear * 2 >= Math.max(1, sampleSize) && farthest <= Gathering.CALL_RADIUS,
                         "site " + (site == null ? "-" : site.toShortString()) + ", at best " + bestNear + " of " + sampleSize + " within " + WITHIN
-                                + " in " + samples + " samples, farthest " + String.format("%.0f", farthest) + ", " + (Gathering.pulls() - pullsAt0) + " pulls");
+                                + " in " + samples + " samples, farthest " + String.format("%.0f", farthest) + ", " + (Gathering.pulls() - pullsAt0) + " pulls"
+                                + (bestNear * 2 >= Math.max(1, sampleSize) ? "" : "; mid-hours: " + seen));
                 check(label + ": the song plays", Gathering.songs() > songs0, (Gathering.songs() - songs0) + " songs");
                 if (hut != null) {
                     check(label + ": the Decorator hands colonists gifts", Gifts.handed() > handed0, (Gifts.handed() - handed0) + " handed");
@@ -1420,6 +1423,22 @@ public class CsFullCycle {
                 }
             }
         };
+    }
+
+    /** For a failing gathering check: each colonist's AI state, distance to the site and whether his path is done. */
+    private static String where(final List<ICitizenData> who, final BlockPos site) {
+        final StringBuilder b = new StringBuilder();
+        for (final ICitizenData c : who) {
+            final AbstractEntityCitizen e = c.getEntity().orElse(null);
+            String state = "no entity";
+            if (e instanceof com.minecolonies.core.entity.citizen.EntityCitizen ec && ec.getCitizenAI() != null) {
+                state = String.valueOf(ec.getCitizenAI().getState()) + (ec.getNavigation().isDone() ? " idle path" : " walking")
+                        + (ec.getCitizenSleepHandler() != null && ec.getCitizenSleepHandler().isAsleep() ? " asleep" : "");
+            }
+            b.append(c.getId()).append(' ').append(state).append(' ').append(String.format("%.0f", distTo(c, site)))
+                    .append(e == null ? "" : " at " + e.blockPosition().toShortString()).append("; ");
+        }
+        return b.toString();
     }
 
     /** Where the colony should gather on the given festival day. */

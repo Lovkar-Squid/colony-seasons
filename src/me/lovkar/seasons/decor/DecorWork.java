@@ -253,7 +253,8 @@ public final class DecorWork {
      * The square's slots in the order they may go up: with {@code decorator.needsMaterials} on, a free cell (the gift
      * pile, the firework crate, the large star, the tinsel leaves: {@link PieceLoader#costsItem} false) waits until no
      * cell that costs an item is open, so the tree is built from its materials first and nothing free stands on its own
-     * (S9, H8). With decorations free every slot may go up.
+     * (S9, H8); a visit that puts up the last of them goes on with the free cells. With decorations free every slot may
+     * go up.
      */
     static List<DecorPlacer.Slot> placeable(final List<DecorPlacer.Slot> slots) {
         if (!SeasonsConfig.needsMaterials()) {
@@ -455,7 +456,14 @@ public final class DecorWork {
                 missing.merge(item, 1, Integer::sum);
             }
         }
-        final int placed = DecorPlacer.place(level, ledger, colony, target.owner(), festival, hutLevel, slice, stock);
+        int placed = DecorPlacer.place(level, ledger, colony, target.owner(), festival, hutLevel, slice, stock);
+        if (order.size() < plan.slots().size() && placed == order.size() && placed < SQUARE_SLICE) {
+            // every cell that costs an item went up in this visit: the free ones follow at once, in what is left of the slice
+            final List<DecorPlacer.Slot> free = new ArrayList<>(plan.slots());
+            free.removeAll(order);
+            placed += DecorPlacer.place(level, ledger, colony, target.owner(), festival, hutLevel,
+                    free.subList(0, Math.min(SQUARE_SLICE - placed, free.size())), stock);
+        }
         if (placed > 0) {
             DecorPlacer.settleLeaves(level, ledger, colony, target.owner());
             if (!tending) {

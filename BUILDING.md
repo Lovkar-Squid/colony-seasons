@@ -78,6 +78,46 @@ bash tools/probe.sh cseffects on              # all three on: the happiness modi
                                               # a quarter more food; also the Decorator's hut window page, his kind settings and the planner
 ```
 
+The whole cycle (S9). `csfullcycle` builds a real colony (a hand-built town hall and Decorator's hut at level 3, ten huts pasted
+from the real blueprints of four style packs, four workers and two colonists with no job, a festival marker), stocks the hut with
+exactly what its buildings and tree need, takes the first snapshot (a box round every building and the square, saved in the world
+folder) and runs the fake clock from 28 Nov to 10 Jan, one or more game days a date, while the Decorator's own AI does all the work.
+After every game day it checks four invariants: every ledger entry equals the world; every cell of the box that differs from the
+snapshot is listed (nothing unlisted touched); every decoration item and vanilla item of the tree is still accounted for (hut,
+citizens' packs, item entities, what the probe holds, paid entries); every entry lies in the colony's claim. The snapshot compares
+block states and normalises only OPEN and POWERED on doors, gates and trapdoors, OCCUPIED on beds and LIT on blocks that are not ours.
+
+```bash
+bash tools/probe.sh csfullcycle                 # the whole cycle: decorations from 1 Dec, the tree lit, gifts, a broken wreath back
+                                                # the next day, the gathering on 24 to 26 Dec, the dusk shows and the midnight show,
+                                                # the take-down from 7 Jan, on 10 Jan the world equal to the snapshot cell for cell
+bash tools/probe.sh csfullcycle nodecorator     # no Decorator's hut: nothing placed, the festive scarf, the gathering at the marker, at
+                                                # the town hall once the marker is broken
+bash tools/probe.sh csfullcycle nomarker        # no marker: buildings decorated and taken down, no square, no show, gathering at the town hall
+bash tools/probe.sh csfullcycle emptywarehouse  # no materials: nothing placed, the requests stay open; an empty dusk notes nothing and
+                                                # rockets that arrive during it give that dusk's show; the planner's time noted
+bash tools/probe.sh csfullcycle effects         # the three effects on through the cycle, then switched off through the config spec
+bash tools/probe.sh csfullcycle serene          # the Serene Seasons stand-in: the season follows it, the festivals the dates
+bash tools/restart.sh csfullcycle               # three server runs on one world (phases.txt): to 12 Dec, to the first take-down visit
+                                                # on 7 Jan, to 10 Jan; each reads the last one's state back
+bash tools/probe.sh csfullcycle edges-low       # a 4-day year, every festival off, the gathering hours out of order
+bash tools/probe.sh csfullcycle edges-high      # a 960-day year, gatherUntilTick 23999
+bash tools/probe.sh csfullcycle hostile-items   # the hostile review: dupes through gift piles, gifts, take-downs, broken decorations, kits
+bash tools/probe.sh csfullcycle hostile-free    # decorations free: what a player gets by breaking them every day
+bash tools/probe.sh csfullcycle hostile-world   # the grand tree with short stock, sliced take-downs, unloading chunks, five years, a
+                                                # deleted colony, touching claims, a second marker, the marker broken in the hours, the
+                                                # hut destroyed while he hosts, a broken tree, decor remove mid-festival, a newer ledger file
+```
+
+Each finding that goes to the owner instead of a fix is a `NOTE FINDING H<n> owner:ask|fyi` line. `tools/restart.sh` runs the phases a
+probe lists in its `phases.txt` instead of `restart-save,restart-load`.
+
+The pack boot (a live check that never blocks a merge): `bash tools/packboot.sh` boots the owner's full modpack set headless, once without
+the jar and once with it, and reports new ERROR lines naming the mod and crash reports. It reads the pack instance's mods folder under
+`%USERPROFILE%` (only reads it, and fails if its listing changed), copies the test rig's server install into one work folder under the
+system temp folder, picks a free port outside Windows' reserved ranges, sets aside jars that cannot load on a dedicated server (and lists
+them), and exits 0 when clean, 1 on a new error or crash, 2 when it cannot run here.
+
 `python -I tools/check_packets.py` (a step of `checks.sh`) reads the Decorator's info module and its view and compares, field
 by field, what the server writes with what the client reads; `tools/check_windows.py` checks that every pane a window class
 asks for is in its BlockUI layout.
@@ -143,7 +183,8 @@ its default path or through `BLENDER`.
 - `python tools/gen_decorator_skin.py`: the Decorator's 8 citizen textures (faces cut from MineColonies' Florist skins in
   `$MINECOLONIES_JAR` or the MineColonies jar in `$SEASONS_LIBS`) and his icons in all eight style folders;
   `python tools/preview_skin.py --sheet <png>` makes a flat front/back sheet of all eight.
-- `tools/check_kits.py` and `tools/check_skins.py` (run by `tools/checks.sh`) check the shipped kits and those textures.
+- `tools/check_kits.py` and `tools/check_skins.py` (run by `tools/checks.sh`) check the shipped kits and those textures;
+  `check_kits.py` also fails when an item comes back into itself through the kits and our crafting recipes (tags expanded).
 
 ### Blueprints (S5)
 
