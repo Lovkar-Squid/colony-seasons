@@ -46,3 +46,8 @@ like Structurize's tag tool to mark where decorations may go around town. Propos
 - Automatic street decoration is not recommended as a default: MineColonies has no road graph (only path blocks), and
   solid pieces on streets can block colonists. If wanted: a setting, off by default, with thin no-collision
   decorations only (lights on existing fences and posts along path blocks).
+
+## Supply order and the storage room (owner, 20 Nov 2026) [B]
+
+For 0.1.0 (chunk S10e, after S10d): the Decorator takes decorations first from his own storage (last year's, taken down), then finished decorations the colony already has in its warehouse, and only for the rest orders the kit ingredients and makes them. The Workshop gets a visible storage room for them (an attic from level 3, a cellar or corner at levels 1 and 2) with MineColonies racks and crates of decorations; taken-down decorations go there for next year. The exterior look A stays as picked.
+The owner added (20 Nov 2026): the storage can be upgraded like the MineColonies Warehouse: more racks with each hut level, and an "Upgrade storage" button in the hut window with the same price and steps as the Warehouse's storage upgrade (read them from MineColonies' code).
