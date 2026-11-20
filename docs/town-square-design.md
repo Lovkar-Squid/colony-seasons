@@ -548,3 +548,11 @@ Each with its fallback if it fails.
 - [B] Between festivals the square gets small seasonal touches (planters and the like); the full sets come only in festival windows.
 - [B] The square window offers: follow the calendar, always one chosen set, or bare.
 - Still open, with pictures: the look of the square, its size, the hut block on the square, the name, and the Trade Post questions T1 to T3.
+
+## Addendum (20 Nov 2026): the marking wand
+
+The owner also asked for street decorations. Proposed as part of 0.2.0: a Decorator's wand that marks spots around
+the colony (snowman, lantern post, garland across a street, planter); see docs/IDEAS.md. It reuses the square's
+ledger groups and the collision rule the owner approved for player-chosen places. Its own chunk (wand item, spot store
+per colony, pieces for snowmen and lantern posts, probe) adds roughly 3 to 4 points; the look of the new pieces goes into
+the 0.2.0 picture round.

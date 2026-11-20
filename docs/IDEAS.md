@@ -34,3 +34,15 @@ applies to the Town Square tree in 0.2.0.
 In the third in-game test the Decorator got stuck under the festival tree. To fix in S10c with the Forester issue:
 never place a block with collision into a cell an entity occupies (check entity bounding boxes, wait or skip), keep the
 Decorator standing outside the piece box while he builds, tends or hosts, and free a citizen found inside the tree.
+
+## Street decorations, snowmen and a marking wand (owner, 20 Nov 2026)
+
+The owner asked for streets to be decorated too: automatically, or with custom pieces such as snowmen, or with a wand
+like Structurize's tag tool to mark where decorations may go around town. Proposal for 0.2.0, with the Town Square:
+- A Decorator's wand: the player clicks spots in the colony and picks what belongs there (snowman, lantern post,
+  garland across a street, seasonal planter). The Decorator decorates those spots every festival and takes them down
+  by the ledger rule. Player-chosen spots may hold blocks with collision, like the marker and the square.
+- New custom blocks: snowmen in a few variants, a festive lantern post; also craftable by players.
+- Automatic street decoration is not recommended as a default: MineColonies has no road graph (only path blocks), and
+  solid pieces on streets can block colonists. If wanted: a setting, off by default, with thin no-collision
+  decorations only (lights on existing fences and posts along path blocks).
