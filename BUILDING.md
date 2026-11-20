@@ -86,6 +86,16 @@ bash tools/probe.sh csforester                # MineColonies' Forester with the 
 bash tools/probe.sh cseffects off             # the three effects switched off: nothing changes (happiness, crop growth, food over a game day)
 bash tools/probe.sh cseffects on              # all three on: the happiness modifier and the client's total, half the growth steps inside a claim,
                                               # a quarter more food; also the Decorator's hut window page, his kind settings and the planner
+bash tools/probe.sh csanswers                 # the owner's answers of 20 Nov 2026 (S10d) on a real colony with a worker and a knight:
+                                              # the welcome line (the real login event on a fake player: once, word for word, two links,
+                                              # the shared marker; not again, not when another mod set it, not with the switch off, kept
+                                              # through restoreFrom); a doorless house and a pasted hut without its doors get one wreath on
+                                              # an outside wall; what a player breaking free and paid decorations, the tree's gift pile and
+                                              # crate, trunks and spruce leaves gets, a pop-off, the explosion's order, a real explosion of a free and a paid vanilla block, the take-down refund;
+                                              # leaves at take-down (only distance changed: removed); a second marker (one notice); on the
+                                              # everyone day the knight is never brought and the lumberjack comes (the mixin asked)
+bash tools/restart.sh csanswers               # a player welcomed and saved through the server's player storage, read back after a
+                                              # restart: the marker is set and a login sends no line
 ```
 
 Hiring (S10b). `cshire` hires the Decorator the way MineColonies does it, not through the work module: every hire and fire
@@ -189,12 +199,17 @@ Chunks that generate resources (blueprints, textures, sounds) document their scr
 bash tools/textures/make_all.sh     # textures, block and item models, blockstates -> resources/assets/colony_seasons/
 python -I tools/gen_blockdata.py    # loot tables, crafting recipes, block tags -> resources/data/
 bash tools/render_decor.sh          # look-check renders (Blender 5.1) -> docs/renders/s2/
+RENDER_OUT=docs/renders/s10d RENDER_TAG=s10d-after bash tools/render_decor.sh square-day square-night closeup-day closeup-night
 ```
 
 `tools/textures/*.py` draw every texture as character grids over small palettes, started from the looks the owner
 picked (`design/src/make_textures.py` stays the record of them); nothing is hand-edited, so change a drawing there and
-run the script again. The only outside input is the vanilla spruce-leaf texture, read from the client assets jar and
-tinted for the ornament and tinsel leaves. A light that shines at night has its own model element with NeoForge's
+run the script again. Nothing is read from the game's textures: the ornament and tinsel leaves (S10d) name the game's own
+`minecraft:block/spruce_leaves` in their models with `tintindex` 0, the client's colour handlers (`client/LeafColors.java`)
+give it vanilla's evergreen colour, and our textures hold only the ornaments, lights and tinsel drawn on top
+(`tools/check_models.py` checks the models and that no pixel of ours is a spruce-leaf pixel). The renderer tints the two
+blocks like spruce leaves and lifts an element that repeats an earlier element's box a little, so the overlay does not
+fight the leaves. A light that shines at night has its own model element with NeoForge's
 `neoforge_data` (`block_light` and `sky_light` 15) in the `lit=true` model. `tools/check_blocks.py` (in `checks.sh`)
 checks that every block has its blockstate, models, item model, lang line, loot table and recipe, and that lit models
 glow and unlit ones do not. One named exception: the festival tree's trunk (`festival_trunk`, S10c) has no item of its
@@ -252,8 +267,11 @@ run (`tools/nbt.py` is a small NBT writer, so the scripts need no packages and r
   under the four piece names, in the probe's pack "Colony Seasons Test" in `tools/csdecorgate/res/blueprints/`) with a
   hand-written NBT writer, the same bytes on every run; `--check` (a step of `checks.sh`) says whether the committed files
   are in step. The probe lists the same cells once more and checks the placed tree against them in all four facings.
-- `tools/check_decor.py` (in `checks.sh`): every block the Decorator places tells the ledger from `onRemove`, only
-  `DecorPlacer` sets blocks among the Decorator's code, and the festival marker registers itself.
+- `tools/check_decor.py` (in `checks.sh`): every block the Decorator places tells the ledger from `onRemove` and passes its
+  drops through `DecorDrops.filter` (S10d), only `DecorPlacer` sets blocks among the Decorator's code, and the festival marker
+  registers itself.
+- `tools/check_links.py` (in `checks.sh`, S10d): both links in the mods.toml description with a thank-you, the Discord /
+  Support line of the Workshop window, the welcome line word for word as the owner approved it, and the README.
 
 ### Festival events (S7)
 

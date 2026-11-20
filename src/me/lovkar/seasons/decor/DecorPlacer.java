@@ -51,8 +51,11 @@ import java.util.TreeMap;
  * cell where an entity stands (S10c: the cell waits for a later visit).</p>
  *
  * <p>Removing, per entry: a cell in an unloaded chunk waits; a cell whose state equals the record exactly is
- * forgotten first, then set to air with no drops, and its item handed back if it was paid for; a cell whose state
- * differs (a player changed it, the Builder cleared it) is forgotten and left alone. A removal may have a budget (the
+ * forgotten first, then set to air with no drops, and its item handed back if it was paid for. One exception, the
+ * owner's answer of 20 Nov 2026: a vanilla leaf of our piece whose only change since it was recorded is its
+ * {@code distance} ({@link #leafDistanceOnly}; {@code persistent} and {@code waterlogged} as recorded) is removed the
+ * same way. A cell whose state differs in any other way (a player changed it, the Builder cleared it) is forgotten and
+ * left alone. A removal may have a budget (the
  * Decorator takes a big tree down in slices, the sweep has its own): the cells past it stay listed for the next one.
  * Afterwards the neighbours of the cleared cells are updated once, so snow and anything attached settle; a neighbour
  * the ledger still lists is not updated (it comes down in a later slice exactly as listed: a leaf would re-read its
@@ -421,7 +424,7 @@ public final class DecorPlacer {
             final DecorLedger.Entry entry = e.getValue();
             final BlockState now = level.getBlockState(pos);
             ledger.forget(pos);
-            if (now == entry.state()) {
+            if (now == entry.state() || leafDistanceOnly(entry.state(), now)) {
                 level.setBlock(pos, Blocks.AIR.defaultBlockState(), CLEAR_FLAGS);
                 cleared.add(pos);
                 removed++;
@@ -514,18 +517,38 @@ public final class DecorPlacer {
         }
         int followed = 0;
         for (final Map.Entry<BlockPos, DecorLedger.Entry> e : group.entries().entrySet()) {
-            final BlockState recorded = e.getValue().state();
-            if (!(recorded.getBlock() instanceof LeavesBlock) || !recorded.hasProperty(LeavesBlock.DISTANCE) || !level.hasChunkAt(e.getKey())) {
+            if (!level.hasChunkAt(e.getKey())) {
                 continue;
             }
+            final BlockState recorded = e.getValue().state();
             final BlockState now = level.getBlockState(e.getKey());
-            if (now != recorded && now.getBlock() == recorded.getBlock()
-                    && now.setValue(LeavesBlock.DISTANCE, recorded.getValue(LeavesBlock.DISTANCE)) == recorded) {
+            if (now != recorded && leafDistanceOnly(recorded, now)) {
                 ledger.restate(e.getKey(), now);
                 followed++;
             }
         }
         return followed;
+    }
+
+    /**
+     * True when {@code recorded} is a vanilla leaf (a {@link LeavesBlock} with {@code distance}) and {@code now} is the
+     * same block whose only difference from it is {@code distance}: {@code persistent}, {@code waterlogged} and every
+     * other property as recorded. Such a leaf is still the one we put there (a neighbour changed and it re-read its
+     * distance); the take-down removes it like an exact match (the owner's answer of 20 Nov 2026).
+     */
+    public static boolean leafDistanceOnly(final BlockState recorded, final BlockState now) {
+        return recorded != null && now != null && recorded.getBlock() instanceof LeavesBlock && recorded.hasProperty(LeavesBlock.DISTANCE)
+                && now.getBlock() == recorded.getBlock()
+                && now.setValue(LeavesBlock.DISTANCE, recorded.getValue(LeavesBlock.DISTANCE)) == recorded;
+    }
+
+    /**
+     * A vanilla block of a free piece in the way of an explosion that destroys blocks ({@link DecorDrops}, the owner's
+     * answer of 20 Nov 2026): set to air with no drops a moment before the explosion would have broken it. Its entry stays
+     * listed, exactly as after a player broke it.
+     */
+    static void clearBlown(final ServerLevel level, final BlockPos pos) {
+        level.setBlock(pos, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
     }
 
     /** Vanilla's leaf distance at a position (1 next to a log, 7 far from any). */

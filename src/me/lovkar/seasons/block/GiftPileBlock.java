@@ -7,6 +7,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
@@ -16,6 +17,7 @@ import net.minecraft.world.level.block.HorizontalDirectionalBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.storage.loot.LootParams;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
@@ -24,6 +26,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.EnumMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -83,6 +86,15 @@ public class GiftPileBlock extends HorizontalDirectionalBlock implements EntityB
                             final @NotNull BlockState now, final boolean moving) {
         super.onRemove(state, level, pos, now, moving);
         me.lovkar.seasons.decor.DecorLedger.blockChanged(level, pos, state, now);
+    }
+
+    /**
+     * What it drops: its loot table, except when the Decorator put it up for free, or it is the tree's gift pile or
+     * firework crate (S10d, the owner's answer of 20 Nov 2026; see {@link me.lovkar.seasons.decor.DecorDrops}).
+     */
+    @Override
+    protected @NotNull List<ItemStack> getDrops(final @NotNull BlockState state, final LootParams.@NotNull Builder params) {
+        return me.lovkar.seasons.decor.DecorDrops.filter(state, params, super.getDrops(state, params));
     }
 
     @Override

@@ -78,9 +78,9 @@ import java.util.function.Predicate;
  *   <li>hostile-items: dupes. H1 two colonies' piles in one tick and the claim through a save and load; H2 a pile a
  *       player crafted on a listed tree cell that went (a stale entry); H3 a gift used with a full inventory, a stack of
  *       two; H4 one group taken down three ways in one tick; H5 a player breaks a paid wreath; H5b a player breaks the
- *       free gift pile and crate of the tree (finding for the owner); H6 no cycle through the kits and recipes.</li>
+ *       free gift pile and crate of the tree (since S10d they drop nothing); H6 no cycle through the kits and recipes.</li>
  *   <li>hostile-free (decorator.needsMaterials = false): H7 a player breaks wreaths and logs every game day and tending
- *       puts them back (finding for the owner, with the numbers).</li>
+ *       puts them back (since S10d nothing he put up for free drops).</li>
  *   <li>hostile-world: H8 the grand tree with empty, then partial stock; H9 its take-down in slices; H9b the server
  *       sweep's slices; H9c a slice boundary at every cell (review); H10 chunks that unload; H11 five years; H12 a deleted colony; H13 two colonies with touching
  *       claims; H14 a second marker; H15 the marker broken in the gathering hours; H16 the hut destroyed while he hosts
@@ -457,9 +457,9 @@ final class Hostile {
             void end(final boolean done) {
                 final int items = made.values().stream().mapToInt(Integer::intValue).sum();
                 p.check("H5b: tending puts the free blocks back without stock", done, back == null ? "-" : back.status());
-                finding("H5b", "ask", "a player who breaks the tree's free gift pile and firework crate gets {} items ({}) from nothing, and tending puts "
-                                + "them back the same day for free: about {} a game day per colony (at level 5 also the large star and the tinsel leaves)",
-                        items, CsFullCycle.text(made), items);
+                // S10d, the owner's answer of 20 Nov 2026 (was the finding H5b): the tree's gift pile and crate drop nothing
+                p.check("H5b: the broken gift pile and crate dropped nothing (the owner's answer of 20 Nov 2026)", items == 0,
+                        items + " items (" + CsFullCycle.text(made) + ")");
             }
         });
         p.step(new CsFullCycle.Step("H2: a pile a player crafted on a tree cell that went (a stale entry)", 1) {
@@ -696,10 +696,10 @@ final class Hostile {
         p.step(new CsFullCycle.Step("H7: the count", 1) {
             @Override
             void start() {
+                // S10d, the owner's answer of 20 Nov 2026 (was the finding H7): what he put up for free drops nothing
                 final int items = made.values().stream().mapToInt(Integer::intValue).sum();
-                finding("H7", "ask", "with decorator.needsMaterials = false a player who breaks the decorations every game day keeps what drops and tending "
-                        + "puts it back for free: {} items in 3 game days from one colony ({})", items, CsFullCycle.text(made));
-                p.check("H7: the drops were counted (the attack worked as written)", items > 0, items + " items");
+                p.check("H7: free decorations broken every game day dropped nothing (the owner's answer of 20 Nov 2026)", items == 0,
+                        items + " items in 3 game days (" + CsFullCycle.text(made) + ")");
             }
         });
     }

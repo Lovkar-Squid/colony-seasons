@@ -5,10 +5,13 @@ import me.lovkar.seasons.block.WallDecorationBlock;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.LightLayer;
 import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Predicate;
 
 /**
@@ -25,9 +28,18 @@ import java.util.function.Predicate;
  *       that is already ours counts and the walk goes on.</li>
  *   <li>A building gets either the lantern string or the fairy lights, picked from its position.</li>
  * </ol>
- * No door, or no sturdy anchor: no slot, and the building gets nothing.
+ * No sturdy anchor at its doors: no slot, and the building gets nothing. No door at all (no door whose outside has
+ * {@link DoorFinder#MIN_OUTSIDE_SKY} sky light, so a house whose only doors are inside counts as doorless): one wreath
+ * on the outside wall nearest the hut block, by the same air and sturdy-face rules, and nothing when there is no such
+ * spot ({@link #planDoorless}, the owner's answer of 20 Nov 2026).
  */
 public final class DecorPlanner {
+
+    /**
+     * The rows a doorless building's wreath may hang in, above the hut block, in the order they are preferred at the
+     * same distance: two up, three up, one up (as {@link #WREATH_ROWS}, then {@link #BESIDE_ROW}).
+     */
+    public static final List<Integer> DOORLESS_ROWS = List.of(2, 3, 1);
 
     /**
      * How far above a door's lower half the wreath's wall may be, tried in order (the design's door + 2 first). Measured
@@ -113,7 +125,100 @@ public final class DecorPlanner {
                 row = used;
             }
         }
+        if (doors.isEmpty() && amounts.wreath()) {
+            row = planDoorless(level, box, ledger, colony, owner, costs, slots, counts);
+        }
         return new Plan(List.copyOf(slots), doors.size(), row, counts[0], counts[1], counts[2], counts[3], true);
+    }
+
+    /** One spot a doorless building's wreath could take: the wall, the way out, the cell in front, its row and distance. */
+    private record WallSpot(BlockPos wall, Direction out, BlockPos cell, int row, int rank, long distance) {
+    }
+
+    /**
+     * A building with no door (the owner's answer of 20 Nov 2026): one wreath on the outside wall nearest the hut block,
+     * no garland and no lights. A spot is a wall block W inside the box, one to three blocks above the hut block
+     * ({@link #DOORLESS_ROWS}), whose face towards a horizontal way out is sturdy, with the cell C in front of it loaded
+     * and outside by DoorFinder's rule (C has at least {@link DoorFinder#MIN_OUTSIDE_SKY} sky light and more than the
+     * cell behind W). If the group already lists a wreath that stands as listed, or any spot's cell holds a wreath (the
+     * player's own), no new one is planned (ours counts as ours). Otherwise the spot whose cell is nearest the hut block
+     * (horizontally; then by row, then by position) and passes the cell rule gets the wreath. Returns the wreath's row
+     * above the hut block, or 0 when there is none.
+     */
+    private static int planDoorless(final ServerLevel level, final DoorFinder.Box box, final DecorLedger ledger, final int colony,
+                                    final DecorLedger.Owner owner, final boolean costs, final List<DecorPlacer.Slot> slots,
+                                    final int[] counts) {
+        if (box.cells() > DoorFinder.MAX_BOX_CELLS) {
+            return 0;
+        }
+        final BlockPos hut = box.hut();
+        final DecorLedger.GroupView group = ledger.group(colony, owner);
+        if (group != null) {
+            for (final Map.Entry<BlockPos, DecorLedger.Entry> e : group.entries().entrySet()) {
+                final BlockPos pos = e.getKey();
+                if (e.getValue().state().is(SeasonsBlocks.WREATH.get()) && level.hasChunkAt(pos)
+                        && level.getBlockState(pos) == e.getValue().state()) {
+                    counts[0]++;
+                    counts[3]++;
+                    return pos.getY() - hut.getY();
+                }
+            }
+        }
+        final List<WallSpot> spots = new ArrayList<>();
+        final BlockPos.MutableBlockPos wall = new BlockPos.MutableBlockPos();
+        for (int rank = 0; rank < DOORLESS_ROWS.size(); rank++) {
+            final int y = hut.getY() + DOORLESS_ROWS.get(rank);
+            if (y < box.min().getY() || y > box.max().getY()) {
+                continue;
+            }
+            for (int z = box.min().getZ(); z <= box.max().getZ(); z++) {
+                for (int x = box.min().getX(); x <= box.max().getX(); x++) {
+                    wall.set(x, y, z);
+                    final BlockState wallState = level.getBlockState(wall);
+                    if (wallState.isAir()) {
+                        continue;
+                    }
+                    for (final Direction out : Direction.Plane.HORIZONTAL) {
+                        final BlockPos cell = wall.relative(out);
+                        final BlockPos behind = wall.relative(out.getOpposite());
+                        if (!level.hasChunkAt(cell) || !level.hasChunkAt(behind) || !wallState.isFaceSturdy(level, wall, out)) {
+                            continue;
+                        }
+                        final BlockState there = level.getBlockState(cell);
+                        if (!there.isAir() && !there.is(SeasonsBlocks.WREATH.get())) {
+                            continue;
+                        }
+                        final int sky = level.getBrightness(LightLayer.SKY, cell);
+                        if (sky < DoorFinder.MIN_OUTSIDE_SKY || sky <= level.getBrightness(LightLayer.SKY, behind)) {
+                            continue;
+                        }
+                        final long dx = cell.getX() - hut.getX();
+                        final long dz = cell.getZ() - hut.getZ();
+                        spots.add(new WallSpot(wall.immutable(), out, cell.immutable(), DOORLESS_ROWS.get(rank), rank, dx * dx + dz * dz));
+                    }
+                }
+            }
+        }
+        for (final WallSpot spot : spots) {
+            final BlockState there = level.getBlockState(spot.cell());
+            if (there.is(SeasonsBlocks.WREATH.get())) {
+                if (ledger.isOurs(colony, owner, spot.cell(), there)) {
+                    counts[0]++;
+                    counts[3]++;
+                }
+                return spot.row();
+            }
+        }
+        spots.sort(Comparator.comparingLong(WallSpot::distance).thenComparingInt(WallSpot::rank).thenComparing(WallSpot::cell));
+        for (final WallSpot spot : spots) {
+            final BlockState wreath = DecorPlacer.normalise(facing(SeasonsBlocks.WREATH.get().defaultBlockState(), spot.out()), spot.cell());
+            if (DecorPlacer.refusal(level, ledger, colony, spot.cell(), wreath, false) == null) {
+                slots.add(new DecorPlacer.Slot(spot.cell(), wreath, costs));
+                counts[0]++;
+                return spot.row();
+            }
+        }
+        return 0;
     }
 
     /**

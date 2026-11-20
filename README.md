@@ -86,26 +86,33 @@ year.
 There is no list of doors in MineColonies, so the Decorator finds them the way a player would. He looks
 through the building for doors, works out which side is the outside, hangs the wreath above the door and
 lays garland and lights in the rows next to it, as far as there is a wall to hang them on. A building with
-no free wall gets nothing, which is fine. A building keeps its kind of lights: some get paper lanterns and
-some get small coloured bulbs.
+no door to the outside gets one wreath on the outside wall nearest its hut block, and no garland or lights.
+A building with no free wall gets nothing, which is fine. A building keeps its kind of lights: some get paper
+lanterns and some get small coloured bulbs.
 
 The Decorator only places a block into empty air, in loaded chunks, inside his own colony's claim. He
 writes every block he places into a list that is saved with the world, and he only takes away a block that
-is on that list and still looks exactly like what he put there. Something a player built, or something the
-Builder cleared, is never touched. A building that is being built or upgraded is skipped, and his
+is on that list and still looks exactly like what he put there. The one exception is a spruce leaf of the
+tree that only changed how far it is from the trunk (the game does that when a neighbouring block changes):
+it still comes down with the tree. Something a player built, or something the Builder cleared, is never
+touched. A building that is being built or upgraded is skipped, and his
 decorations come off it first. If the colony has no Decorator any more when the window ends, the server
 takes the decorations down by itself as the chunks load.
 
 The decorations are ordinary blocks with crafting recipes, in a creative tab called Colony Seasons, so you
-can decorate by hand as well. The Decorator ignores blocks you place yourself.
+can decorate by hand as well. The Decorator ignores blocks you place yourself. A decoration he put up for free
+(with `decorator.needsMaterials` set to false, or a piece he took no material for) drops nothing when it is
+broken, and neither do the gift pile and the firework crate of the tree; one he paid for drops its item as
+usual. Blocks you placed yourself drop as usual.
 
 ### The hut window
 
 The Decorator's Workshop has a **Calendar** page in its window. It shows today's season and the day of the
 year, the festival that is on (or the next one and how many days away it is) with its dates, what the
 Decorator is doing right now, how many decorations are up and how many buildings are done, the stock of each
-kit against the hut's cap, which materials the next kit still lacks, and what the three effect switches do on
-this server. Everything is translated for each player; the server only sends numbers, ids and lang keys.
+kit against the hut's cap, which materials the next kit still lacks, what the three effect switches do on
+this server, and last a Discord / Support line with the two links (see Links below). Everything is translated
+for each player; the server only sends numbers, ids and lang keys.
 
 The **Settings** page has four more switches besides "Prepare all year": "Decorate" (off: he puts nothing up
 and tends nothing, but still makes stock and still takes everything down afterwards), and one each for
@@ -116,7 +123,8 @@ is not touched until the take-down. Switching the tree off stops a new tree from
 
 The tree stands where you want it. Place a **Festival Marker** on the square and the Decorator builds the
 tree there, facing the way the marker faces. Without a marker there is no tree, but the buildings are still
-decorated. A colony has one marker. If something is in the way of the tree, he builds the rest when at most
+decorated. A colony has one marker: if you place a second one, the colony's managers get one chat line saying
+that only the first one counts. If something is in the way of the tree, he builds the rest when at most
 a tenth of it is blocked and none of that is the trunk. Otherwise he builds nothing and the hut window says
 there is not enough room.
 
@@ -135,7 +143,8 @@ there is not enough room.
   waits through the dusk for them. The gift of the day holds a few rockets.
 
 By default, once per real day every colonist comes to the gathering, so work stops for those afternoon hours
-on one game day. On the other game days of the festival only colonists who are off duty come. You can
+on one game day. The guards stay at their posts. On the other game days of the festival only colonists who are
+off duty come. You can
 change that with `events.whoComes`. To bring working colonists too, the mod uses one small mixin that is
 written to fail quietly: if a MineColonies update moves the method it hooks, the mod still loads and only
 off-duty colonists come.
@@ -199,6 +208,19 @@ constant in `SeasonsConfig.java`.
 | `decorator` | whether he needs materials, how many buildings he does per game day, the most decorations on one side |
 | `events` | when the gathering starts and ends, who comes, the midnight show, gifts per player per day |
 | `effects` | the three switches above and how strong each one is |
+| `links` | `showWelcome`: the one chat line with the Discord and Patreon links (see Links) |
+
+## Links
+
+Colony Seasons is made by Lovkar & Claude. News, help and test builds are on Discord at
+https://discord.gg/BVztrTtXFu, and you can support the mods on Patreon at https://www.patreon.com/cw/Lovkar. Both
+links are in the mod's description, on the last line of the Decorator's Workshop Calendar page, and in one chat line
+the server sends a player the first time he joins a world with the mod. That line comes once per player and never
+again, also not from Lovkar's other mods: they share one marker in the player's saved data (in the persistent data,
+the compound `PlayerPersisted`, then `lovkar_mods`, the boolean `welcome_shown`), which the game keeps through death
+and the return from the End. A mod that sends the line sets the marker, and every mod skips the line once it is
+set. A server owner turns the line off with `links.showWelcome = false` in `colony_seasons-server.toml` (default
+true); with it off no marker is written.
 
 ## Commands
 
@@ -242,5 +264,6 @@ Plain `javac` and `jar`, no Gradle. The steps, what you need and the tests are i
 ## Licence and credits
 
 GPL-3.0-or-later, see [LICENSE](LICENSE). Made by Lovkar & Claude. The textures, models and sounds are our
-own. MineColonies, Structurize and Domum Ornamentum are the work of their authors and are not part of this
+own; the ornament and tinsel leaves draw the game's own spruce-leaf texture (named in their models, not copied)
+under our ornaments. MineColonies, Structurize and Domum Ornamentum are the work of their authors and are not part of this
 repository.

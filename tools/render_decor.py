@@ -2,7 +2,8 @@
 mcmodel.py + render_scene.py, Blender headless) reading the mod's own resources/assets.
 
 Run:  bash tools/render_decor.sh        (Blender 5.1; BLENDER overrides its path)
-Writes docs/renders/s2/<date>-s2-*.png, at most 1000 px wide:
+Writes docs/renders/s2/<date>-s2-*.png, at most 1000 px wide (RENDER_OUT, a folder relative to the repo, and
+RENDER_TAG, the file name's tag, change both: S10d's before/after renders went to docs/renders/s10d/):
   wreath-day, garland-day, lanterns-day, fairylights-day   each wall block on the design's colony wall, with the
                                                            design's own camera (to compare with design/sheet-*.png)
   closeup-day, closeup-night     two walls with every wall block and the tree and floor pieces in front
@@ -35,7 +36,8 @@ from common import h01  # noqa: E402
 
 from PIL import Image, ImageDraw, ImageFont  # noqa: E402
 
-OUT = os.path.join(ROOT, "docs", "renders", "s2")
+OUT = os.path.join(ROOT, *os.environ.get("RENDER_OUT", "docs/renders/s2").split("/"))
+TAG = os.environ.get("RENDER_TAG", "s2")
 DATE = os.environ.get("RENDER_DATE", datetime.date.today().isoformat())
 NS = "colony_seasons"
 SKY_DAY = [0.80, 0.85, 0.90]
@@ -162,7 +164,7 @@ def square(lit):
 
 
 def job(name, blocks, cam, night=False, samples=24):
-    return dict(blocks=blocks, out=os.path.join(OUT, f"{DATE}-s2-{name}.png"), bg=SKY_NIGHT if night else SKY_DAY,
+    return dict(blocks=blocks, out=os.path.join(OUT, f"{DATE}-{TAG}-{name}.png"), bg=SKY_NIGHT if night else SKY_DAY,
                 samples=samples, night=emission if night else None, **cam)
 
 
@@ -214,14 +216,14 @@ def contact_sheet():
     d.text((gap * 2 + cw, gap), "Shipped blocks (chunk S2)", fill=(34, 34, 34), font=fb)
     y = gap + 40
     for title, picked, ours in rows:
-        shipped = Image.open(os.path.join(OUT, f"{DATE}-s2-{ours}.png")).convert("RGB")
+        shipped = Image.open(os.path.join(OUT, f"{DATE}-{TAG}-{ours}.png")).convert("RGB")
         out.paste(picked.resize((cw, ch), Image.LANCZOS), (gap, y))
         out.paste(shipped.resize((cw, ch), Image.LANCZOS), (gap * 2 + cw, y))
         d.text((gap, y + ch + 4), title, fill=(34, 34, 34), font=f)
         note = {"fairylights-day": "bulbs 3 x 5 px, 1 px proud (were 2 x 3)"}.get(ours, "same drawing")
         d.text((gap * 2 + cw, y + ch + 4), note, fill=(34, 34, 34), font=f)
         y += ch + label + gap
-    path = os.path.join(OUT, f"{DATE}-s2-sheet.png")
+    path = os.path.join(OUT, f"{DATE}-{TAG}-sheet.png")
     out.save(path, optimize=True)
     return path
 

@@ -18,11 +18,14 @@ import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import net.minecraft.world.level.block.state.properties.EnumProperty;
+import net.minecraft.world.level.storage.loot.LootParams;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+
+import java.util.List;
 
 /**
  * The large star of the grand tree: 24 px across, two blocks tall, as a lower and an upper half ({@code half}, the
@@ -51,6 +54,15 @@ public class LargeStarBlock extends Block {
                             final @NotNull BlockState now, final boolean moving) {
         super.onRemove(state, level, pos, now, moving);
         me.lovkar.seasons.decor.DecorLedger.blockChanged(level, pos, state, now);
+    }
+
+    /**
+     * What it drops: its loot table, except when the Decorator put it up for free, or it is the tree's gift pile or
+     * firework crate (S10d, the owner's answer of 20 Nov 2026; see {@link me.lovkar.seasons.decor.DecorDrops}).
+     */
+    @Override
+    protected @NotNull List<ItemStack> getDrops(final @NotNull BlockState state, final LootParams.@NotNull Builder params) {
+        return me.lovkar.seasons.decor.DecorDrops.filter(state, params, super.getDrops(state, params));
     }
 
     @Override

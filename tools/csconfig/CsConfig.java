@@ -43,7 +43,7 @@ public class CsConfig {
                             int gatherFromTick, int gatherUntilTick, String whoComes, boolean midnightShow, int giftsPerPlayerPerDay,
                             boolean festivalHappiness, double festivalHappinessBonus,
                             boolean winterCropSlowdown, double winterCropSkipChance,
-                            boolean winterFoodNeed, double winterFoodNeedFactor) {
+                            boolean winterFoodNeed, double winterFoodNeedFactor, boolean showWelcome) {
     }
 
     /** Design section 9, by hand: the numbers the mod must start with. */
@@ -53,7 +53,7 @@ public class CsConfig {
             new Festival(true, "12-31", "01-01", "12-31", "01-01"),
             true, 2, 2, 6,
             8500, 10500, "everyone_once_a_day", true, 1,
-            false, 1.0, false, 0.5, false, 1.25);
+            false, 1.0, false, 0.5, false, 1.25, true);
 
     /** What rigconfig/colony_seasons-server.toml seeds: a non-default value for every key. */
     private static final Expected SEEDED = new Expected(
@@ -62,7 +62,7 @@ public class CsConfig {
             new Festival(false, "12-30", "01-02", "12-30", "01-02"),
             false, 5, 3, 9,
             7000, 9000, "off_duty", false, 3,
-            true, 2.5, true, 0.25, true, 1.5);
+            true, 2.5, true, 0.25, true, 1.5, false);
 
     public CsConfig() {
         NeoForge.EVENT_BUS.addListener(this::onTick);
@@ -137,6 +137,8 @@ public class CsConfig {
         checkNear("winterCropSkipChance", SeasonsConfig.winterCropSkipChance(), want.winterCropSkipChance());
         checkEq("winterFoodNeed", SeasonsConfig.winterFoodNeed(), want.winterFoodNeed());
         checkNear("winterFoodNeedFactor", SeasonsConfig.winterFoodNeedFactor(), want.winterFoodNeedFactor());
+
+        checkEq("links.showWelcome", SeasonsConfig.showWelcome(), want.showWelcome());
     }
 
     private void checkFestival(final String id, final Festival want) {
@@ -177,7 +179,8 @@ public class CsConfig {
                 && SeasonsConfig.DEFAULT_WINTER_CROP_SLOWDOWN == d.winterCropSlowdown()
                 && SeasonsConfig.DEFAULT_WINTER_CROP_SKIP_CHANCE == d.winterCropSkipChance()
                 && SeasonsConfig.DEFAULT_WINTER_FOOD_NEED == d.winterFoodNeed()
-                && SeasonsConfig.DEFAULT_WINTER_FOOD_NEED_FACTOR == d.winterFoodNeedFactor();
+                && SeasonsConfig.DEFAULT_WINTER_FOOD_NEED_FACTOR == d.winterFoodNeedFactor()
+                && SeasonsConfig.DEFAULT_SHOW_WELCOME == d.showWelcome();
         check("documented defaults", same, "SeasonsConfig.DEFAULT_*");
         check("all effects off by default", !SeasonsConfig.festivalHappiness() && !SeasonsConfig.winterCropSlowdown()
                 && !SeasonsConfig.winterFoodNeed(), "design section 8");

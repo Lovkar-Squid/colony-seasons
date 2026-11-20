@@ -48,7 +48,7 @@ import java.util.Set;
  * {@link #SONG_TICKS} ticks while anyone is there.
  *
  * <p>Who comes ([B], the owner, 19 Nov 2026; {@code events.whoComes}): with {@code everyone_once_a_day} every
- * colonist comes on the first festival game day of each real day, so work stops for that day's festival hours, and
+ * colonist but the guards comes on the first festival game day of each real day, so work stops for that day's festival hours, and
  * only off-duty colonists on the other game days; {@code off_duty} only ever the off-duty ones; {@code everyone}
  * everyone on every festival game day. Working colonists are brought by the mixin at the head of
  * {@code CitizenAI.calculateNextState} ({@link #bringWorker}); it is written to fail soft, and without it only the
@@ -387,7 +387,9 @@ public final class Gathering {
      * Asked by the mixin at the head of {@code CitizenAI.calculateNextState} on every AI decision: true when this
      * working colonist should be off duty now, because his colony gathers everyone. Cheap: a set lookup and a few
      * fields. Everything MineColonies would rightly stop work for (sickness, a raid, rain, mourning, sleep) still
-     * comes first; hunger is asked by the mixin itself. The Decorator hosts and is never brought.
+     * comes first; hunger is asked by the mixin itself. The Decorator hosts and is never brought, and neither is a
+     * guard (the owner's answer of 20 Nov 2026: on the everyone day the guards stay at their posts, the other workers
+     * come); every value of {@code events.whoComes} asks this, so no mode brings a guard.
      */
     public static boolean bringWorker(final EntityCitizen citizen) {
         mixinCalls++;
@@ -400,7 +402,8 @@ public final class Gathering {
             return false;
         }
         final IJob<?> job = data.getJob();
-        if (job == null || job instanceof JobDecorator || citizen.isBaby() || !inHours(citizen.level()) || citizen.level().isRaining()) {
+        if (job == null || job instanceof JobDecorator || job.isGuard() || citizen.isBaby() || !inHours(citizen.level())
+                || citizen.level().isRaining()) {
             return false;
         }
         if (data.getCitizenDiseaseHandler() != null && (data.getCitizenDiseaseHandler().isSick() || data.getCitizenDiseaseHandler().isHurt())) {
