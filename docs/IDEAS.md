@@ -21,3 +21,10 @@ Proposed for 0.2.0, with the next festival before its real date. A short design 
 Owner's addition (20 Nov 2026): when Trade Post for MineColonies is installed, the square can tie into it and help
 the colony earn money (for example festival market stalls on the square). It must stay optional: a runtime bridge,
 no compile dependency, the mod loads and works without Trade Post.
+
+## Forester and the festival tree (owner, 20 Nov 2026)
+
+The festival tree must not count as a tree for MineColonies' Forester, or he cuts it (free logs, and the Decorator
+puts it back the next day). Planned fix S10c for 0.1.0: our own trunk block that looks like a spruce log but is not in
+#minecraft:logs, the pieces rebuilt with it, and a rig probe with a Forester whose area holds the tree. The same rule
+applies to the Town Square tree in 0.2.0.
