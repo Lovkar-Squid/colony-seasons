@@ -13,7 +13,11 @@ floor and a dark oak gable roof. Levels 1 to 4 stand on the same plan and grow t
      rack, a barrel outside
   3  the upper floor: timber frame and plaster under the roof of level 5, reached by a ladder inside; the stonecutter
   4  roof detail and dressing: the striped awning, the ridge slab, the gable window, more barrels outside, a fifth rack
-  5  the full picture: the last rack, hay and the ladder outside, the upstairs stock corner
+  5  the full picture: the last rack, hay and the ladder outside, the attic full of racks
+
+The storage room (S10e, storage_room()): the Decorator keeps last year's decorations in MineColonies racks, which are
+the hut's storage. At levels 1 and 2 it is the ground floor's back-east corner (the racks and stacked barrels); from
+level 3 it is the attic upstairs, with more racks at every level: 2, 3, 6, 9 and 12 racks in the hut at levels 1 to 5.
 
 Every level is a complete building: a door, light (lanterns inside), storage (MineColonies racks, which are what a
 hut's inventory is made of; the design's barrels outside stay barrels), walkable floors and no bed (the Decorator lives
@@ -217,10 +221,51 @@ def workshop(level):
         s.set(-4, 1, 3, "minecraft:spruce_stairs[facing=north]")   # the shop bench behind the window
     if level >= 3:
         s.set(-2, 1, -3, "minecraft:stonecutter[facing=south]")
-    racks = [(1, 1, -3), (2, 1, -3), (3, 1, -3), (4, 1, -3), (1, 2, -3), (3, 2, -3)]   # the design's barrel spots
-    for p in racks[:{1: 2, 2: 3, 3: 4, 4: 5, 5: 6}[level]]:
+    for p in GROUND_RACKS[:{1: 2, 2: 3, 3: 4, 4: 5, 5: 6}[level]]:
         s.set(*p, RACK)
+    # the storage room (S10e) goes in last: the corner at levels 1 and 2, the attic from level 3
+    for p, b in storage_room(level).items():
+        s.set(*p, b)
     return s
+
+
+# the S5 racks on the ground floor's back wall, on the design's barrel spots (2, 3, 4, 5, 6 of them at levels 1 to 5)
+GROUND_RACKS = [(1, 1, -3), (2, 1, -3), (3, 1, -3), (4, 1, -3), (1, 2, -3), (3, 2, -3)]
+# the attic's racks along the back wall upstairs (S10e): 2, 4 and 6 at levels 3, 4 and 5, a rack stays a rack upwards
+ATTIC_RACKS = {3: [(-2, 6, -3), (-1, 6, -3)],
+               4: [(0, 6, -3), (1, 6, -3)],
+               5: [(-2, 7, -3), (-1, 7, -3)]}
+BARREL_UP = "minecraft:barrel[facing=up]"
+
+
+def storage_room(level):
+    """The Decorator's storage room (the owner's decision of 20 Nov 2026, S10e), {position: block}: where last year's
+    decorations wait for the next festival, in MineColonies racks (a hut's stock lives only in racks) with barrels
+    beside them as crates, so it shows what the room is. Levels 1 and 2 have no upper floor, so the room is the
+    ground floor's back-east corner: the S5 racks with barrels stacked in the corner. From level 3 it is the attic, the
+    back wall of the upper floor: 2, 4 and 6 racks at levels 3, 4 and 5 (12 racks in the hut at level 5) and crates.
+    Only racks and vanilla blocks (the Builder's bill gets no decoration), all inside the walls, nothing on the ladder's
+    way up, away from the front windows; build_pack.py checks these rules. The S5 racks are not part of it."""
+    if not 1 <= level <= 5:
+        raise ValueError(level)
+    room = {}
+    if level <= 2:
+        room[(4, 1, -3)] = BARREL_UP
+        room[(4, 2, -3)] = BARREL_UP
+        room[(4, 1, -2)] = "minecraft:barrel[facing=west]"
+        return room
+    for lv in range(3, level + 1):
+        for p in ATTIC_RACKS[lv]:
+            room[p] = RACK
+    room[(-3, 6, -3)] = BARREL_UP
+    room[(-4, 6, -3)] = "minecraft:barrel[facing=east]"
+    if level >= 4:
+        room[(-4, 6, -2)] = BARREL_UP
+    if level >= 5:
+        room[(-3, 7, -3)] = BARREL_UP
+        room[(2, 6, -3)] = "minecraft:barrel[facing=west]"
+        room[(3, 6, -3)] = "minecraft:loom[facing=south]"
+    return room
 
 
 def _upper_floor(s, level):
@@ -270,12 +315,6 @@ def _upper_floor(s, level):
     for z in range(z0, z1 + 1):
         s.set(0, 9, z, "minecraft:stripped_spruce_log[axis=z]")
     s.set(0, 8, 0, LANTERN_HANGING)
-    # the stock corner upstairs: barrels along the back wall, more with every level
-    for x in range(-3, -3 + {3: 1, 4: 2, 5: 4}[level]):
-        s.set(x, 6, -3, "minecraft:barrel[facing=up]")
-    if level >= 5:
-        s.set(-3, 7, -3, "minecraft:barrel[facing=up]")
-        s.set(3, 6, -3, "minecraft:loom[facing=south]")
 
 
 # How level 5 differs from design/src/huts.py build_a, once the design's ids are mapped to the shipped ones (its
@@ -289,14 +328,15 @@ DESIGN_CHANGES = {
     "racks": "the six barrels inside on the back wall are MineColonies racks: a hut stores its stock only in racks",
     "ladder inside": "a ladder on the west wall, (-4, 1..5, 0), through the upper floor: the way upstairs",
     "lights inside": "lanterns under the ceiling and under a tie beam upstairs (the design has no light inside)",
-    "stock corner": "barrels and a loom along the back wall upstairs (the design leaves the upper room empty)",
+    "storage room": "the attic's racks, crates and loom along the back wall upstairs, storage_room(5) (the design leaves "
+                    "the upper room empty; S10e)",
 }
 
 
 def design_diff():
     """{position: DESIGN_CHANGES key} of every cell where level 5 is meant to differ from the design."""
     d = {HUT_SPOT: "hut block", (1, 4, Z1 + 1): "lantern bracket"}
-    for p in [(1, 1, -3), (2, 1, -3), (3, 1, -3), (4, 1, -3), (1, 2, -3), (3, 2, -3)]:
+    for p in GROUND_RACKS:
         d[p] = "racks"
     for y in range(1, 6):
         d[(-4, y, 0)] = "ladder inside"
@@ -304,6 +344,6 @@ def design_diff():
         d[(6, y, 0)] = "outside ladder"
     for p in [(-2, 4, 0), (2, 4, 0), (0, 8, 0)] + [(0, 9, z) for z in range(Z0, Z1 + 1)]:
         d[p] = "lights inside"
-    for p in [(-3, 6, -3), (-2, 6, -3), (-1, 6, -3), (0, 6, -3), (-3, 7, -3), (3, 6, -3)]:
-        d[p] = "stock corner"
+    for p in storage_room(5):
+        d[p] = "storage room"
     return d

@@ -17,7 +17,8 @@ Checks, each printed, then ALL OK or PROBLEMS: every block id exists (client jar
 real properties and values; our decorations are drawn unlit; no floating blocks; nothing that would pop off (ladders,
 lanterns, wall decorations, doors, carpets); no bed; the hut block is reachable from the door and every floor cell from
 the hut block; the levels share one box and one anchor; level 5 and the full and grand trees differ from the owner's
-picked designs only where decorator_hut.DESIGN_CHANGES / tree_pieces.DESIGN_CHANGES say; the piece contract (air
+picked designs only where decorator_hut.DESIGN_CHANGES / tree_pieces.DESIGN_CHANGES say; the Workshop's storage room
+(S10e: racks and vanilla blocks inside the walls, off the ladder, racks kept and more at every level); the piece contract (air
 anchor, tags, the trunk a column of colony_seasons:festival_trunk and no log block in a piece, open sky over the
 crate); and a read-back of every written file.
 """
@@ -265,6 +266,48 @@ def check_hut(label, s, level):
     return ok, f"door {doors[0]}, floors {reached}, {lights} lanterns, {racks} racks"
 
 
+def check_storage():
+    """The Workshop's storage room (S10e, decorator_hut.storage_room): only racks and vanilla blocks (the Builder's bill
+    gets no decoration), every cell strictly inside the walls on a floor of the hut (the ground floor, y 1..4, or from
+    level 3 the attic, y 6..8), nothing on the ladder's way up, every cell in the level's blueprint as listed, a rack
+    stays a rack at every higher level, and the racks in the hut grow with every level. Returns the racks per level."""
+    ok = True
+    ladder = {(-4, y, 0) for y in range(1, 9)} | {(-4, 6, -1), (-4, 6, 1), (-3, 6, 0)}
+    racks_at = {}
+    for lv in range(1, 6):
+        room = dh.storage_room(lv)
+        built = dh.workshop(lv)
+        if not room:
+            problem(f"storage room, level {lv}: empty")
+            ok = False
+        for (x, y, z), b in sorted(room.items()):
+            name = voxel.parse_state(b)[0]
+            if name != dh.RACK and not name.startswith("minecraft:"):
+                problem(f"storage room, level {lv}, {(x, y, z)}: {b} is neither a rack nor a vanilla block")
+                ok = False
+            floor = 1 <= y <= 4 or (lv >= 3 and 6 <= y <= 8)
+            if not (dh.X0 < x < dh.X1 and dh.Z0 < z < dh.Z1 and floor):
+                problem(f"storage room, level {lv}, {(x, y, z)}: not inside the walls on a floor of the hut")
+                ok = False
+            if (x, y, z) in ladder:
+                problem(f"storage room, level {lv}, {(x, y, z)}: on the way up the ladder")
+                ok = False
+            if built.get(x, y, z) != b:
+                problem(f"storage room, level {lv}, {(x, y, z)}: the blueprint has {built.get(x, y, z)}, not {b}")
+                ok = False
+        racks_at[lv] = {p for p, b in built.blocks.items() if voxel.parse_state(b)[0] == dh.RACK}
+    for lv in range(1, 5):
+        lost = racks_at[lv] - racks_at[lv + 1]
+        if lost:
+            problem(f"storage room: racks of level {lv} that level {lv + 1} does not have: {sorted(lost)[:3]}")
+            ok = False
+        if len(racks_at[lv + 1]) <= len(racks_at[lv]):
+            problem(f"storage room: level {lv + 1} has {len(racks_at[lv + 1])} racks, not more than level {lv}'s {len(racks_at[lv])}")
+            ok = False
+    counts = [len(racks_at[lv]) for lv in range(1, 6)]
+    return ok, counts
+
+
 def check_piece(label, s):
     ok = True
     a = s.anchor
@@ -445,6 +488,8 @@ def main(argv):
         problem(f"the hut levels do not share one anchor: {anchors}")
     for label, r in compare_with_designs():
         print(f"{label:38s} {r if r else 'PROBLEMS'}")
+    storage_ok, rack_counts = check_storage()
+    print(f"{'storage room (S10e)':38s} racks at levels 1 to 5: {rack_counts}  {'ok' if storage_ok else 'PROBLEMS'}")
 
     # the files on disk
     manifest_text = json.dumps(manifest, indent=1, sort_keys=False) + "\n"
