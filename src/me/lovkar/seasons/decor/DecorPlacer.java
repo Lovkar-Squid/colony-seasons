@@ -40,9 +40,7 @@ import java.util.Map;
  * forgotten first, then set to air with no drops, and its item handed back if it was paid for; a cell whose state
  * differs (a player changed it, the Builder cleared it) is forgotten and left alone. A removal may have a budget (the
  * Decorator takes a big tree down in slices, the sweep has its own): the cells past it stay listed for the next one.
- * Afterwards the neighbours of the cleared cells are updated once, so snow and anything attached settle; a neighbour
- * the ledger still lists is NOT updated, because a leaf of the same tree would re-read its distance and no longer equal
- * its entry, and the next slice would then leave it standing (S9, H9).</p>
+ * Afterwards the neighbours of the cleared cells are updated once, so snow and anything attached settle.</p>
  */
 public final class DecorPlacer {
 
@@ -317,30 +315,13 @@ public final class DecorPlacer {
                 forgotten++;
             }
         }
-        settleAround(level, ledger, cleared);
+        final BlockState air = Blocks.AIR.defaultBlockState();
+        for (final BlockPos pos : cleared) {
+            air.updateNeighbourShapes(level, pos, Block.UPDATE_ALL);
+            level.updateNeighborsAt(pos, Blocks.AIR);
+        }
         ledger.dropGroup(colony, owner);
         return new Removed(removed, forgotten, waiting, left);
-    }
-
-    /**
-     * Tells the neighbours of cleared cells that air is there now (a shape update and a neighbour update each), except
-     * neighbours in unloaded chunks (never loaded for it) and neighbours the ledger still lists: those keep their exact
-     * state until their own removal, which updates their neighbours in turn.
-     */
-    private static void settleAround(final ServerLevel level, final DecorLedger ledger, final List<BlockPos> cleared) {
-        final BlockState air = Blocks.AIR.defaultBlockState();
-        final BlockPos.MutableBlockPos next = new BlockPos.MutableBlockPos();
-        for (final BlockPos pos : cleared) {
-            for (final Direction direction : Direction.values()) {
-                next.setWithOffset(pos, direction);
-                if (!level.hasChunkAt(next) || ledger.at(next) != null) {
-                    continue;
-                }
-                final BlockPos neighbour = next.immutable();
-                level.neighborShapeChanged(direction.getOpposite(), air, neighbour, pos, Block.UPDATE_ALL, 512);
-                level.neighborChanged(neighbour, Blocks.AIR, pos);
-            }
-        }
     }
 
     /** Every group of a colony, by the rule; groups with cells in unloaded chunks are marked for the sweep. */
