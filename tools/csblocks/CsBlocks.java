@@ -179,8 +179,11 @@ public class CsBlocks {
                     missing.add(item.getId().getPath());
                 }
             }
-            check("creative tab lists every decoration", missing.isEmpty() && tab.getDisplayItems().size() == SeasonsBlocks.ITEMS.size(),
-                    tab.getDisplayItems().size() + " items" + (missing.isEmpty() ? "" : ", missing " + missing));
+            // the decorations, and since S7 the gift (festival/Gifts puts it into this tab); nothing else
+            final boolean gift = tab.getDisplayItems().stream().anyMatch(s -> s.is(me.lovkar.seasons.festival.Gifts.GIFT.get()));
+            check("creative tab lists every decoration and the gift", missing.isEmpty() && gift
+                            && tab.getDisplayItems().size() == SeasonsBlocks.ITEMS.size() + 1,
+                    tab.getDisplayItems().size() + " items" + (missing.isEmpty() ? "" : ", missing " + missing) + (gift ? "" : ", no gift"));
         }
     }
 
