@@ -1,0 +1,20 @@
+modLoader="javafml"
+loaderVersion="[4,)"
+license="GPL-3.0-or-later"
+[[mods]]
+modId="colonyseasonsstorage"
+version="1.0.0"
+displayName="Colony Seasons rig storage check"
+description="Headless test (S10e): the Decorator's supply order (his own storage, then finished pieces from the warehouse by a courier, then ingredients), the Workshop's storage room in the pasted blueprint, the Upgrade Storage step against MineColonies' Warehouse upgrade, items counted through a decorate and take-down cycle, and a restart."
+[[dependencies.colonyseasonsstorage]]
+modId="colony_seasons"
+type="required"
+versionRange="*"
+ordering="AFTER"
+side="SERVER"
+[[dependencies.colonyseasonsstorage]]
+modId="minecolonies"
+type="required"
+versionRange="*"
+ordering="AFTER"
+side="SERVER"

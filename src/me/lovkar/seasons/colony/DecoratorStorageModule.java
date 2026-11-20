@@ -11,8 +11,9 @@ import org.jetbrains.annotations.NotNull;
  * The Workshop's storage upgrade (S10e), the same as MineColonies' Warehouse storage upgrade: how many of its
  * {@link BuildingDecorator#MAX_STORAGE_STEP} steps were paid for. Each step made every rack of the hut one row of
  * nine slots larger ({@link BuildingDecorator#upgradeStorage}); the racks keep their own size in their block entity
- * (MineColonies' {@code tagSIze}), this module keeps the step, saved with the building as {@code cs_storage_step}
- * (MineColonies' Warehouse keeps its own as {@code tagStorage}).
+ * (MineColonies' {@code tagSIze}), this module keeps the step, saved with the building as {@code cs_storage_step} in the
+ * module's own tag (MineColonies' {@code building_modules/decorator_storage}; its Warehouse keeps its step as
+ * {@code tagStorage} the same way).
  *
  * <p>The window's tab ({@link DecoratorStorageModuleView}) reads the one int {@link #serializeToView} writes;
  * tools/check_packets.py pairs the two.</p>
