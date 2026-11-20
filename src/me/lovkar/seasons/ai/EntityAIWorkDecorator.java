@@ -187,6 +187,9 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
             job.setStatus(DecoratorTexts.HUT_UNBUILT);
             return AIWorkerState.IDLE;
         }
+        // on every decision, not only when he prepares: a finished request handed on to the player while he does not
+        // prepare (prepare all year off outside the window, decorations free) must not wait there for a whole year
+        dropPlayerFinished();
         final CalendarManager.Snapshot snapshot = CalendarManager.current();
         final DecorLedger ledger = ledger();
         final boolean up = building.decorationsUp() || ledger != null && ledger.hasEntries(building.getColony().getID());
@@ -232,7 +235,6 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
     private IAIState prepare() {
         final IItemHandler pack = worker.getInventoryCitizen();
         final int cap = building.stockCap();
-        dropPlayerFinished();
         final List<Kits.Kit> wanted = new ArrayList<>();
         boolean below = false;
         Item fetching = null;
@@ -242,10 +244,15 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
             final int have = building.stock(output);
             final int inflight = openFinished(output);
             if (!Kits.wanted(have + inflight, kit.count(), cap)) {
+                if (inflight > 0 && fetching == null) {
+                    fetching = output;                        // the whole gap is on its way: say so, not "stock full"
+                    fetchingCount = inflight;
+                }
                 continue;
             }
             below = true;
-            final Supply.Plan plan = Supply.plan(have, inflight, heldInWarehouses(output), kit.count(), cap);
+            // with one request open the plan asks for no more (one at a time), so the warehouses need no count then
+            final Supply.Plan plan = Supply.plan(have, inflight, inflight > 0 ? 0 : heldInWarehouses(output), kit.count(), cap);
             final boolean requested = plan.finished() > 0 && requestFinished(output, plan.finished());
             if (requested) {
                 fetching = output;
@@ -260,7 +267,11 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
             }
         }
         if (!below) {
-            job.setStatus(Kits.all().isEmpty() ? DecoratorTexts.NO_KITS : DecoratorTexts.STOCK_FULL);
+            if (fetching != null) {
+                job.setStatus(DecoratorTexts.FETCHING, fetchingCount, itemId(fetching));
+            } else {
+                job.setStatus(Kits.all().isEmpty() ? DecoratorTexts.NO_KITS : DecoratorTexts.STOCK_FULL);
+            }
             walkToBuilding();
             return AIWorkerState.START_WORKING;
         }

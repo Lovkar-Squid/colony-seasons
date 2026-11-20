@@ -154,7 +154,7 @@ bash tools/probe.sh csstorage    # S0 the pasted racks are the Workshop's contai
                                  # 27 > 36 > 45 > 54, a rack put in later comes in at the paid size) against MineColonies' own
                                  # Warehouse upgrade message as the control; finished wreaths from the warehouse by courier before
                                  # any ingredient request, part of the gap from the warehouse, a request the player would hold
-                                 # cancelled within a pass, ingredients as before with nothing anywhere; at the cap no request, his
+                                 # cancelled within a pass (also while he does not prepare), ingredients as before with nothing anywhere; at the cap no request, his
                                  # storage loses exactly what he places; every output counted everywhere through decorating, a
                                  # courier refill and the take-down
 bash tools/restart.sh csstorage  # two steps (the first in creative, free) and the stock at the cap, a restart: the step, the 12 racks

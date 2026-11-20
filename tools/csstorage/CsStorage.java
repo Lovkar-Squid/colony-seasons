@@ -99,7 +99,7 @@ import java.util.function.Predicate;
  *   <li>none: S0 the pasted Workshop's racks are its containers; P the supply rule table; (e) the Upgrade Storage
  *       step through our payload's server handler against MineColonies' own UpgradeWarehouseMessage on the warehouse;
  *       (b) finished wreaths in the warehouse come by courier before any ingredient is asked for, (b2) part of the gap
- *       in the warehouse, (b3) a finished request the player would hold is cancelled, (c) nothing anywhere: the
+ *       in the warehouse, (b3) a finished request the player would hold is cancelled, (b4) also while he does not prepare, (c) nothing anywhere: the
  *       ingredient requests as before; (a) his own stock is used before anything is asked for while the window opens
  *       and he decorates; (d) through the decorating and the take-down every decoration is counted everywhere: no
  *       gain, no loss. All along, no request for a finished piece stays with the player or the retrying resolver;</li>
@@ -781,6 +781,15 @@ public class CsStorage {
         hut.cancelAllRequestsOfCitizenOrBuilding(decorator);
     }
 
+    private void setPrepareAllYear(final boolean on) {
+        final BoolSetting setting = hut.getSetting(BuildingDecorator.PREPARE_ALL_YEAR);
+        if (setting.getValue() != on) {
+            setting.trigger();
+            hut.markDirty();
+        }
+        checkEq("prepare all year set to " + on, hut.prepareAllYear(), on);
+    }
+
     private JobDecorator job() {
         return decorator.getJob() instanceof JobDecorator j ? j : null;
     }
@@ -810,7 +819,7 @@ public class CsStorage {
         planCycle();
         now("the end", () -> {
             check("no request for a finished piece stayed with the player or the retrying resolver", !playerHeldBroken,
-                    playerHeldSeen + " seen there for a moment (b3 forces one)");
+                    playerHeldSeen + " seen there for a moment (b3 and b4 force one each)");
             note("finished requests made {}, cancelled {}", job().finishedRequests(), job().finishedCancelled());
         });
     }
@@ -1147,6 +1156,40 @@ public class CsStorage {
                 check("(b3) it is cancelled within one pass", done && !open, "open " + open + " after " + t + " ticks, "
                         + (job().decisions() - marks[0]) + " decisions");
                 checkEq("(b3) he counted the cancel", job().finishedCancelled() - marks[1], 1);
+            }
+        });
+        // from the review: the same while he does not prepare at all (prepare all year off, the window closed), where a
+        // request handed on to the player used to wait until the next window
+        final IToken<?>[] forcedIdle = new IToken<?>[1];
+        final int[] marksIdle = new int[2];
+        step(new Step("(b4) a finished request the player would hold while he does not prepare", 600) {
+            @Override
+            void start() {
+                cancelAll();
+                setPrepareAllYear(false);
+                warehouseTo(wreath, 0);
+                marksIdle[0] = job().decisions();
+                marksIdle[1] = job().finishedCancelled();
+                forcedIdle[0] = decorator.createRequestAsync(new Stack(new ItemStack(wreath), true, true, ItemStackUtils.EMPTY, 4, 1, false));
+                final IRequestResolver<?> resolver = resolverOf(forcedIdle[0]);
+                check("(b4) the forced request lands with the player or the retrying resolver",
+                        resolver instanceof IPlayerRequestResolver || resolver instanceof IRetryingRequestResolver, name(resolver));
+            }
+
+            @Override
+            boolean tick() {
+                return job().decisions() - marksIdle[0] >= 2;
+            }
+
+            @Override
+            void end(final boolean done) {
+                final boolean open = finishedRequests(wreath).stream().anyMatch(r -> r.getId().equals(forcedIdle[0]));
+                check("(b4) he does not prepare: the window is closed and prepare all year is off",
+                        job().status().contains("window_only"), job().status());
+                check("(b4) it is cancelled within one decision", done && !open, "open " + open + " after " + t + " ticks, "
+                        + (job().decisions() - marksIdle[0]) + " decisions");
+                checkEq("(b4) he counted the cancel", job().finishedCancelled() - marksIdle[1], 1);
+                setPrepareAllYear(true);
             }
         });
         step(new Step("(c) nothing anywhere: ingredients as before", 3000) {
