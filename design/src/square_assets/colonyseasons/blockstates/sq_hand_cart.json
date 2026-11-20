@@ -1,0 +1,19 @@
+{
+ "variants": {
+  "facing=north": {
+   "model": "colonyseasons:block/sq_hand_cart"
+  },
+  "facing=east": {
+   "model": "colonyseasons:block/sq_hand_cart",
+   "y": 90
+  },
+  "facing=south": {
+   "model": "colonyseasons:block/sq_hand_cart",
+   "y": 180
+  },
+  "facing=west": {
+   "model": "colonyseasons:block/sq_hand_cart",
+   "y": 270
+  }
+ }
+}

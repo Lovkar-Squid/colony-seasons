@@ -38,3 +38,8 @@ tools/private_terms.local.txt
 
 # in-game test workspace (candidate jar copies, logs, notes)
 ingame/
+
+# Town Square renders: only the contact sheets and the night view are committed
+design/square/*.png
+!design/square/sheet-*.png
+!design/square/square-night.png
