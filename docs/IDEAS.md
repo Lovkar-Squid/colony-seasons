@@ -17,3 +17,7 @@ To check before designing: how MineColonies ties one worker to two buildings (Co
 workers), and how a square building coexists with the existing festival marker and the ledger.
 
 Proposed for 0.2.0, with the next festival before its real date. A short design round first.
+
+Owner's addition (20 Nov 2026): when Trade Post for MineColonies is installed, the square can tie into it and help
+the colony earn money (for example festival market stalls on the square). It must stay optional: a runtime bridge,
+no compile dependency, the mod loads and works without Trade Post.
