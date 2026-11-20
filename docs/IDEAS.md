@@ -28,3 +28,9 @@ The festival tree must not count as a tree for MineColonies' Forester, or he cut
 puts it back the next day). Planned fix S10c for 0.1.0: our own trunk block that looks like a spruce log but is not in
 #minecraft:logs, the pieces rebuilt with it, and a rig probe with a Forester whose area holds the tree. The same rule
 applies to the Town Square tree in 0.2.0.
+
+## The Decorator stuck under the tree (owner, 20 Nov 2026, in-game test)
+
+In the third in-game test the Decorator got stuck under the festival tree. To fix in S10c with the Forester issue:
+never place a block with collision into a cell an entity occupies (check entity bounding boxes, wait or skip), keep the
+Decorator standing outside the piece box while he builds, tends or hosts, and free a citizen found inside the tree.
