@@ -82,7 +82,7 @@ import java.util.function.Predicate;
  *   <li>hostile-free (decorator.needsMaterials = false): H7 a player breaks wreaths and logs every game day and tending
  *       puts them back (finding for the owner, with the numbers).</li>
  *   <li>hostile-world: H8 the grand tree with empty, then partial stock; H9 its take-down in slices; H9b the server
- *       sweep's slices; H10 chunks that unload; H11 five years; H12 a deleted colony; H13 two colonies with touching
+ *       sweep's slices; H9c a slice boundary at every cell (review); H10 chunks that unload; H11 five years; H12 a deleted colony; H13 two colonies with touching
  *       claims; H14 a second marker; H15 the marker broken in the gathering hours; H16 the hut destroyed while he hosts
  *       and rebuilt at level 1; H17 a player breaks ten tree cells; H18 decor remove in the middle of the festival (what
  *       uninstalling needs); H19 a ledger file of a newer version.</li>
@@ -882,6 +882,55 @@ final class Hostile {
             void end(final boolean done) {
                 p.check("H9b: the sweep's slices leave the square as it was (no leaf of the tree left behind)", passes >= 2
                         && ledger().group(p.colonyId, p.square()) == null && areaDiffCount(area) == 0, passes + " passes, " + areaDiff(area));
+            }
+        });
+        // H9c (review): a slice may end anywhere (the sweep's budget is shared by every group of the pass), so here every cell
+        // is a slice of its own and the server ticks between them: a leaf beside a log of an earlier slice re-reads its
+        // distance before its own turn, and the take-down must still find it as listed
+        final Counting paidStock = new Counting(i -> true);
+        p.step(new CsFullCycle.Step("H9c: the grand tree once more, paid", 600, true) {
+            DecorWork.Outcome last;
+
+            @Override
+            boolean tick() {
+                if (t % 5 == 0) {
+                    last = DecorWork.decorate(level(), p.colonyId, squareOf(p.marker), 5, paidStock, day(), ledger());
+                }
+                return last != null && last.complete();
+            }
+
+            @Override
+            void end(final boolean done) {
+                p.check("H9c: the grand tree is up again", done, last == null ? "-" : last.status());
+            }
+        });
+        p.step(new CsFullCycle.Step("H9c: taken down one cell a slice, the neighbours' ticks between", 2400, true) {
+            int paid;
+            int calls;
+            int lying;
+            final Counting sink = new Counting(i -> false);
+
+            @Override
+            void start() {
+                paid = paidStanding(p.colonyId, p.square());
+                lying = drops(p.marker, 24, s -> true);
+            }
+
+            @Override
+            boolean tick() {
+                if (t % 3 == 1 && ledger().group(p.colonyId, p.square()) != null) {
+                    DecorPlacer.remove(level(), ledger(), p.colonyId, p.square(), sink, 1);
+                    calls++;
+                }
+                return ledger().group(p.colonyId, p.square()) == null && t % 3 == 2;
+            }
+
+            @Override
+            void end(final boolean done) {
+                final int dropped = drops(p.marker, 24, s -> true) - lying;
+                p.check("H9c: a slice boundary anywhere leaves the square as it was, hands back every paid item once and drops nothing",
+                        done && areaDiffCount(area) == 0 && sink.backAll() == paid && dropped == 0,
+                        calls + " slices, " + sink.backAll() + " of " + paid + " paid items back, " + dropped + " items dropped, " + areaDiff(area));
             }
         });
     }

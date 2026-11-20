@@ -45,7 +45,7 @@ hostile review's ids (H1 to H19) are the attacks of `tools/csfullcycle/Hostile.j
 8. After the window he takes down what he put up and keeps the items in his hut.
    Proof: csfullcycle (base): "7 Jan / 8 Jan: the take-down goes on, the count falls", and on 10 Jan "every tracked item
    is back where it was (I3 exact)" and the world equal to the first snapshot; restart (csfullcycle): a take-down across a
-   restart. The grand tree comes down in slices over a few visits (hostile-world H9).
+   restart. The grand tree comes down in slices over a few visits (hostile-world H9, H9b, H9c).
 9. The festival marker: the tree stands where it is placed, facing as the marker faces; with at most a tenth
    of the cells blocked (and no trunk cell) he builds the rest, otherwise nothing and a note in the hut window.
    Proof: csdecorgate square (the position formula in four facings, the 10 % rule, the trunk rule, the note); csfullcycle base.
@@ -173,7 +173,8 @@ Notes from S7 (19 Nov 2026, probe `csfestival`, all modes and `tools/restart.sh 
 31. With no rockets in his stock the New Year dusk waits for them and no show is counted; see item 16. Proof:
    csfullcycle emptywarehouse.
 32. The Decorator takes a big tree down over a few visits, at most 256 blocks a visit. Not in the pages (a detail).
-   Proof: hostile-world H9 (the grand tree, 375 blocks: 256 then 119, the square equal to its snapshot after).
+   Proof: hostile-world H9 (the grand tree, 375 blocks: 256 then 119, the square equal to its snapshot after) and H9c (a
+   slice boundary at every cell: the square equal to its snapshot, every paid item back once, nothing dropped).
 
 ## Built already and shown in the pages
 

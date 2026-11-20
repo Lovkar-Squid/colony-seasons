@@ -40,7 +40,9 @@ import java.util.Map;
  * forgotten first, then set to air with no drops, and its item handed back if it was paid for; a cell whose state
  * differs (a player changed it, the Builder cleared it) is forgotten and left alone. A removal may have a budget (the
  * Decorator takes a big tree down in slices, the sweep has its own): the cells past it stay listed for the next one.
- * Afterwards the neighbours of the cleared cells are updated once, so snow and anything attached settle.</p>
+ * Afterwards the neighbours of the cleared cells are updated once, so snow and anything attached settle; a neighbour
+ * the ledger still lists is not updated (it comes down in a later slice exactly as listed: a leaf would re-read its
+ * distance, half a large star would pop off and drop), nor one in a chunk that is not loaded (never loaded for it).</p>
  */
 public final class DecorPlacer {
 
@@ -316,9 +318,17 @@ public final class DecorPlacer {
             }
         }
         final BlockState air = Blocks.AIR.defaultBlockState();
+        final BlockPos.MutableBlockPos next = new BlockPos.MutableBlockPos();
         for (final BlockPos pos : cleared) {
-            air.updateNeighbourShapes(level, pos, Block.UPDATE_ALL);
-            level.updateNeighborsAt(pos, Blocks.AIR);
+            for (final Direction direction : Direction.values()) {
+                next.setWithOffset(pos, direction);
+                // a cell still listed comes down later as listed; a chunk that is not loaded is never loaded for this (S9 review, H9c)
+                if (!level.hasChunkAt(next) || ledger.at(next) != null) {
+                    continue;
+                }
+                level.neighborShapeChanged(direction.getOpposite(), air, next, pos, Block.UPDATE_ALL, Block.UPDATE_LIMIT);
+                level.neighborChanged(next, Blocks.AIR, pos);
+            }
         }
         ledger.dropGroup(colony, owner);
         return new Removed(removed, forgotten, waiting, left);
