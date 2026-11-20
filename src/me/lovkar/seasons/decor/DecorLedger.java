@@ -387,6 +387,23 @@ public final class DecorLedger extends SavedData {
         return total;
     }
 
+    /**
+     * Buildings of one colony that are decorated now: a building's group that was finished on some day and still lists
+     * entries (the Workshop's page). Counts in place, without the copies {@link #groups} makes.
+     */
+    public int buildingsDone(final int colony) {
+        final ColonyRecord record = colonies.get(colony);
+        int done = 0;
+        if (record != null) {
+            for (final Group group : record.groups.values()) {
+                if (group.owner.kind() == Kind.BUILDING && group.decoratedDay >= 0 && !group.entries.isEmpty()) {
+                    done++;
+                }
+            }
+        }
+        return done;
+    }
+
     /** Entries listed in this level, all colonies. */
     public int count() {
         return index.size();

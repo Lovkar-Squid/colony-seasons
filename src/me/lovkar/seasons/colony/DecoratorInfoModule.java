@@ -189,11 +189,7 @@ public class DecoratorInfoModule extends AbstractBuildingModule implements ITick
             final DecorLedger ledger = DecorLedger.peek(serverLevel);
             if (ledger != null) {
                 up = ledger.count(colony.getID());
-                for (final DecorLedger.GroupView group : ledger.groups(colony.getID())) {
-                    if (group.owner().kind() == DecorLedger.Kind.BUILDING && group.decoratedDay() >= 0 && group.size() > 0) {
-                        done++;
-                    }
-                }
+                done = ledger.buildingsDone(colony.getID());
                 used = ledger.budgetUsed(colony.getID(), DecorWork.day(serverLevel));
             }
         }
