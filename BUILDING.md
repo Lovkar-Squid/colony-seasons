@@ -144,6 +144,23 @@ bash tools/probe.sh csfullcycle hostile-world   # the grand tree with short stoc
                                                 # hut destroyed while he hosts, a broken tree, decor remove mid-festival, a newer ledger file
 ```
 
+The supply order and the storage room (S10e). `csstorage` builds a colony with a town hall, two houses, the Workshop pasted
+from the shipped level-5 blueprint with the command a player types, a warehouse with four racks, a courier's hut and a
+courier hired for the warehouse, and the Decorator; the courier really walks and carries.
+
+```bash
+bash tools/probe.sh csstorage    # S0 the pasted racks are the Workshop's containers; the supply rule table; Upgrade Storage through
+                                 # the payload's server handler (refusals charge nothing, a far position is refused before any chunk is touched, three steps of one emerald block, racks
+                                 # 27 > 36 > 45 > 54, a rack put in later comes in at the paid size) against MineColonies' own
+                                 # Warehouse upgrade message as the control; finished wreaths from the warehouse by courier before
+                                 # any ingredient request, part of the gap from the warehouse, a request the player would hold
+                                 # cancelled within a pass (also while he does not prepare), ingredients as before with nothing anywhere; at the cap no request, his
+                                 # storage loses exactly what he places; every output counted everywhere through decorating, a
+                                 # courier refill and the take-down
+bash tools/restart.sh csstorage  # two steps (the first in creative, free) and the stock at the cap, a restart: the step, the 12 racks
+                                 # at 45 slots and the stock are back, no request, a third step works
+```
+
 Each finding that goes to the owner instead of a fix is a `NOTE FINDING H<n> owner:ask|fyi` line. `tools/restart.sh` runs the phases a
 probe lists in its `phases.txt` instead of `restart-save,restart-load`.
 
@@ -243,7 +260,10 @@ run (`tools/nbt.py` is a small NBT writer, so the scripts need no packages and r
 
 - `tools/decorator_hut.py`: the Decorator's hut, look "Workshop with shopfront", `decorator/workshop1..5.blueprint`.
   Level 5 is the picked hut A of `design/src/huts.py`; levels 1 to 4 grow towards it on the same plan. Not to be
-  confused with `tools/gen_decorator_hut.py` (S3), which writes the hut block's model.
+  confused with `tools/gen_decorator_hut.py` (S3), which writes the hut block's model. `storage_room(level)` (S10e) is
+  the one source of the storage room: the ground floor's back-east corner at levels 1 and 2, the attic from level 3,
+  racks and barrels only (2, 3, 6, 9, 12 racks in the hut); `build_pack.py` checks it (racks and vanilla blocks, inside
+  the walls on a floor, off the ladder's way up, a rack stays a rack upwards, more racks every level).
 - `tools/tree_pieces.py`: the tree pieces the Decorator places at the festival marker, `pieces/village_spruce_small`,
   `village_spruce_full`, `village_spruce_rich` (tree A) and `grand_tree` (tree B) of `design/src/trees.py`. A piece is
   drawn facing north; its anchor is the marker's cell and stays air; tags `gift_pile`, `firework_crate`, `star`
@@ -260,7 +280,9 @@ run (`tools/nbt.py` is a small NBT writer, so the scripts need no packages and r
 - `tools/cspaste/` (from Voyager's paste test and `worldcheck.py`): the paste probe. Its manifest is written by
   `build_pack.py`; the world is read back in the game, so the probe needs no region-file reader.
 - `tools/render_s5.py`: the shipped blueprints read back and drawn with the design renderer (`design/tools`) on the
-  design's ground and camera; MineColonies' jar (`$MINECOLONIES_JAR`) gives the racks' model.
+  design's ground and camera; MineColonies' jar (`$MINECOLONIES_JAR`) gives the racks' model. The S10e cutaways of the
+  storage room are rendered only when named: `bash tools/render_s5.sh attic-l3 attic-l5 corner-l1` writes
+  `docs/renders/s10e/<date>-s10e-*.png` (front wall and roof left out) and leaves the S5 renders and the pack icon alone.
 ### Placing (S4)
 
 - `python -I tools/csdecorgate/make_piece.py` writes the `csdecorgate` probe's own square piece (a small asymmetric test tree

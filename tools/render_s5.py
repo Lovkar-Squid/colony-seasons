@@ -2,7 +2,8 @@
 render_scene.py, Blender headless) reading the mod's own resources/assets and the MineColonies jar (for the racks).
 
     bash tools/render_s5.sh [name ...]      (names: hut-l1 ... hut-l5, tree-small, tree-full, tree-rich, tree-grand,
-                                             levels, compare, icon)
+                                             levels, compare, icon; and, only when named, the S10e cutaways
+                                             attic-l3, attic-l5, corner-l1)
 
 What is drawn is read back from the shipped blueprints (resources/blueprints/...), not from the scripts that made them.
 Every scene stands on the design's own ground patch and is seen through the design's own camera (design/src/render_set
@@ -11,6 +12,10 @@ design; a tree piece is drawn facing north, so it is shown as the Decorator plac
 south (turned half round), with the marker in its cell and the design's door-height lantern post for scale (the post
 and the ground are not part of any piece). Writes docs/renders/s5/<date>-s5-*.png (1000 px wide, at most 600 KB) and
 resources/blueprints/colony_seasons/colony_seasons/colony_seasons.png (the pack icon, 256 x 256, from hut level 5).
+
+The S10e cutaways (only when named: bash tools/render_s5.sh attic-l3 attic-l5 corner-l1) show the Workshop's storage
+room from the shipped blueprints with the front wall, everything in front of it and the roof (with the tie beam under
+it) left out, seen more from above; they go to docs/renders/s10e/<date>-s10e-*.png with a caption.
 """
 import datetime
 import os
@@ -97,7 +102,35 @@ def tree_scene(name):
     return blocks
 
 
+OUT_S10E = os.path.join(ROOT, "docs", "renders", "s10e")
+CUTAWAY_CAMERA = dict(yaw=16, pitch=42, ortho=17.0, target=[0, 5.0, -0.5], res=[1300, 1300])
+CUTAWAY_CAPTION = {"attic-l3": "Level 3: the attic storage, 6 racks in the hut",
+                   "attic-l5": "Level 5: the attic storage, 12 racks in the hut",
+                   "corner-l1": "Level 1: the storage corner, 2 racks and barrels"}
+
+
+def cutaway_scene(level):
+    """Hut level `level` as hut_scene, with the front wall and everything south of it and the roof (with the tie beams
+    under it and the lanterns hanging from them) left out, so the rooms and the storage room can be seen."""
+    blocks = hut_scene(level)
+    roof_y = 9 if level >= 3 else 5     # one storey: the roof sits on the stone walls (decorator_hut.workshop)
+    for (x, y, z) in list(blocks):
+        in_box = -6 <= x <= 6 and -6 <= z <= 6 and y >= 1
+        if in_box and (z >= 4 or y >= roof_y):
+            del blocks[(x, y, z)]
+    for (x, y, z), b in list(blocks.items()):
+        if "hanging=true" in b and (x, y + 1, z) not in blocks:
+            del blocks[(x, y, z)]       # a lantern that hung from a beam left out goes with it
+    return blocks
+
+
 def job(name, blocks, which):
+    if name in CUTAWAY_CAPTION:
+        c = dict(CUTAWAY_CAMERA)
+        c["res"] = [1000, 1000]
+        if name.startswith("corner"):
+            c["yaw"] = -c["yaw"]        # the corner is the back-east one: seen from the south-west, past the east wall
+        return dict(blocks=blocks, out=os.path.join(OUT_S10E, f"{DATE}-s10e-{name}.png"), bg=SKY, samples=24, **c)
     return dict(blocks=blocks, out=os.path.join(OUT, f"{DATE}-s5-{name}.png"), bg=SKY, samples=24, **cam(which))
 
 
@@ -106,6 +139,10 @@ JOBS.update({"tree-small": (lambda: tree_scene("village_spruce_small"), "tree"),
              "tree-full": (lambda: tree_scene("village_spruce_full"), "tree"),
              "tree-rich": (lambda: tree_scene("village_spruce_rich"), "tree"),
              "tree-grand": (lambda: tree_scene("grand_tree"), "tree")})
+# the S10e cutaways of the storage room: rendered only when named
+OPT_IN = {"attic-l3": (lambda: cutaway_scene(3), "cutaway"),
+          "attic-l5": (lambda: cutaway_scene(5), "cutaway"),
+          "corner-l1": (lambda: cutaway_scene(1), "cutaway")}
 # what goes to docs/renders/s5 as its own file; levels 2 and 4 are rendered for the level sheet only
 KEEP_FILES = {"hut-l1", "hut-l3", "hut-l5", "tree-small", "tree-full", "tree-rich", "tree-grand"}
 
@@ -198,6 +235,16 @@ def icon():
     return path
 
 
+def caption(path, text):
+    """A caption bar under a cutaway."""
+    im = Image.open(path).convert("RGB")
+    bar = 40
+    out = Image.new("RGB", (im.width, im.height + bar), (236, 236, 232))
+    out.paste(im, (0, 0))
+    ImageDraw.Draw(out).text((14, im.height + 8), text, fill=(34, 34, 34), font=font(22))
+    out.save(path, optimize=True)
+
+
 def shrink(path, limit=600 * 1024):
     im = Image.open(path).convert("RGB")
     im.save(path, optimize=True, compress_level=9)
@@ -211,6 +258,7 @@ def main():
         sys.exit(f"Blender not found at {driver.BLENDER} (set BLENDER)")
     only = sys.argv[1:]
     names = [n for n in JOBS if not only or n in only]
+    cutaways = [n for n in OPT_IN if n in only]
     jobs = []
     for n in names:
         fn, which = JOBS[n]
@@ -218,11 +266,23 @@ def main():
         if n not in KEEP_FILES:
             j["out"] = scratch(n)
         jobs.append(j)
+    for n in cutaways:
+        os.makedirs(OUT_S10E, exist_ok=True)
+        fn, which = OPT_IN[n]
+        jobs.append(job(n, fn(), which))
     if jobs:
         driver.render_jobs(jobs)
     for j in jobs:
         if os.path.exists(j["out"]):
             shrink(j["out"])
+    for n in cutaways:
+        p = os.path.join(OUT_S10E, f"{DATE}-s10e-{n}.png")
+        if os.path.exists(p):
+            caption(p, CUTAWAY_CAPTION[n])
+            shrink(p)
+            print(f"{os.path.relpath(p, ROOT)}: {Image.open(p).size}, {os.path.getsize(p) // 1024} KB")
+    if cutaways and len(cutaways) == len(only):
+        return
     if not only or "levels" in only:
         shrink(levels_sheet())
     if not only or "compare" in only:

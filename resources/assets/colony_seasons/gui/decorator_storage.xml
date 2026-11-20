@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The Workshop's "Upgrade Storage" tab (S10e): MineColonies' layoutwarehouseoptions.xml without the sort button,
+     with our own lang keys and one line saying what a step does. -->
+<window xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/ldtteam/BlockUI/version/main/src/main/resources/assets/blockui/gui/block_ui.xsd"
+        size="190 244">
+
+    <image source="minecolonies:textures/gui/builderhut/builder_paper.png" size="190 244"/>
+    <text id="title" size="130 11" pos="30 14" textalign="MIDDLE" color="black"
+          label="$(com.colony_seasons.gui.storage.title)"/>
+    <box size="164 30" linewidth="1" pos="13 29">
+        <itemicon id="resourceIcon" size="16 16" pos="1 1"/>
+        <text id="resourceName" size="125 9" pos="18 2" color="black"/>
+        <button id="resourceAdd" size="16 16" label="↥" pos="145 2"/>
+        <text id="resourceMissing" size="65 9" pos="2 20" textalign="MIDDLE" color="black"/>
+        <text id="resourceAvailableNeeded" size="65 9" pos="67 20" textalign="MIDDLE" color="black"/>
+        <text id="upgradeProgress" size="40 9" pos="122 20" color="black"/>
+    </box>
+    <text id="explain" size="164 60" pos="13 66" color="black" textscale="0.8" wrap="true"
+          label="$(com.colony_seasons.gui.storage.explain)"/>
+</window>
