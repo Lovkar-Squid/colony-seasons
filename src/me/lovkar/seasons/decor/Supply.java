@@ -12,7 +12,8 @@ import net.minecraft.world.item.Item;
  * while a warehouse holds them), and only for the rest does he order the kit's ingredients and make them.
  *
  * <p>{@link #plan} is the whole rule, a pure function the probe checks row by row; {@link #held} is the one read of
- * the world it needs. Nothing here keeps state: the AI reads both again on every pass.</p>
+ * the world it needs. Nothing here keeps state; the AI remembers only a count of none, for a few seconds
+ * ({@code EntityAIWorkDecorator.EMPTY_RECOUNT_TICKS}), and reads a count that found some again on every pass.</p>
  */
 public final class Supply {
 

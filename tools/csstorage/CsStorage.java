@@ -1058,6 +1058,26 @@ public class CsStorage {
     // ---------------------------------------------------------------- (b), (b2), (b3), (c): the supply order, off season
 
     private void planSupply() {
+        // he may have looked at the empty warehouse right after he was hired and remembered "none" for a while
+        // (EntityAIWorkDecorator.EMPTY_RECOUNT_TICKS): with every kit at the cap he counts nothing, so that runs out
+        final int recount = me.lovkar.seasons.ai.EntityAIWorkDecorator.EMPTY_RECOUNT_TICKS;
+        step(new Step("(b0) every kit at the cap until a remembered empty count runs out", recount + 200) {
+            @Override
+            void start() {
+                cancelAll();
+                allAtCap();
+            }
+
+            @Override
+            boolean tick() {
+                return t >= recount + 20;
+            }
+
+            @Override
+            void end(final boolean done) {
+                check("(b0) waited out the remembered empty count", done, t + " ticks");
+            }
+        });
         step(new Step("(b) finished wreaths from the warehouse", 9000) {
             int made0;
             boolean asked;

@@ -128,6 +128,13 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
      * it from ingredients instead of asking again on every pass.
      */
     public static final int REFUSED_TICKS = 2400;
+    /**
+     * After the warehouses were counted and held none of an item, they count as holding none of it for this many
+     * ticks before he walks their racks again: without it every decision (20 ticks) would read every slot of every
+     * warehouse rack once for each kit below the cap, all year when nothing is there. A count that found some is
+     * never kept, so a request for finished pieces is still made in the tick that saw them.
+     */
+    public static final int EMPTY_RECOUNT_TICKS = 200;
 
     /** Decisions spent walking to a building before he works from where he stands (the rules do not need him there). */
     public static final int WALK_ATTEMPTS_OUT = 40;
@@ -155,6 +162,8 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
     private final java.util.Set<Integer> thanked = new java.util.HashSet<>();
     // a cache only (S10e): until when the warehouses count as holding none of an item they could not deliver
     private final Map<Item, Long> refusedUntil = new HashMap<>();
+    // a cache only: until when the warehouses, counted and found holding none of an item, are not counted again
+    private final Map<Item, Long> emptyUntil = new HashMap<>();
 
     public EntityAIWorkDecorator(final @NotNull JobDecorator job) {
         super(job);
@@ -321,21 +330,35 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
     /**
      * What the colony's warehouses hold of {@code output}, as far as the supply order may use it: 0 for a while after
      * the warehouse could not deliver a request for it (the stack was held for someone else, say), so that he orders
-     * the ingredients instead of asking again and again.
+     * the ingredients instead of asking again and again; also 0, without a new count, for {@link #EMPTY_RECOUNT_TICKS}
+     * after a count that found none.
      */
     private int heldInWarehouses(final Item output) {
         final Long until = refusedUntil.get(output);
-        if (until != null && world.getGameTime() < until) {
+        final long now = world.getGameTime();
+        if (until != null && now < until) {
             return 0;
         }
-        return Supply.held(building.getColony(), output);
+        final Long empty = emptyUntil.get(output);
+        if (empty != null && now < empty) {
+            return 0;
+        }
+        final int held = Supply.held(building.getColony(), output);
+        if (held <= 0) {
+            emptyUntil.put(output, now + EMPTY_RECOUNT_TICKS);
+        } else {
+            emptyUntil.remove(output);
+        }
+        return held;
     }
 
     /**
      * A request for {@code count} finished pieces, delivered by a courier from the warehouse. The building may not
      * resolve it from its own racks (those are already counted as his stock). Made only after {@link Supply#held}
      * found them in a warehouse, in the same tick; if the request system still hands it to the player or to the
-     * retrying resolver, it is cancelled at once, so the player is never left a request to fill for a finished piece.
+     * retrying resolver, it is cancelled: here when the resolver is already known, otherwise by
+     * {@link #dropPlayerFinished} on his next decision, so the player is never left a request to
+     * fill for a finished piece.
      *
      * @return true when the request stands with a warehouse or a courier
      */
@@ -366,12 +389,16 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
         if (data == null) {
             return;
         }
-        final List<IRequest<? extends Stack>> finished = new ArrayList<>();
+        final java.util.Set<Item> outputs = new java.util.HashSet<>();
         for (final Kits.Kit kit : Kits.all()) {
-            final Item output = kit.output();
-            finished.addAll(building.getOpenRequestsOfTypeFiltered(data, TypeToken.of(Stack.class),
-                    r -> r.getRequest().getStack().is(output)));
+            outputs.add(kit.output());
         }
+        if (outputs.isEmpty()) {
+            return;
+        }
+        // one pass over his open requests for all the kit outputs, not one per kit
+        final List<IRequest<? extends Stack>> finished = new ArrayList<>(building.getOpenRequestsOfTypeFiltered(data,
+                TypeToken.of(Stack.class), r -> outputs.contains(r.getRequest().getStack().getItem())));
         for (final IRequest<? extends Stack> request : finished) {
             cancelIfPlayerHeld(request.getId(), request.getRequest().getStack().getItem());
         }
