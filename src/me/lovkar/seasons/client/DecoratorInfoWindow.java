@@ -13,6 +13,9 @@ import me.lovkar.seasons.calendar.Season;
 import me.lovkar.seasons.colony.DecoratorInfoModule;
 import me.lovkar.seasons.colony.DecoratorInfoModuleView;
 import net.minecraft.ChatFormatting;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.FormattedText;
+import net.minecraft.network.chat.Style;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
@@ -22,6 +25,7 @@ import net.minecraft.world.item.Item;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -29,12 +33,21 @@ import java.util.Optional;
  * ({@link DecoratorInfoModule}): the calendar, the festival, what he is doing, the decorations up, the stock against the
  * cap, what the next kit lacks and what the effect switches do. All text goes through lang keys, so it follows the
  * player's language; the server sends keys, ids and numbers only.
+ *
+ * <p>The page follows the server while it is open: when the view's info changes (a new packet), the rows are made
+ * again (S9, the S8 hand-off). Each row of the layout holds one visual line: a line wider than a row is cut by the
+ * client's font into as many rows as it needs, so nothing is cut off; if that fails, the line goes in as it is.</p>
  */
 public class DecoratorInfoWindow extends AbstractModuleWindow<DecoratorInfoModuleView> {
 
     private static final ResourceLocation LAYOUT = ResourceLocation.fromNamespaceAndPath(ColonySeasons.MODID, "gui/decorator_info.xml");
 
-    private final List<Component> lines;
+    /** A row's text width in font units: the layout's 164 px text box at its text scale 0.8. */
+    static final int ROW_WIDTH = 205;
+
+    private List<Component> rows;
+    private DecoratorInfoModule.Info shown;
+    private ScrollingList list;
 
     /** The window for a view, typed as BlockUI's base window (see {@link DecoratorInfoModuleView#getWindow}). */
     public static BOWindow create(final DecoratorInfoModuleView view) {
@@ -43,7 +56,8 @@ public class DecoratorInfoWindow extends AbstractModuleWindow<DecoratorInfoModul
 
     public DecoratorInfoWindow(final DecoratorInfoModuleView view) {
         super(view, LAYOUT);
-        lines = lines(view.info());
+        shown = view.info();
+        rows = rows(shown);
 
         // the red "?" MineColonies puts on every hut window, here on the page as well
         final ButtonImage help = findPaneOfTypeByID("info", ButtonImage.class);
@@ -51,22 +65,67 @@ public class DecoratorInfoWindow extends AbstractModuleWindow<DecoratorInfoModul
             help.setHandler(clicked -> new WindowInfo(moduleView.getBuildingView()).open());
         }
 
-        final ScrollingList list = findPaneOfTypeByID("lines", ScrollingList.class);
+        list = findPaneOfTypeByID("lines", ScrollingList.class);
         if (list != null) {
             list.setDataProvider(new ScrollingList.DataProvider() {
                 @Override
                 public int getElementCount() {
-                    return lines.size();
+                    return rows.size();
                 }
 
                 @Override
                 public void updateElement(final int index, final Pane row) {
                     final Text text = row.findPaneOfTypeByID("line", Text.class);
-                    if (text != null) {
-                        text.setText(lines.get(index));
+                    if (text != null && index < rows.size()) {
+                        text.setText(rows.get(index));
                     }
                 }
             });
+        }
+    }
+
+    /** Every frame: when the server sent a new state while the page is open, the rows are made again. */
+    @Override
+    public void onUpdate() {
+        super.onUpdate();
+        final DecoratorInfoModule.Info now = moduleView.info();
+        if (!Objects.equals(now, shown)) {
+            shown = now;
+            rows = rows(now);
+            if (list != null) {
+                list.refreshElementPanes();
+            }
+        }
+    }
+
+    /** The page's rows: every line of {@link #lines}, cut into rows of one visual line each. */
+    static List<Component> rows(final DecoratorInfoModule.Info info) {
+        final List<Component> out = new ArrayList<>();
+        for (final Component line : lines(info)) {
+            out.addAll(wrap(line));
+        }
+        return out;
+    }
+
+    /** One line as rows no wider than {@link #ROW_WIDTH}, by the client's font; on any failure the line as it is. */
+    static List<Component> wrap(final Component line) {
+        try {
+            final List<FormattedText> parts = Minecraft.getInstance().font.getSplitter().splitLines(line, ROW_WIDTH, Style.EMPTY);
+            if (parts.isEmpty()) {
+                return List.of(line);
+            }
+            final List<Component> out = new ArrayList<>();
+            for (final FormattedText part : parts) {
+                final MutableComponent row = Component.empty();
+                part.visit((style, text) -> {
+                    row.append(Component.literal(text).withStyle(style));
+                    return Optional.empty();
+                }, Style.EMPTY);
+                out.add(row);
+            }
+            return out;
+        } catch (final RuntimeException unwrapped) {
+            return List.of(line);
         }
     }
 

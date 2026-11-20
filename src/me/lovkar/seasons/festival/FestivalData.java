@@ -121,6 +121,15 @@ public final class FestivalData extends SavedData {
         return colonies.get(id);
     }
 
+    /** Forgets a colony's state: the colony is gone (S9, H12; the gift claims are the players' and stay). True when it had one. */
+    public boolean dropColony(final int id) {
+        if (colonies.remove(id) == null) {
+            return false;
+        }
+        setDirty();
+        return true;
+    }
+
     public void setTreeReady(final int id, final long day, final String piece) {
         final ColonyState state = colony(id);
         state.treeReadyDay = day;

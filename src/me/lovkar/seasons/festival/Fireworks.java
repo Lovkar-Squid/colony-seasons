@@ -261,7 +261,8 @@ public final class Fireworks {
 
     /**
      * The Decorator launches his colony's dusk show from the square, where he stands (his Launching state, on a New
-     * Year evening). Returns the rockets that went up, or -1 when no show is due now.
+     * Year evening). Returns the rockets that went up (0 with an empty stock: the show is still due, he tries again),
+     * or -1 when no show is due now.
      */
     public static int launchDusk(final ServerLevel level, final IColony colony) {
         if (!isDusk(level) || !duskAhead(level, colony)) {
@@ -271,10 +272,11 @@ public final class Fireworks {
     }
 
     /**
-     * The dusk show of game day {@code gameDay}: the big show at the first dusk of the real day, else a sparkle. The
-     * dusk is noted even when the stock was empty (nothing more tonight), the big show only when rockets went up, so a
-     * later dusk of the same real day can still be the big one. Returns the rockets queued, or -1 without a square or
-     * a Decorator (nothing is noted, the next poll tries again).
+     * The dusk show of game day {@code gameDay}: the big show at the first dusk of the real day, else a sparkle. Only a
+     * show that sent rockets up is noted (the dusk, and the big show of the real day) and counted: with an empty stock
+     * nothing is noted, so the dusk keeps trying until {@link #DUSK_UNTIL} and rockets that come into his stock during
+     * it still give that dusk's show (S9, the S7 hand-off). Returns the rockets queued: 0 for an empty stock, -1 without
+     * a square or a Decorator (nothing is noted either way, the next poll tries again).
      */
     private static int launch(final ServerLevel level, final IColony colony, final FestivalData data, final CalendarManager.Snapshot snapshot,
                               final long gameDay, final boolean byDecorator) {
@@ -283,11 +285,11 @@ public final class Fireworks {
         final long realDay = snapshot.date().toEpochDay();
         final boolean big = state == null || state.bigShowRealDay() != realDay;
         final int queued = show(level, colony, big ? SHOW_ROCKETS : SPARKLE_ROCKETS, big ? Show.DUSK : Show.SPARKLE, byDecorator);
-        if (queued < 0) {
+        if (queued <= 0) {
             return queued;
         }
         data.setDusk(id, gameDay);
-        if (big && queued > 0) {
+        if (big) {
             data.setBigShow(id, realDay);
         }
         if (byDecorator) {
@@ -464,8 +466,9 @@ public final class Fireworks {
 
     /**
      * A show of up to {@code count} rockets from the colony's square, taken from the Decorator's stock (free with
-     * {@code decorator.needsMaterials} off); {@code byDecorator} says whether he launched it (his status line).
-     * Returns the rockets queued, or -1 when the colony has no square or no Decorator.
+     * {@code decorator.needsMaterials} off); {@code byDecorator} says whether he launched it (his status line). Returns
+     * the rockets queued (0 when the stock is empty: his status says so, and nothing is counted as a show), or -1 when
+     * the colony has no square or no Decorator.
      */
     public static int show(final ServerLevel level, final IColony colony, final int count, final Show what, final boolean byDecorator) {
         final BlockPos site = site(level, colony);
@@ -496,7 +499,9 @@ public final class Fireworks {
             queue(level, site, festive(rocket, level.getRandom()), i * LAUNCH_GAP_TICKS);
             queued++;
         }
-        shows++;
+        if (queued > 0) {
+            shows++;
+        }
         if (job != null) {
             if (queued > 0) {
                 job.setStatus(byDecorator ? what.launched : what.wentUp, queued);

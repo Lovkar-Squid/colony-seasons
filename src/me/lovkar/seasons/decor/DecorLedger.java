@@ -53,8 +53,8 @@ import java.util.TreeMap;
  * whose block is missing (forgotten at take-down), never a block nobody knows about. A position index makes
  * {@link #at} and {@link #blockChanged} constant time.</p>
  *
- * <p>Saved per level as {@code data/colony_seasons_decor.dat}, with a version number, written at once on the server
- * thread (see {@link #save(File, HolderLookup.Provider)}). A group stores its states as
+ * <p>Saved per level as {@code data/colony_seasons_decor.dat}, with a version number that {@link #load} reads,
+ * written at once on the server thread (see {@link #save(File, HolderLookup.Provider)}). A group stores its states as
  * a palette plus one index per position. A state that reads back as air (its block no longer exists) drops its
  * entries with one warning: such a position can never equal the record again.</p>
  */
@@ -329,6 +329,20 @@ public final class DecorLedger extends SavedData {
             return false;
         }
         record.groups.remove(owner);
+        setDirty();
+        return true;
+    }
+
+    /**
+     * Forgets a colony's whole record (its marker, its day's budget, its empty groups) when it lists no entry any more:
+     * the colony is gone (S9, H12). A record that still lists entries is never dropped (no orphans). True when dropped.
+     */
+    public boolean dropColony(final int colony) {
+        final ColonyRecord record = colonies.get(colony);
+        if (record == null || hasEntries(colony)) {
+            return false;
+        }
+        colonies.remove(colony);
         setDirty();
         return true;
     }
@@ -667,10 +681,24 @@ public final class DecorLedger extends SavedData {
         return tag;
     }
 
+    /** Files of a newer version read since the server started (each one warned about once; the probe counts them). */
+    private static int newerVersionWarnings;
+
+    public static int newerVersionWarnings() {
+        return newerVersionWarnings;
+    }
+
+    /**
+     * Reads a ledger. The file's {@code version} is read first (a file without one is version 1): a newer one than
+     * {@link #VERSION} is read for what this version knows, with one warning naming both versions; group kinds this
+     * version does not know are skipped and counted in that warning.
+     */
     public static DecorLedger load(final CompoundTag tag, final HolderLookup.Provider provider) {
         final DecorLedger ledger = new DecorLedger();
         final HolderGetter<Block> blocks = provider.lookupOrThrow(Registries.BLOCK);
+        final int version = tag.contains("version") ? tag.getInt("version") : 1;
         int dropped = 0;
+        int unknown = 0;
         for (final Tag element : tag.getList("colonies", Tag.TAG_COMPOUND)) {
             final CompoundTag one = (CompoundTag) element;
             final int id = one.getInt("id");
@@ -681,7 +709,7 @@ public final class DecorLedger extends SavedData {
                 final CompoundTag o = (CompoundTag) c;
                 try {
                     record.charged.add(new Owner(Kind.valueOf(o.getString("kind")), BlockPos.of(o.getLong("pos"))));
-                } catch (final IllegalArgumentException unknown) {
+                } catch (final IllegalArgumentException unknownKind) {
                     // an owner kind this version does not know: it is not counted
                 }
             }
@@ -691,8 +719,20 @@ public final class DecorLedger extends SavedData {
             record.squareProblem = one.getBoolean("squareProblem");
             ledger.colonies.put(id, record);
             for (final Tag g : one.getList("groups", Tag.TAG_COMPOUND)) {
-                dropped += ledger.loadGroup(id, record, (CompoundTag) g, blocks, oldFile);
+                final CompoundTag group = (CompoundTag) g;
+                if (!knownKind(group.getString("kind"))) {
+                    unknown += group.getLongArray("positions").length;
+                    continue;
+                }
+                dropped += ledger.loadGroup(id, record, group, blocks, oldFile);
             }
+        }
+        if (version > VERSION) {
+            newerVersionWarnings++;
+            ColonySeasons.LOGGER.warn("Decoration ledger: the file was written by a newer version of the mod (file version {}, this version reads {}); "
+                    + "what this version knows is loaded{}", version, VERSION, unknown > 0 ? ", " + unknown + " entries of kinds it does not know are skipped" : "");
+        } else if (unknown > 0) {
+            ColonySeasons.LOGGER.warn("Decoration ledger: {} entries of an unknown kind skipped on load", unknown);
         }
         if (dropped > 0) {
             ColonySeasons.LOGGER.warn("Decoration ledger: {} entries dropped on load (their block no longer exists)", dropped);
@@ -700,15 +740,18 @@ public final class DecorLedger extends SavedData {
         return ledger;
     }
 
+    private static boolean knownKind(final String kind) {
+        for (final Kind k : Kind.values()) {
+            if (k.name().equals(kind)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private int loadGroup(final int colony, final ColonyRecord record, final CompoundTag tag, final HolderGetter<Block> blocks,
                           final boolean oldFile) {
-        final Kind kind;
-        try {
-            kind = Kind.valueOf(tag.getString("kind"));
-        } catch (final IllegalArgumentException unknown) {
-            return tag.getLongArray("positions").length;
-        }
-        final Owner owner = new Owner(kind, BlockPos.of(tag.getLong("pos")));
+        final Owner owner = new Owner(Kind.valueOf(tag.getString("kind")), BlockPos.of(tag.getLong("pos")));   // a known kind (load checks)
         final Group group = new Group(owner);
         group.festival = tag.getString("festival");
         group.level = tag.getInt("level");
