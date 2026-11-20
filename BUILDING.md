@@ -91,7 +91,7 @@ bash tools/probe.sh csanswers                 # the owner's answers of 20 Nov 20
                                               # the shared marker; not again, not when another mod set it, not with the switch off, kept
                                               # through restoreFrom); a doorless house and a pasted hut without its doors get one wreath on
                                               # an outside wall; what a player breaking free and paid decorations, the tree's gift pile and
-                                              # crate, trunks and spruce leaves gets, a pop-off, the explosion's order, the take-down refund;
+                                              # crate, trunks and spruce leaves gets, a pop-off, the explosion's order, a real explosion of a free and a paid vanilla block, the take-down refund;
                                               # leaves at take-down (only distance changed: removed); a second marker (one notice); on the
                                               # everyone day the knight is never brought and the lumberjack comes (the mixin asked)
 bash tools/restart.sh csanswers               # a player welcomed and saved through the server's player storage, read back after a

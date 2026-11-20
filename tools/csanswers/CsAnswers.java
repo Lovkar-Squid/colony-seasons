@@ -113,9 +113,11 @@ import java.util.concurrent.TimeUnit;
  *       out: one wreath on an outside wall; a house with a door as before); drops (a survival player breaks free and
  *       paid decorations, the tree's gift pile and crate, a player's own crate and wreath, a free and a paid trunk,
  *       free and paid vanilla leaves with shears; a wreath popping off its wall; the explosion's order, the drops read
- *       while the entry is listed; the take-down still hands back what was paid); leaves at take-down (only the
+ *       while the entry is listed; a real explosion of a free and a paid podzol of a piece; the take-down still hands
+ *       back what was paid); leaves at take-down (only the
  *       distance changed: removed and handed back; persistent changed or swapped to stone: left, forgotten); a second
- *       marker (one notice, the first stays, the same marker placed again says nothing); the guards on the everyone day
+ *       marker (one notice, which the colony's owner as a listening manager receives once, the first stays, the same
+ *       marker placed again says nothing); the guards on the everyone day
  *       of the Winter Festival (the mixin applied and asked, at the same tick the guard is not brought and the worker
  *       is, the worker reaches the tree in the hours and the guard is never brought);</li>
  *   <li>{@code restart-save} then {@code restart-load} (tools/restart.sh): a player of a fixed id is welcomed and saved
@@ -142,6 +144,8 @@ public class CsAnswers {
             + " · Support the mods on Patreon: patreon.com/cw/Lovkar";
     private static final String DISCORD = "https://discord.gg/BVztrTtXFu";
     private static final String PATREON = "https://www.patreon.com/cw/Lovkar";
+    /** The lang key of the managers' line about a second festival marker. */
+    private static final String SECOND_MARKER_KEY = "com.colony_seasons.decor.second_marker";
     private static final UUID RESTART_PLAYER = UUID.nameUUIDFromBytes("csanswers-restart-player".getBytes(StandardCharsets.US_ASCII));
 
     private int ticks;
@@ -511,6 +515,19 @@ public class CsAnswers {
         return broke && level.getBlockState(pos).isAir() ? n : -1;
     }
 
+    /** A small TNT-rule explosion (no drop decay by default) at the cell that breaks that cell only. */
+    private void blowUp(final BlockPos pos) {
+        final net.minecraft.world.level.ExplosionDamageCalculator only = new net.minecraft.world.level.ExplosionDamageCalculator() {
+            @Override
+            public boolean shouldBlockExplode(final net.minecraft.world.level.Explosion explosion, final net.minecraft.world.level.BlockGetter getter,
+                                              final BlockPos at, final BlockState state, final float power) {
+                return at.equals(pos);
+            }
+        };
+        level.explode(null, null, only, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, 1.0f, false,
+                net.minecraft.world.level.Level.ExplosionInteraction.TNT);
+    }
+
     /** A stock that always has the item, and keeps what it is handed back. */
     private static final class Counting implements DecorPlacer.Stock {
         int taken;
@@ -642,12 +659,39 @@ public class CsAnswers {
             got.add(message);
         }
 
+        /** MineColonies' messages come this way (FakePlayer drops them too). */
+        @Override
+        public void displayClientMessage(final Component message, final boolean overlay) {
+            got.add(message);
+        }
+
         int welcomes() {
             int n = 0;
             for (final Component c : got) {
                 n += c.getString().equals(APPROVED) ? 1 : 0;
             }
             return n;
+        }
+
+        /** Messages that carry the lang key {@code key} anywhere in their tree (MineColonies may put a prefix before it). */
+        int heard(final String key) {
+            int n = 0;
+            for (final Component c : got) {
+                n += hasKey(c, key) ? 1 : 0;
+            }
+            return n;
+        }
+
+        private static boolean hasKey(final Component c, final String key) {
+            if (c.getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents t && key.equals(t.getKey())) {
+                return true;
+            }
+            for (final Component sibling : c.getSiblings()) {
+                if (hasKey(sibling, key)) {
+                    return true;
+                }
+            }
+            return false;
         }
     }
 
@@ -998,6 +1042,37 @@ public class CsAnswers {
                 checkEq("a free spruce leaf broken with shears drops nothing", breakAsPlayer(freeLeaf, new ItemStack(Items.SHEARS)), 0);
                 checkEq("a paid spruce leaf broken with shears drops the leaves", breakAsPlayer(paidLeaf, new ItemStack(Items.SHEARS)), 1);
                 check("the drops taken away were counted", DecorDrops.suppressed() - suppressed0 >= 7, (DecorDrops.suppressed() - suppressed0) + " counted");
+                // a real explosion (it reads a vanilla block's drops without the drop event): free nothing, paid as usual
+                final BlockPos freeBlown = new BlockPos(36, y, -39);
+                final BlockPos paidBlown = new BlockPos(44, y, -39);
+                check("a free and a paid podzol go up", put(pieces, freeBlown, Blocks.PODZOL.defaultBlockState(), false)
+                        && put(pieces, paidBlown, Blocks.PODZOL.defaultBlockState(), true), "");
+                dropsAt(freeBlown);
+                dropsAt(paidBlown);
+                final int blown0 = DecorDrops.suppressed();
+                // MineColonies' default keeps a colony's blocks out of an explosion: the free block is left alone too
+                blowUp(freeBlown);
+                check("MineColonies' default protection: the explosion leaves the free podzol standing and nothing is taken",
+                        level.getBlockState(freeBlown).is(Blocks.PODZOL) && dropsAt(freeBlown) == 0 && DecorDrops.suppressed() == blown0,
+                        level.getBlockState(freeBlown).toString());
+                final net.neoforged.neoforge.common.ModConfigSpec.EnumValue<com.minecolonies.api.colony.permissions.Explosions> guard =
+                        com.minecolonies.api.IMinecoloniesAPI.getInstance().getConfig().getServer().turnOffExplosionsInColonies;
+                final com.minecolonies.api.colony.permissions.Explosions was = guard.get();
+                guard.set(com.minecolonies.api.colony.permissions.Explosions.DAMAGE_EVERYTHING);
+                guard.clearCache();
+                try {
+                    blowUp(freeBlown);
+                    blowUp(paidBlown);
+                } finally {
+                    guard.set(was);
+                    guard.clearCache();
+                }
+                check("with colony explosions on, the explosions broke both", level.getBlockState(freeBlown).isAir() && level.getBlockState(paidBlown).isAir(),
+                        level.getBlockState(freeBlown) + " / " + level.getBlockState(paidBlown));
+                checkEq("a free podzol of a piece blown up drops nothing", dropsAt(freeBlown), 0);
+                checkEq("a paid podzol of a piece blown up drops its dirt", dropsAt(paidBlown), 1);
+                checkEq("the blown free block was counted once", DecorDrops.suppressed() - blown0, 1);
+                checkEq("MineColonies' explosion setting is back", guard.get(), was);
                 // what is left of the test groups goes (one tick: the sweep never sees them)
                 DecorPlacer.remove(level, ledger, colonyId, walls, DecorPlacer.Stock.FREE);
                 DecorPlacer.remove(level, ledger, colonyId, pieces, DecorPlacer.Stock.FREE);
@@ -1057,15 +1132,33 @@ public class CsAnswers {
                 final DecorLedger.GroupView tree = ledger.group(colonyId, square());
                 size0[0] = tree == null ? -1 : tree.size();
                 final int n0 = DecorEvents.secondMarkerNotices();
+                // the colony's owner, online as a listener: MineColonies' forManagers() reaches the important players
+                // of the colony that are managers (a fake player cannot subscribe the usual way, so it is put into
+                // the set for the length of this call only, before the package manager's next tick)
+                final Listener manager = new Listener(level, owner.getGameProfile());
+                manager.setPos(owner.getX(), owner.getY(), owner.getZ());
+                final java.util.Set<net.minecraft.server.level.ServerPlayer> important = colony.getPackageManager().getImportantColonyPlayers();
                 final BlockPos second = new BlockPos(16, ground + 1, 32);
                 final BlockState m = SeasonsBlocks.FESTIVAL_MARKER.get().defaultBlockState().setValue(FestivalMarkerBlock.FACING, Direction.NORTH);
-                level.setBlock(second, m, Block.UPDATE_ALL);
-                SeasonsBlocks.FESTIVAL_MARKER.get().setPlacedBy(level, second, m, owner, new ItemStack(SeasonsBlocks.FESTIVAL_MARKER_ITEM.get()));
+                important.add(manager);
+                int heard;
+                int heardAgain;
+                try {
+                    level.setBlock(second, m, Block.UPDATE_ALL);
+                    SeasonsBlocks.FESTIVAL_MARKER.get().setPlacedBy(level, second, m, owner, new ItemStack(SeasonsBlocks.FESTIVAL_MARKER_ITEM.get()));
+                    heard = manager.heard(SECOND_MARKER_KEY);
+                    // the first marker placed again where it stands: nothing to say
+                    SeasonsBlocks.FESTIVAL_MARKER.get().setPlacedBy(level, marker, level.getBlockState(marker), owner,
+                            new ItemStack(SeasonsBlocks.FESTIVAL_MARKER_ITEM.get()));
+                    heardAgain = manager.heard(SECOND_MARKER_KEY);
+                } finally {
+                    important.remove(manager);
+                }
+                note("messages to the colony's manager: {}", manager.got.stream().map(Component::getString).toList());
                 checkEq("a second marker in the colony: exactly one notice", DecorEvents.secondMarkerNotices() - n0, 1);
+                checkEq("the colony's manager got exactly one line '" + SECOND_MARKER_KEY + "'", heard, 1);
                 checkEq("the first marker stays the colony's square", ledger.marker(colonyId), marker);
-                // the first marker placed again where it stands: nothing to say
-                SeasonsBlocks.FESTIVAL_MARKER.get().setPlacedBy(level, marker, level.getBlockState(marker), owner,
-                        new ItemStack(SeasonsBlocks.FESTIVAL_MARKER_ITEM.get()));
+                checkEq("the first marker placed again: the manager got no second line", heardAgain, 1);
                 checkEq("the first marker placed again: no notice", DecorEvents.secondMarkerNotices() - n0, 1);
                 checkEq("and it is still the square", ledger.marker(colonyId), marker);
                 level.setBlock(second, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);

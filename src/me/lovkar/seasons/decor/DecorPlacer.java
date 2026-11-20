@@ -542,6 +542,15 @@ public final class DecorPlacer {
                 && now.setValue(LeavesBlock.DISTANCE, recorded.getValue(LeavesBlock.DISTANCE)) == recorded;
     }
 
+    /**
+     * A vanilla block of a free piece in the way of an explosion that destroys blocks ({@link DecorDrops}, the owner's
+     * answer of 20 Nov 2026): set to air with no drops a moment before the explosion would have broken it. Its entry stays
+     * listed, exactly as after a player broke it.
+     */
+    static void clearBlown(final ServerLevel level, final BlockPos pos) {
+        level.setBlock(pos, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+    }
+
     /** Vanilla's leaf distance at a position (1 next to a log, 7 far from any). */
     private static int distanceAt(final ServerLevel level, final BlockPos pos) {
         int distance = LeavesBlock.DECAY_DISTANCE;
