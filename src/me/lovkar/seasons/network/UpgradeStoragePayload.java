@@ -79,11 +79,19 @@ public record UpgradeStoragePayload(BlockPos hut) implements CustomPacketPayload
     }
 
     /**
-     * One click, checked in this order: the colony and the building at {@code hut} in the player's level, the
-     * player's right to manage huts, the range, that it is a Workshop, that the next step is offered (level and
-     * steps), the price (one emerald block from the inventory, none in creative); then the racks are upgraded.
+     * One click, checked in this order: the range (the position comes from the client, so nothing that touches a
+     * chunk runs before it; MineColonies' colony lookup by position loads the chunk), that the chunk is loaded, the
+     * colony and the building at {@code hut} in the player's level, the player's right to manage huts, that it is a
+     * Workshop, that the next step is offered (level and steps), the price (one emerald block from the inventory,
+     * none in creative); then the racks are upgraded.
      */
     public static Result apply(final ServerPlayer player, final BlockPos hut) {
+        if (player.blockPosition().distSqr(hut) > (double) MAX_RANGE * MAX_RANGE) {
+            return Result.TOO_FAR;
+        }
+        if (!player.level().isLoaded(hut)) {
+            return Result.NO_COLONY;
+        }
         final IColony colony = IColonyManager.getInstance().getColonyByPosFromWorld(player.level(), hut);
         if (colony == null) {
             return Result.NO_COLONY;
@@ -94,9 +102,6 @@ public record UpgradeStoragePayload(BlockPos hut) implements CustomPacketPayload
         }
         if (!colony.getPermissions().hasPermission(player, Action.MANAGE_HUTS)) {
             return Result.NO_PERMISSION;
-        }
-        if (player.blockPosition().distSqr(hut) > (double) MAX_RANGE * MAX_RANGE) {
-            return Result.TOO_FAR;
         }
         if (!(building instanceof BuildingDecorator workshop)) {
             return Result.NOT_A_WORKSHOP;

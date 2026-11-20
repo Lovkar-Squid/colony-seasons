@@ -25,6 +25,7 @@ import com.minecolonies.core.colony.requestsystem.resolvers.core.AbstractWarehou
 import com.minecolonies.core.network.messages.server.colony.building.warehouse.UpgradeWarehouseMessage;
 import com.minecolonies.core.tileentities.TileEntityColonyBuilding;
 import com.minecolonies.core.tileentities.TileEntityRack;
+import com.mojang.authlib.GameProfile;
 import io.netty.buffer.Unpooled;
 import me.lovkar.seasons.calendar.CalendarManager;
 import me.lovkar.seasons.calendar.DateSource;
@@ -89,6 +90,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.UUID;
 import java.util.function.Predicate;
 
 /**
@@ -957,6 +959,25 @@ public class CsStorage {
             stand(hutPos.offset(0, 0, 20));
             checkEq("(e) from 20 blocks away: refused", clickUpgrade(), UpgradeStoragePayload.Result.TOO_FAR);
             stand(hutPos.offset(0, 0, 6));
+            // a position a client made up, far from the player: refused on the range alone, before anything that
+            // touches a chunk (MineColonies' colony lookup by position loads or generates the chunk there)
+            final BlockPos far = hutPos.offset(40_000, 0, 40_000);
+            final boolean farBefore = level.hasChunk(far.getX() >> 4, far.getZ() >> 4);
+            checkEq("(e) a hut position 40000 blocks away: refused on the range", UpgradeStoragePayload.apply(owner, far),
+                    UpgradeStoragePayload.Result.TOO_FAR);
+            final boolean farAfter = level.hasChunk(far.getX() >> 4, far.getZ() >> 4);
+            check("(e) the far position's chunk was not loaded by the click", !farBefore && !farAfter,
+                    "loaded before " + farBefore + ", after " + farAfter);
+            // a player with no rank in the colony, next to the Workshop: refused, nothing charged
+            final ServerPlayer stranger = FakePlayerFactory.get(level,
+                    new GameProfile(UUID.nameUUIDFromBytes("csstorage_stranger".getBytes(StandardCharsets.UTF_8)), "csstorage_stranger"));
+            stranger.setPos(hutPos.getX() + 0.5, hutPos.getY(), hutPos.getZ() + 6.5);
+            stranger.getInventory().add(new ItemStack(Items.EMERALD_BLOCK, 1));
+            checkEq("(e) a player with no rank: refused", UpgradeStoragePayload.apply(stranger, hutPos),
+                    UpgradeStoragePayload.Result.NO_PERMISSION);
+            checkEq("(e) nothing taken from him, nothing changed", stranger.getInventory().countItem(Items.EMERALD_BLOCK)
+                    + " blocks, step " + hut.storageStep(), "1 blocks, step 0");
+            stranger.getInventory().clearContent();
             final BlockPos wh = warehouse.getPosition();
             stand(wh.offset(0, 0, 3));
             checkEq("(e) at the warehouse: refused, not a Workshop", UpgradeStoragePayload.apply(owner, wh),

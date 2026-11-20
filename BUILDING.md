@@ -150,7 +150,7 @@ courier hired for the warehouse, and the Decorator; the courier really walks and
 
 ```bash
 bash tools/probe.sh csstorage    # S0 the pasted racks are the Workshop's containers; the supply rule table; Upgrade Storage through
-                                 # the payload's server handler (refusals charge nothing, three steps of one emerald block, racks
+                                 # the payload's server handler (refusals charge nothing, a far position is refused before any chunk is touched, three steps of one emerald block, racks
                                  # 27 > 36 > 45 > 54, a rack put in later comes in at the paid size) against MineColonies' own
                                  # Warehouse upgrade message as the control; finished wreaths from the warehouse by courier before
                                  # any ingredient request, part of the gap from the warehouse, a request the player would hold
