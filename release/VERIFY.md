@@ -176,6 +176,16 @@ Notes from S7 (19 Nov 2026, probe `csfestival`, all modes and `tools/restart.sh 
    Proof: hostile-world H9 (the grand tree, 375 blocks: 256 then 119, the square equal to its snapshot after) and H9c (a
    slice boundary at every cell: the square equal to its snapshot, every paid item back once, nothing dropped).
 
+## Added by S10b
+
+33. README: a new Workshop gets its worker in MineColonies' usual order (the oldest hut with a free place first),
+    so hire the Decorator in its window while other huts have free places; there a colonist who works at another
+    hut can be hired however far away that hut is, and he leaves his old job.
+    Proof: cshire (L1 and L5 auto-hire with the Workshop as the only free place; the far moves of a knight and a
+    lumberjack with the player at the Workshop; the control: the same far move into a MineColonies hut fails) and
+    `tools/restart.sh cshire`. MineColonies ticks its buildings in the order they were added (its building map is
+    rebuilt with the new hut last), which cshire logs. S10 retry: hire a fletcher or a knight from the Workshop.
+
 ## Built already and shown in the pages
 
 S1: the calendar, the dates, `status`, `season set`, `festival force`, `festival clear`, the world-wide

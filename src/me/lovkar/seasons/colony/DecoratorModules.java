@@ -16,10 +16,15 @@ import com.minecolonies.core.colony.buildings.moduleviews.WorkerBuildingModuleVi
  */
 public final class DecoratorModules {
 
-    /** One Decorator a hut. A plain worker module: he lives in a house like any day worker and needs no bed here. */
+    /**
+     * One Decorator a hut. A worker module, not a work-at-home one: he lives in a house like any day worker and needs
+     * no bed here. {@link DecoratorWorkModule} is MineColonies' plain worker module that also takes a citizen off his
+     * old hut when the hut window hires him from far away (the type stays the plain one, so saves and callers are
+     * unchanged).
+     */
     public static final BuildingEntry.ModuleProducer<WorkerBuildingModule, WorkerBuildingModuleView> WORK =
             new BuildingEntry.ModuleProducer<>("decorator_work",
-                    () -> new WorkerBuildingModule(DecoratorSetup.JOB.get(), Skill.Creativity, Skill.Dexterity, false, building -> 1),
+                    () -> new DecoratorWorkModule(DecoratorSetup.JOB.get(), Skill.Creativity, Skill.Dexterity, false, building -> 1),
                     () -> WorkerBuildingModuleView::new);
 
     /**

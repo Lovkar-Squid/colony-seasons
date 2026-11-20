@@ -1305,6 +1305,16 @@ public class CsFullCycle {
         final String open = undecorated();
         check(label + ": every building with door slots is decorated (or marked empty)" + (marker != null ? " and the tree is complete" : ""),
                 open.isEmpty(), open.isEmpty() ? ledger.count(colonyId) + " entries in " + ledger.groups(colonyId).size() + " groups" : "open: " + open);
+        // the Workshop's page counts its buildings done in the ledger itself: the same number as the groups' copies say
+        int fromGroups = 0;
+        for (final DecorLedger.GroupView g : ledger.groups(colonyId)) {
+            if (g.owner().kind() == DecorLedger.Kind.BUILDING && g.decoratedDay() >= 0 && g.size() > 0) {
+                fromGroups++;
+            }
+        }
+        final int onPage = hut == null ? -1 : hut.getModule(DecoratorModules.INFO).read().buildingsDone();
+        check(label + ": the Workshop's page counts the decorated buildings as the ledger's groups do", fromGroups > 0 && onPage == fromGroups,
+                onPage + " on the page, " + fromGroups + " in the groups");
         if (marker == null) {
             check(label + ": no marker: no square group, no gift pile, no site for fireworks", ledger.groups(colonyId).stream()
                     .noneMatch(g -> g.owner().kind() == DecorLedger.Kind.SQUARE) && Fireworks.site(level, colony) == null, "");

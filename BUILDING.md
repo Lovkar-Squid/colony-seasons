@@ -78,6 +78,21 @@ bash tools/probe.sh cseffects on              # all three on: the happiness modi
                                               # a quarter more food; also the Decorator's hut window page, his kind settings and the planner
 ```
 
+Hiring (S10b). `cshire` hires the Decorator the way MineColonies does it, not through the work module: every hire and fire
+is MineColonies' own `HireFireMessage`, built from bytes and run through its server handler, with the colony's owner (a fake
+player) standing where a player would stand, because the server drops a building message sent from more than 15 blocks away.
+The Workshop is pasted with the command a player types (`structurize paste ... Colony.Seasons decorator.workshop1`). The rig's
+colony never becomes active (MineColonies takes no fake player as a nearby player), so during the auto-hire steps the probe runs
+MineColonies' building tick itself every 500 ticks, the interval of an active colony.
+
+```bash
+bash tools/probe.sh cshire     # the pasted hut's stored paths and corners; at level 1 and 5: auto-hire (automatic, and default with
+                               # the town hall's setting), the window's fire and hire, a hire into a full Workshop, moving a lumberjack
+                               # and a knight with the player near both huts and with the player at the Workshop only; an upgrade
+                               # work order 1 to 2; the calendar page sent again after a new season and a new day, and not otherwise
+bash tools/restart.sh cshire   # a knight moved from far away and a lumberjack left at work, read back after a restart
+```
+
 The whole cycle (S9). `csfullcycle` builds a real colony (a hand-built town hall and Decorator's hut at level 3, ten huts pasted
 from the real blueprints of four style packs, four workers and two colonists with no job, a festival marker), stocks the hut with
 exactly what its buildings and tree need, takes the first snapshot (a box round every building and the square, saved in the world

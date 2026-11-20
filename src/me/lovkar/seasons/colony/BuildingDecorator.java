@@ -64,6 +64,31 @@ public class BuildingDecorator extends AbstractBuilding {
         super(colony, pos);
     }
 
+    /**
+     * A blueprint path as Structurize loads it: with ".blueprint" at the end. {@code /structurize paste ... decorator.workshop5}
+     * hands MineColonies the typed path without it, MineColonies stores it as it is, and every later load of the hut's
+     * blueprint (its corners, the prestige recalculation) then fails with "Error loading blueprint". Null or blank comes
+     * back unchanged.
+     */
+    public static String withExtension(final String path) {
+        if (path == null || path.isBlank() || path.endsWith(".blueprint")) {
+            return path;
+        }
+        return path + ".blueprint";
+    }
+
+    /** The stored path, with ".blueprint" even when an older save or a typed paste stored it without (the next save writes it so). */
+    @Override
+    public String getBlueprintPath() {
+        return withExtension(super.getBlueprintPath());
+    }
+
+    /** Stores the path with ".blueprint"; MineColonies passes it on to the hut block entity. */
+    @Override
+    public void setBlueprintPath(final String path) {
+        super.setBlueprintPath(withExtension(path));
+    }
+
     /** The look, from the blueprint's file name without its level digits ("decorator/workshop3.blueprint" is "workshop"). */
     @Override
     public @NotNull String getSchematicName() {
