@@ -35,3 +35,6 @@ publish/
 media/
 # private terms for tools/check_public.py (one per line)
 tools/private_terms.local.txt
+
+# in-game test workspace (candidate jar copies, logs, notes)
+ingame/
