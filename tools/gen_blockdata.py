@@ -8,6 +8,10 @@ The recipes follow the Decorator's kit examples of design section 4 (wreath x2 =
 garland x4 = 4 leaves + 2 string; lantern string x4 = 2 string + 2 torches + 1 paper; fairy lights x4 = 2 string +
 1 glass pane + 1 glowstone dust; wrapped gifts from paper, string and dye); the tree pieces and the crate are made
 from what the design's tree and show ask for (spruce leaves, gold, glowstone, firework rockets).
+
+The festival tree's trunk (festival_trunk, S10c) is no decoration of its own: it has no item and no recipe, and it
+drops the spruce log it cost, so it is in TRUNK_DROPS instead of BLOCKS; it is mineable with an axe like a log, and in
+no log tag (MineColonies' Forester takes a #minecraft:logs block for a tree).
 """
 import json
 import os
@@ -21,6 +25,9 @@ DATA = paths.res("data")
 
 BLOCKS = ["wreath", "garland", "lantern_string", "fairy_lights", "ornament_leaves", "tinsel_leaves", "tree_star",
           "large_star", "gift_pile", "firework_crate", "festival_marker"]
+
+# blocks with no item of their own: id -> the item their loot table drops
+TRUNK_DROPS = {"festival_trunk": "minecraft:spruce_log"}
 
 # id -> (pattern, key, count); key values are item ids or #tags
 RECIPES = {
@@ -46,7 +53,7 @@ RECIPES = {
 TAGS = {
     "leaves": ["ornament_leaves", "tinsel_leaves"],
     "mineable/hoe": ["ornament_leaves", "tinsel_leaves"],
-    "mineable/axe": ["firework_crate", "festival_marker"],
+    "mineable/axe": ["firework_crate", "festival_marker", "festival_trunk"],
 }
 
 # only the lower half of the two-block star drops the item
@@ -64,7 +71,7 @@ def write(rel, data):
 
 def loot(block):
     pool = {"rolls": 1, "bonus_rolls": 0,
-            "entries": [{"type": "minecraft:item", "name": f"{NS}:{block}"}],
+            "entries": [{"type": "minecraft:item", "name": TRUNK_DROPS.get(block, f"{NS}:{block}")}],
             "conditions": [{"condition": "minecraft:survives_explosion"}]}
     if block in HALF_LOWER:
         pool["conditions"].append({"condition": "minecraft:block_state_property", "block": f"{NS}:{block}",
@@ -89,6 +96,9 @@ def main():
         write(f"{NS}/loot_table/blocks/{b}.json", loot(b))
         write(f"{NS}/recipe/{b}.json", recipe(b))
         n += 2
+    for b in TRUNK_DROPS:
+        write(f"{NS}/loot_table/blocks/{b}.json", loot(b))
+        n += 1
     for tag, blocks in TAGS.items():
         write(f"minecraft/tags/block/{tag}.json", {"replace": False, "values": [f"{NS}:{b}" for b in blocks]})
         n += 1

@@ -2,6 +2,7 @@
   "replace": false,
   "values": [
     "colony_seasons:firework_crate",
-    "colony_seasons:festival_marker"
+    "colony_seasons:festival_marker",
+    "colony_seasons:festival_trunk"
   ]
 }

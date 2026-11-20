@@ -13,7 +13,10 @@ blueprint's primary offset) is the cell where the marker stands and that cell is
 replaced. The tree stands on the marker: the trunk starts in the cell above it (in the design the trunk of A starts on
 the ground and B has podzol there; that one cell is the marker's now). Position tags: gift_pile on every gift pile (S4
 skips them below hut level 2), firework_crate on the crate (skipped below level 3), star on the star (the lower cell
-of the large star). Trunk cells are the spruce logs. Decorations are drawn unlit (lit=false); S7 lights them.
+of the large star). Trunk cells are colony_seasons:festival_trunk (S10c): the spruce log's look, but in no log tag, so
+MineColonies' Forester never takes the festival tree for a tree; the design's spruce logs are mapped to it
+(ship_design_state), so the comparison with the picked trees stays exact. Decorations are drawn unlit (lit=false); S7
+lights them.
 
 The design builds face south (the gifts towards the camera); a piece is the design turned half round, so it faces
 north. The design's ground patch (paved square, grass, snow) and its scale post are not part of a piece.
@@ -24,7 +27,7 @@ from voxel import Structure
 
 NS = "colony_seasons"
 LEAF = "minecraft:spruce_leaves[persistent=true]"
-LOG = "minecraft:spruce_log[axis=y]"
+LOG = f"{NS}:festival_trunk[axis=y]"   # the spruce log of the design, as our own block (S10c)
 ORN = f"{NS}:ornament_leaves[lit=false]"
 TINSEL = f"{NS}:tinsel_leaves[lit=false]"
 STAR = f"{NS}:tree_star[lit=false]"

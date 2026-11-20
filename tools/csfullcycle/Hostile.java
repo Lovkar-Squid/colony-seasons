@@ -465,13 +465,14 @@ final class Hostile {
         p.step(new CsFullCycle.Step("H2: a pile a player crafted on a tree cell that went (a stale entry)", 1) {
             @Override
             void start() {
-                final BlockPos log = firstOf(p.colonyId, p.square(), s -> s.is(Blocks.SPRUCE_LOG));
+                // a vanilla spruce leaf of the tree (the trunk is our own block since S10c and tells the ledger itself)
+                final BlockPos log = firstOf(p.colonyId, p.square(), s -> s.is(Blocks.SPRUCE_LEAVES));
                 if (log == null) {
-                    p.check("H2: a listed log of the tree", false, "none");
+                    p.check("H2: a listed leaf of the tree", false, "none");
                     return;
                 }
                 level().setBlock(log, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
-                p.check("H2: the log went and its entry stays (vanilla blocks never tell the ledger)", ledger().at(log) != null, log.toShortString());
+                p.check("H2: the leaf went and its entry stays (vanilla blocks never tell the ledger)", ledger().at(log) != null, log.toShortString());
                 level().setBlock(log, SeasonsBlocks.GIFT_PILE.get().defaultBlockState(), Block.UPDATE_ALL);
                 final FakePlayer y = player("crafter", p.colony);
                 final Gifts.Outcome out = Gifts.take(level(), log, y);
@@ -661,7 +662,7 @@ final class Hostile {
                     }
                     int logs = 0;
                     for (final Map.Entry<BlockPos, DecorLedger.Entry> e : ledger().group(p.colonyId, p.square()).entries().entrySet()) {
-                        if (logs < 3 && e.getValue().state().is(Blocks.SPRUCE_LOG) && e.getKey().getY() > p.marker.getY() + 1) {
+                        if (logs < 3 && e.getValue().state().is(SeasonsBlocks.FESTIVAL_TRUNK.get()) && e.getKey().getY() > p.marker.getY() + 1) {
                             targets.add(e.getKey());
                             logs++;
                         }
@@ -688,7 +689,7 @@ final class Hostile {
                 void end(final boolean done) {
                     final String[] first = {""};
                     p.check("H7: game day " + n + ": everything is back and every entry equals the world", entriesEqualWorld(p.colonyId, first)
-                            && firstOf(p.colonyId, p.square(), s -> s.is(Blocks.SPRUCE_LOG)) != null, first[0]);
+                            && firstOf(p.colonyId, p.square(), s -> s.is(SeasonsBlocks.FESTIVAL_TRUNK.get())) != null, first[0]);
                 }
             });
         }
@@ -964,7 +965,7 @@ final class Hostile {
             void end(final boolean done) {
                 TreeLighting.light(level(), p.colony, TreeLighting.BY_PLAYER, null);
                 final FakePlayer w = player("ten", p.colony);
-                final List<Predicate<BlockState>> kinds = List.of(s -> s.is(Blocks.SPRUCE_LOG), s -> s.is(Blocks.SPRUCE_LEAVES),
+                final List<Predicate<BlockState>> kinds = List.of(s -> s.is(SeasonsBlocks.FESTIVAL_TRUNK.get()), s -> s.is(Blocks.SPRUCE_LEAVES),
                         s -> s.is(SeasonsBlocks.ORNAMENT_LEAVES.get()), s -> s.is(SeasonsBlocks.TREE_STAR.get()));
                 final List<List<BlockPos>> byKind = new ArrayList<>();
                 for (final Predicate<BlockState> kind : kinds) {

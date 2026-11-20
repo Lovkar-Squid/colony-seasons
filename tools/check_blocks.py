@@ -15,6 +15,9 @@ does not exist is dropped with one log line. So for every block registered anywh
   * every block tag file names only registered blocks;
   * every model of ours is used by a blockstate or an item model.
 
+One named exception, NO_ITEM: the festival tree's trunk (S10c) has no item of its own (it stands for a spruce log),
+so it has no item model and no recipe, and its loot table drops that item instead of itself.
+
 Run:  python -I tools/check_blocks.py   (needs the client assets jar, see tools/paths.py)
 """
 import glob
@@ -32,6 +35,9 @@ ASSETS = paths.res("assets", NS)
 DATA = paths.res("data")
 RENDER_TYPES = {"minecraft:solid", "minecraft:cutout", "minecraft:cutout_mipped", "minecraft:translucent",
                 "minecraft:tripwire", "solid", "cutout", "cutout_mipped", "translucent", "tripwire"}
+
+# blocks with no item of their own -> the item their loot table drops instead (no item model, no recipe)
+NO_ITEM = {"festival_trunk": "minecraft:spruce_log"}
 
 problems = []
 
@@ -190,19 +196,26 @@ def main():
                     used_models.add(one["model"])
                     check_model(vanilla, one["model"], f"{b} multipart", seen)
         item_ref = f"{NS}:item/{b}"
-        if check_model(vanilla, item_ref, f"{b} item", seen) is not None:
+        if b in NO_ITEM:
+            if model_json(vanilla, item_ref) is not None:
+                bad(f"{b}: has no item, but an item model {item_ref}")
+        elif check_model(vanilla, item_ref, f"{b} item", seen) is not None:
             used_models.add(item_ref)
             parent = seen[item_ref].get("parent", "")
             if parent.startswith(NS + ":"):
                 used_models.add(parent)
         if f"block.{NS}.{b}" not in lang:
             bad(f"{b}: no lang line block.{NS}.{b}")
+        drop = NO_ITEM.get(b, f"{NS}:{b}")
         loot_path = os.path.join(DATA, NS, "loot_table", "blocks", b + ".json")
         if not os.path.exists(loot_path):
             bad(f"{b}: no loot table")
-        elif f"{NS}:{b}" not in json.dumps(load(loot_path)):
-            bad(f"{b}: its loot table does not drop {NS}:{b}")
-        if f"{NS}:{b}" not in made:
+        elif f'"{drop}"' not in json.dumps(load(loot_path)):
+            bad(f"{b}: its loot table does not drop {drop}")
+        if b in NO_ITEM:
+            if f"{NS}:{b}" in made:
+                bad(f"{b}: has no item, but a recipe makes it")
+        elif f"{NS}:{b}" not in made:
             bad(f"{b}: no recipe makes it")
 
     for name, r in sorted(recipes.items()):

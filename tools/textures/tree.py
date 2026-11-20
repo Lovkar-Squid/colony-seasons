@@ -275,6 +275,18 @@ def large_star():
     return big, len(lower) + len(upper)
 
 
+# ------------------------------------------------------------------ the trunk
+def festival_trunk():
+    """The festival tree's trunk (S10c): looks exactly like a spruce log (vanilla's own models, no texture of ours), but
+    it is our block and in no log tag, so MineColonies' Forester never takes the festival tree for a tree. It has no
+    item (it drops a spruce log, data/colony_seasons/loot_table/blocks/festival_trunk.json), so no item model."""
+    write_json(STATES, "festival_trunk", {"variants": {
+        "axis=x": {"model": "minecraft:block/spruce_log_horizontal", "x": 90, "y": 90},
+        "axis=y": {"model": "minecraft:block/spruce_log"},
+        "axis=z": {"model": "minecraft:block/spruce_log_horizontal", "x": 90}}})
+
+
 def generate():
+    festival_trunk()
     return {"ornament_leaves": ornament_leaves(), "tinsel_leaves": tinsel_leaves(), "tree_star": tree_star(),
             "large_star": large_star()}
