@@ -142,7 +142,9 @@ Notes from S7 (19 Nov 2026, probe `csfestival`, all modes and `tools/restart.sh 
 25. Requirements line: NeoForge 1.21.1, MineColonies 1.1.1420 or newer in the 1.1 line, Structurize, Domum
     Ornamentum required, Serene Seasons optional, install on the server and on every client.
    Proof: csboot (MineColonies 1.1.1420, the lower bound of the range); the mods.toml dependencies (Structurize, Domum
-   Ornamentum required, Serene Seasons optional); tools/packboot.sh (the pack's full mod set with the jar).
+   Ornamentum required, Serene Seasons optional); tools/packboot.sh (20 Nov 2026: the owner's pack, 186 of its 211 jars
+   on the rig's NeoForge 21.1.249 dedicated server, with and without the jar: no new ERROR naming the mod, no crash; the
+   other 25 are ten client-side mods, Curios, which needs NeoForge 21.1.265 or newer, and fourteen mods that need it).
    S10: the client side (scarves, the window) in the real client.
 26. Serene Seasons: follows its calendar when present, goes back to the own calendar on any error with one
     log line (S1 probe `cscalendar` proved the bridge; recheck against the real mod if the in-game test uses
