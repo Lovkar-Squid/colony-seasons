@@ -31,7 +31,8 @@ import java.util.Optional;
 /**
  * The Decorator's page of the hut window (chunk S8): a scrolling list of short lines that the server's packet fills
  * ({@link DecoratorInfoModule}): the calendar, the festival, what he is doing, the decorations up, the stock against the
- * cap, what the next kit lacks and what the effect switches do. All text goes through lang keys, so it follows the
+ * cap, what the next kit lacks, what the effect switches do and, last, the Discord / Support line with the two links
+ * (S10d; text only: a row of the page cannot be clicked). All text goes through lang keys, so it follows the
  * player's language; the server sends keys, ids and numbers only.
  *
  * <p>The page follows the server while it is open: when the view's info changes (a new packet), the rows are made
@@ -205,6 +206,8 @@ public class DecoratorInfoWindow extends AbstractModuleWindow<DecoratorInfoModul
         out.add(info.foodOn()
                 ? Component.translatable("com.colony_seasons.gui.info.effects.food.on", String.format(Locale.ROOT, "%.2f", info.foodFactor()))
                 : Component.translatable("com.colony_seasons.gui.info.effects.food.off"));
+        // the owner's decision of 20 Nov 2026: a Discord / Support line with both links, last on the page
+        out.add(Component.translatable("com.colony_seasons.gui.info.links"));
         return out;
     }
 

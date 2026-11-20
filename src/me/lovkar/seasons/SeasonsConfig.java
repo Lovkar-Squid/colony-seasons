@@ -12,8 +12,8 @@ import java.util.regex.Pattern;
 
 /**
  * The server config, {@code colony_seasons-server.toml}: what a server owner can tune about the
- * calendar, the festivals, the Decorator, the festival events and the (all off by default) effects
- * on the game.
+ * calendar, the festivals, the Decorator, the festival events, the (all off by default) effects
+ * on the game and the welcome line with the links.
  *
  * <p>It is a SERVER config on purpose: the numbers decide what happens in the world, so they belong
  * to the world's owner and NeoForge sends them to every client that joins.</p>
@@ -74,6 +74,10 @@ public final class SeasonsConfig {
     /** Food used in winter compared with usual: 1.25 is "about a quarter more". */
     public static final double DEFAULT_WINTER_FOOD_NEED_FACTOR = 1.25;
 
+    // links
+    /** The one chat line with the Discord and Patreon links, the first time a player joins (links/Welcome). */
+    public static final boolean DEFAULT_SHOW_WELCOME = true;
+
     /** The values the enumerated keys accept. */
     public static final List<String> START_SEASONS = List.of("auto", "spring", "summer", "autumn", "winter");
     public static final List<String> WHO_COMES = List.of("everyone_once_a_day", "off_duty", "everyone");
@@ -115,6 +119,8 @@ public final class SeasonsConfig {
     private static final ModConfigSpec.DoubleValue WINTER_CROP_SKIP_CHANCE;
     private static final ModConfigSpec.BooleanValue WINTER_FOOD_NEED;
     private static final ModConfigSpec.DoubleValue WINTER_FOOD_NEED_FACTOR;
+
+    private static final ModConfigSpec.BooleanValue SHOW_WELCOME;
 
     static {
         final ModConfigSpec.Builder builder = new ModConfigSpec.Builder();
@@ -211,6 +217,13 @@ public final class SeasonsConfig {
                 .comment("How much food colonists use in winter compared with usual (1.25 is about a quarter more).",
                         "Only used while winterFoodNeed is on.")
                 .defineInRange("winterFoodNeedFactor", DEFAULT_WINTER_FOOD_NEED_FACTOR, 1.0, 3.0);
+        builder.pop();
+
+        builder.comment("Links to the author's Discord and Patreon.").push("links");
+        SHOW_WELCOME = builder
+                .comment("One chat line with the Discord and Patreon links the first time a player joins this world; shared with",
+                        "Lovkar's other mods, so it shows once per player across all of them. false: no line.")
+                .define("showWelcome", DEFAULT_SHOW_WELCOME);
         builder.pop();
 
         SPEC = builder.build();
@@ -421,5 +434,12 @@ public final class SeasonsConfig {
 
     public static double winterFoodNeedFactor() {
         return read(WINTER_FOOD_NEED_FACTOR);
+    }
+
+    // links
+
+    /** The welcome line with the links (links/Welcome). */
+    public static boolean showWelcome() {
+        return read(SHOW_WELCOME);
     }
 }
