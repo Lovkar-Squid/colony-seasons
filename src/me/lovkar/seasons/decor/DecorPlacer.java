@@ -3,6 +3,7 @@ package me.lovkar.seasons.decor;
 import com.minecolonies.api.colony.IColony;
 import com.minecolonies.api.colony.IColonyManager;
 import me.lovkar.seasons.ColonySeasons;
+import me.lovkar.seasons.block.FestivalTrunkBlock;
 import me.lovkar.seasons.block.LanternStringBlock;
 import me.lovkar.seasons.block.Lights;
 import me.lovkar.seasons.block.WallDecorationBlock;
@@ -10,6 +11,13 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.Display;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.ExperienceOrb;
+import net.minecraft.world.entity.Interaction;
+import net.minecraft.world.entity.Marker;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -18,11 +26,16 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.LeavesBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.shapes.VoxelShape;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 
 /**
  * The only code that sets or clears decoration blocks (design 3.2, 3.3; the cell rule and the removal rule of the
@@ -34,7 +47,8 @@ import java.util.Map;
  * item is taken if the slot costs one; the ledger records the cell; then the block is set without neighbour updates
  * (flags 18) and read back. A cell that reads back as another state of the same block keeps its entry with that
  * state; one that reads back as anything else is forgotten and its item refunded. Nothing
- * with collision is placed for a building; only the square at a player's festival marker may have it.</p>
+ * with collision is placed for a building; only the square at a player's festival marker may have it, and never into a
+ * cell where an entity stands (S10c: the cell waits for a later visit).</p>
  *
  * <p>Removing, per entry: a cell in an unloaded chunk waits; a cell whose state equals the record exactly is
  * forgotten first, then set to air with no drops, and its item handed back if it was paid for; a cell whose state
@@ -157,6 +171,17 @@ public final class DecorPlacer {
     /** Why a cell cannot take a block, or {@code null} when it can (steps 1 to 5 of the cell rule). */
     public static String refusal(final ServerLevel level, final DecorLedger ledger, final int colony, final BlockPos pos,
                                  final BlockState state, final boolean square) {
+        return refusal(level, ledger, colony, pos, state, square, null);
+    }
+
+    /**
+     * {@link #refusal(ServerLevel, DecorLedger, int, BlockPos, BlockState, boolean)} with the entities that may stand in
+     * the cells already looked up ({@link #blockers}; {@code null}: looked up for this cell). A block with collision is
+     * never set into a cell any entity's bounding box takes ("entity", S10c): the cell stays open and is tried again
+     * on a later visit, so nobody is ever boxed in by the tree.
+     */
+    public static String refusal(final ServerLevel level, final DecorLedger ledger, final int colony, final BlockPos pos,
+                                 final BlockState state, final boolean square, final List<Entity> near) {
         if (!level.hasChunkAt(pos)) {
             return "unloaded";
         }
@@ -169,8 +194,14 @@ public final class DecorPlacer {
         if (ledger.at(pos) != null) {
             return "listed";
         }
-        if (!square && !state.getCollisionShape(level, pos).isEmpty()) {
-            return "collision";
+        final VoxelShape shape = state.getCollisionShape(level, pos);
+        if (!shape.isEmpty()) {
+            if (!square) {
+                return "collision";
+            }
+            if (inEntity(level, pos, shape, near)) {
+                return "entity";
+            }
         }
         if (state.getBlock() instanceof WallDecorationBlock) {
             final Direction facing = state.getValue(WallDecorationBlock.FACING);
@@ -186,6 +217,48 @@ public final class DecorPlacer {
             return "survive";
         }
         return null;
+    }
+
+    /**
+     * An entity that a block must never be set into: alive, not a spectator, with a body (not a marker, a display or
+     * an interaction box), and not an item, an experience orb or a projectile (a block pushes those out).
+     */
+    public static boolean blocks(final Entity entity) {
+        return entity.isAlive() && !entity.isSpectator() && !(entity instanceof ItemEntity) && !(entity instanceof ExperienceOrb)
+                && !(entity instanceof Projectile) && !(entity instanceof Marker) && !(entity instanceof Display)
+                && !(entity instanceof Interaction) && entity.getBbWidth() > 0 && entity.getBbHeight() > 0;
+    }
+
+    /**
+     * The entities ({@link #blocks}) whose bounding box reaches into the cells of {@code slots}, in one query over
+     * their box. It reads loaded entity sections only and never loads a chunk.
+     */
+    public static List<Entity> blockers(final ServerLevel level, final List<Slot> slots) {
+        if (slots.isEmpty()) {
+            return List.of();
+        }
+        AABB box = null;
+        for (final Slot slot : slots) {
+            box = box == null ? new AABB(slot.pos()) : box.minmax(new AABB(slot.pos()));
+        }
+        return level.getEntities((Entity) null, box, DecorPlacer::blocks);
+    }
+
+    /** True when an entity's box strictly overlaps the block's collision shape set at {@code pos} (a body standing on top of it does not). */
+    private static boolean inEntity(final ServerLevel level, final BlockPos pos, final VoxelShape shape, final List<Entity> near) {
+        final List<Entity> who = near != null ? near : level.getEntities((Entity) null, new AABB(pos), DecorPlacer::blocks);
+        if (who.isEmpty()) {
+            return false;
+        }
+        for (final AABB part : shape.toAabbs()) {
+            final AABB at = part.move(pos);
+            for (final Entity entity : who) {
+                if (entity.getBoundingBox().intersects(at)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     /** The state as the Decorator puts it: lights off, the lantern string's colour order from its position, leaves that never decay, no water. */
@@ -206,8 +279,11 @@ public final class DecorPlacer {
         return s;
     }
 
-    /** The item a block costs, or {@code null} for none. */
+    /** The item a block costs, or {@code null} for none. The festival tree's trunk has no item: it costs a spruce log. */
     public static Item itemOf(final BlockState state) {
+        if (state.getBlock() instanceof FestivalTrunkBlock) {
+            return Items.SPRUCE_LOG;
+        }
         final Item item = state.getBlock().asItem();
         return item == Items.AIR ? null : item;
     }
@@ -215,24 +291,65 @@ public final class DecorPlacer {
     // ---------------------------------------------------------------- placing
 
     /**
-     * Fills the slots that pass the cell rule, in order; a slot whose item is missing is skipped. Returns how many
-     * blocks were placed.
+     * What one placing did: the cells set (in order), the cells the cell rule refused with its reason ("entity",
+     * "survive", "wall", "occupied", ...; "listed" when the ledger refused the entry, "stopped" when the world did not
+     * keep the block), and how many slots waited for their item (S10c: a visit that places nothing says why).
      */
-    public static int place(final ServerLevel level, final DecorLedger ledger, final int colony, final DecorLedger.Owner owner,
-                            final String festival, final int hutLevel, final List<Slot> slots, final Stock stock) {
+    public record PlaceResult(List<BlockPos> placed, Map<BlockPos, String> refused, int noStock) {
+        public static final PlaceResult NONE = new PlaceResult(List.of(), Map.of(), 0);
+
+        public int count() {
+            return placed.size();
+        }
+
+        public PlaceResult plus(final PlaceResult other) {
+            final List<BlockPos> p = new ArrayList<>(placed);
+            p.addAll(other.placed);
+            final Map<BlockPos, String> r = new LinkedHashMap<>(refused);
+            r.putAll(other.refused);
+            return new PlaceResult(List.copyOf(p), Collections.unmodifiableMap(r), noStock + other.noStock);
+        }
+
+        /** The refusals counted by reason, and the slots without stock as "stock" (for a log line). */
+        public Map<String, Integer> reasons() {
+            final Map<String, Integer> out = new TreeMap<>();
+            for (final String why : refused.values()) {
+                out.merge(why, 1, Integer::sum);
+            }
+            if (noStock > 0) {
+                out.put("stock", noStock);
+            }
+            return out;
+        }
+    }
+
+    /**
+     * Fills the slots that pass the cell rule, in order; a slot whose item is missing is skipped. Each block is listed
+     * in the ledger before it is set, and before the next one (design 3.2, 3.3).
+     */
+    public static PlaceResult place(final ServerLevel level, final DecorLedger ledger, final int colony, final DecorLedger.Owner owner,
+                                    final String festival, final int hutLevel, final List<Slot> slots, final Stock stock) {
         final boolean square = owner.kind() == DecorLedger.Kind.SQUARE;
-        int placed = 0;
+        // the square's blocks have collision: who stands in its cells is looked up once (nobody moves within this tick)
+        final List<Entity> near = square ? blockers(level, slots) : null;
+        final List<BlockPos> placed = new ArrayList<>();
+        final Map<BlockPos, String> refused = new LinkedHashMap<>();
+        int noStock = 0;
         for (final Slot slot : slots) {
             final BlockState state = normalise(slot.state(), slot.pos());
-            if (refusal(level, ledger, colony, slot.pos(), state, square) != null) {
+            final String why = refusal(level, ledger, colony, slot.pos(), state, square, near);
+            if (why != null) {
+                refused.put(slot.pos(), why);
                 continue;
             }
             final Item item = slot.costs() ? itemOf(state) : null;
             if (item != null && !stock.take(item)) {
+                noStock++;
                 continue;
             }
             if (!ledger.record(colony, owner, festival, hutLevel, slot.pos(), state, item != null)) {
                 refund(stock, item);
+                refused.put(slot.pos(), "listed");
                 continue;
             }
             level.setBlock(slot.pos(), state, PLACE_FLAGS);
@@ -242,18 +359,19 @@ public final class DecorPlacer {
                 if (!ledger.restate(slot.pos(), now) && ledger.at(slot.pos()) == null) {
                     ledger.record(colony, owner, festival, hutLevel, slot.pos(), now, item != null);
                 }
-                placed++;
+                placed.add(slot.pos());
                 continue;
             }
             if (now != state) {
                 // something stopped it (a protection mod, another mod's block): no trace of us is left
                 ledger.forget(slot.pos());
                 refund(stock, item);
+                refused.put(slot.pos(), "stopped");
                 continue;
             }
-            placed++;
+            placed.add(slot.pos());
         }
-        return placed;
+        return new PlaceResult(List.copyOf(placed), Collections.unmodifiableMap(refused), noStock);
     }
 
     private static void refund(final Stock stock, final Item item) {

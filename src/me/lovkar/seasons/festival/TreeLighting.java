@@ -23,8 +23,8 @@ import org.jetbrains.annotations.Nullable;
 import java.util.Map;
 
 /**
- * Lighting the tree (design 5, winter season). When the Decorator finishes the tree at the festival marker, the
- * colony's players are told once; a right-click on any block of the tree (not the gift pile, which hands out gifts,
+ * Lighting the tree (design 5, winter season). When the Decorator has put up the tree itself at the festival marker
+ * (its trunk, leaves and star; what stands round it may still be open), the colony's players are told once; a right-click on any block of the tree (not the gift pile, which hands out gifts,
  * nor the firework crate) lights every light the decoration ledger lists for that colony, the ornaments, the star
  * and the strings on the buildings, with a chime and a few rockets. If nobody does within
  * {@link #DECORATOR_AFTER_DAYS} game days, the Decorator lights it. While the window lasts, lights the Decorator puts
@@ -63,14 +63,18 @@ public final class TreeLighting {
                 && ColonySeasons.MODID.equals(BuiltInRegistries.BLOCK.getKey(state.getBlock()).getNamespace());
     }
 
-    /** The colony's finished tree: the square group at its registered marker, complete and not empty; else {@code null}. */
+    /**
+     * The colony's finished tree: the square group at its registered marker, not empty, whose tree itself is up (every
+     * cell of the trunk, the leaves and the star: {@link DecorLedger.GroupView#treeDay}; S10c: a gift or a lantern
+     * that cannot be placed now does not keep the tree dark); else {@code null}.
+     */
     public static DecorLedger.GroupView tree(final DecorLedger ledger, final int colony) {
         final BlockPos marker = ledger.marker(colony);
         if (marker == null) {
             return null;
         }
         final DecorLedger.GroupView group = ledger.group(colony, DecorLedger.Owner.square(marker));
-        if (group == null || group.entries().isEmpty() || group.decoratedDay() < 0 || group.piece().isEmpty()
+        if (group == null || group.entries().isEmpty() || group.treeDay() < 0 || group.piece().isEmpty()
                 || ledger.squareProblem(colony)) {
             return null;
         }
