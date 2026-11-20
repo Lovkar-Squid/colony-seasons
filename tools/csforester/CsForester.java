@@ -476,14 +476,22 @@ public class CsForester {
                         !trunk.is(BlockTags.LOGS) && !trunk.is(BlockTags.LOGS_THAT_BURN) && !trunk.is(ModTags.tree), "");
                 int trunks = 0;
                 int trees = 0;
+                final List<String> logged = new ArrayList<>();
                 if (g != null) {
                     for (final Map.Entry<BlockPos, DecorLedger.Entry> e : g.entries().entrySet()) {
                         if (e.getValue().state().getBlock() instanceof FestivalTrunkBlock) {
                             trunks++;
                             trees += isTree(e.getKey()) ? 1 : 0;
                         }
+                        final BlockState placed = level.getBlockState(e.getKey());
+                        if (placed.is(BlockTags.LOGS) || placed.is(ModTags.tree)) {
+                            logged.add(e.getKey().toShortString() + " " + BuiltInRegistries.BLOCK.getKey(placed.getBlock()));
+                        }
                     }
                 }
+                // the whole piece as it stands in the world, not only our trunk block (review of S10c)
+                check("no block of the festival tree in the world is in #minecraft:logs or #minecolonies:tree", g != null && logged.isEmpty(),
+                        logged.size() + " " + (logged.isEmpty() ? "" : logged.get(0)));
                 check("MineColonies' tree check says no tree at every trunk cell of the festival tree", trunks > 0 && trees == 0,
                         trees + " of " + trunks + " trunk cells taken for a tree");
                 check("and says tree at the natural oak", isTree(oak), oak.toShortString());
