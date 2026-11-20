@@ -2046,7 +2046,9 @@ public class CsFestival {
             void end(final boolean done) {
                 level.setWeatherParameters(24000 * 20, 0, false, false);
                 check("the show went up at dusk " + label, launchedAt >= Fireworks.DUSK_FROM && launchedAt < Fireworks.DUSK_UNTIL, "at " + launchedAt);
-                check("he was asleep when it went up " + label, BEDTIME_STATES.contains(hisState), hisState);
+                // the test colony has no beds: MineColonies' sleep routine, or idle in the rain, but never at work (nothing keeps him up)
+                check("he was not up when it went up (not at work: asleep or idle) " + label, !hisState.isEmpty() && !"none".equals(hisState)
+                        && !AT_WORK.contains(hisState), hisState);
                 checkEq("the server launched it " + label, Fireworks.serverShows() - byServer0, 1);
                 checkEq("not he " + label, Fireworks.decoratorShows() - byHim0, 0);
                 check("from the firework crate " + label, crate != null && crate.equals(site), site + ", crate " + crate);
