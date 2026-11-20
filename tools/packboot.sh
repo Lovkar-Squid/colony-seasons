@@ -102,7 +102,7 @@ $deadline = (Get-Date).AddSeconds($TimeoutSec)
 $done = $false
 while ((Get-Date) -lt $deadline -and -not $proc.HasExited) {
   Start-Sleep -Seconds 3
-  if ((Test-Path $log) -and (Select-String -Path $log -Pattern 'Done \(' -SimpleMatch -Quiet)) { $done = $true; break }
+  if ((Test-Path $log) -and (Select-String -Path $log -Pattern 'Done (' -SimpleMatch -Quiet)) { $done = $true; break }
 }
 if ($done) {
   $proc.StandardInput.WriteLine('stop')
@@ -119,7 +119,7 @@ PS
 
 # ---- the mod set: every jar of the pack; known client-only mods aside from the start
 SET="$WORK/mods-set"
-rm -rf "$SET" "$WORK/aside" && mkdir -p "$SET" "$WORK/aside"
+rm -rf "$SET" "$WORK/aside" "$WORK/newer.txt" && mkdir -p "$SET" "$WORK/aside"
 cp "$INSTANCE"/*.jar "$SET/"
 rm -f "$SET"/colony_seasons-*.jar
 for pattern in sodium iris oculus embeddium rubidium entityculling immediatelyfast betterf3 fancymenu drippyloadingscreen \
@@ -132,7 +132,8 @@ done
 boot() {  # boot <label> <with-jar 0|1>
   local label="$1" with="$2"
   rm -rf "$SERVER/mods" "$SERVER/world" "$SERVER/logs" "$SERVER/crash-reports" "$SERVER/config" "$SERVER/defaultconfigs"
-  mkdir -p "$SERVER/mods"
+  mkdir -p "$SERVER/mods" "$SERVER/config"
+  echo 'versionCheck = false' > "$SERVER/config/fml.toml"     # no update checks from the test server
   cp "$SET"/*.jar "$SERVER/mods/"
   [ "$with" = 1 ] && cp "$JAR" "$SERVER/mods/"
   echo "packboot: boot '$label' with $(ls "$SERVER/mods"/*.jar | wc -l) jars"
@@ -149,11 +150,14 @@ round=1
 while :; do
   if boot "baseline-$round" 0; then break; fi
   [ "$round" -ge 10 ] && cannot "the baseline never reached Done in 10 rounds (logs in the work folder)"
-  bad="$(cat "$WORK/baseline-$round-crash"/*.txt "$WORK/baseline-$round.log" 2>/dev/null \
-        | grep -ioE 'mod file: [^ ]*\.jar|mods[\\/][^\\/ ]+\.jar' | sed -E 's#.*[\\/ ]##' | sort -u)"
+  # only the mods NeoForge's crash report names ("-- Mod loading issue for: x --", then "Mod file: .../x.jar"); a mod
+  # that needs a newer NeoForge than the rig's server install is set aside the same way, and said so
+  bad="$(cat "$WORK/baseline-$round-crash"/*.txt 2>/dev/null | grep -iE '^[[:space:]]*mod file: ' | grep -oE '[^\\/]+\.jar' | sort -u)"
+  newer="$(cat "$WORK/baseline-$round-crash"/*.txt 2>/dev/null | grep -ioE 'mod [a-z0-9_]+ requires neoforge [0-9.]+ or above' | sort -u)"
+  [ -n "$newer" ] && echo "$newer" >> "$WORK/newer.txt"
   moved=0
   for name in $bad; do
-    if [ -f "$SET/$name" ]; then mv "$SET/$name" "$WORK/aside/"; moved=$((moved + 1)); echo "packboot: set aside $name (does not load on a dedicated server)"; fi
+    if [ -f "$SET/$name" ]; then mv "$SET/$name" "$WORK/aside/"; moved=$((moved + 1)); echo "packboot: set aside $name (it does not load here)"; fi
   done
   [ "$moved" -gt 0 ] || cannot "the baseline did not reach Done and no jar could be named (see %TEMP%\\colony-seasons-packboot\\baseline-$round.log)"
   round=$((round + 1))
@@ -171,6 +175,9 @@ OUR_WARN="$(grep -E 'WARN' "$WORK/with-jar.log" | grep -ciE 'colony_seasons|me\.
 LOADED="$(grep -c 'colony_seasons' "$WORK/with-jar.log")"
 
 echo "packboot: set aside ($(ls "$WORK/aside" | wc -l)): $(ls "$WORK/aside" | tr '\n' ' ')"
+if [ -f "$WORK/newer.txt" ]; then
+  echo "packboot: of those, needing a newer NeoForge than the rig's server install: $(sort -u "$WORK/newer.txt" | tr '\n' ';')"
+fi
 echo "packboot: baseline reached Done in round $round; with the jar: $([ "$WITH_OK" = 1 ] && echo 'Done' || echo 'NOT Done')"
 echo "packboot: ERROR lines in the logs: baseline $(grep -c 'ERROR' "$WORK/$BASE.log"), with the jar $(grep -c 'ERROR' "$WORK/with-jar.log"); lines naming the mod $LOADED, its WARN lines $OUR_WARN"
 

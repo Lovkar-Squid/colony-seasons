@@ -140,6 +140,8 @@ public class CsFullCycle {
     static final int LATE = 14000;
     /** The gathering's day ends a little after its hours. */
     static final int AFTER_HOURS = 10700;
+    /** The tick rate through the gathering hours (see the gathering's day hook). */
+    static final float GATHER_TICK_RATE = 400f;
     static final int HUT_LEVEL = 3;
     static final int WITHIN = 8;
     static final LocalDate FIRST = LocalDate.of(2026, 11, 28);
@@ -1355,6 +1357,7 @@ public class CsFullCycle {
             double farthest;
             BlockPos site;
             String seen = "";
+            boolean slowed;
 
             @Override
             void start() {
@@ -1370,6 +1373,13 @@ public class CsFullCycle {
             void tick(final int t) {
                 final long time = timeOfDay();
                 final int[] hours = Gathering.hours();
+                if (!slowed && time >= hours[0] - 400) {
+                    // MineColonies finds paths on its own threads: at a full sprint a pull's path is asked for again before
+                    // the last one was found, and the colonists stand still. 400 ticks a second leaves the pathfinder its time.
+                    slowed = true;
+                    server.tickRateManager().stopSprinting();
+                    server.tickRateManager().setTickRate(GATHER_TICK_RATE);
+                }
                 if (hostingAtStart < 0 && time >= hours[0] && job() != null) {
                     hostingAtStart = job().visits(EntityAIWorkDecorator.DecoratorState.HOSTING);
                 }
@@ -1398,6 +1408,7 @@ public class CsFullCycle {
 
             @Override
             void end(final boolean done) {
+                server.tickRateManager().setTickRate(20);
                 final BlockPos want = expectedSite(dom);
                 check(label + ": the off-duty colonists gather at " + (want == null ? "-" : want.toShortString()) + " in the hours",
                         site != null && site.equals(want) && samples > 0 && bestNear * 2 >= Math.max(1, sampleSize) && farthest <= Gathering.CALL_RADIUS,
