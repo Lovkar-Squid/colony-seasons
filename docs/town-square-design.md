@@ -540,3 +540,11 @@ Each with its fallback if it fails.
 8. Weak native leisure pull: the gathering still needs the soft-fail mixin.
 9. Trade Post's internal names (`current_balance`, `tradeCoinValue`, the price-file format) can change in any version;
    the bridge then stops paying, which the self-test and the read-back must catch (section 7.1).
+
+## Owner answers (20 Nov 2026)
+
+- [B] The Decorator may place blocks with collision (the tree, stalls) on a Town Square building the player built, as at a festival marker.
+- [B] The tree size on the square follows the lower of the square level and the Workshop level.
+- [B] Between festivals the square gets small seasonal touches (planters and the like); the full sets come only in festival windows.
+- [B] The square window offers: follow the calendar, always one chosen set, or bare.
+- Still open, with pictures: the look of the square, its size, the hut block on the square, the name, and the Trade Post questions T1 to T3.
