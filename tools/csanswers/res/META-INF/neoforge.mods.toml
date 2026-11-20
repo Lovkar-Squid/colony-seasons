@@ -1,0 +1,26 @@
+modLoader="javafml"
+loaderVersion="[4,)"
+license="GPL-3.0-or-later"
+[[mods]]
+modId="colonyseasonsanswers"
+version="1.0.0"
+displayName="Colony Seasons rig owner answers check"
+description="Headless test of the owner's answers of 20 Nov 2026 on a real colony: the doorless wreath, what broken decorations drop, guards on the everyone day, a second festival marker, leaves at take-down, the one-time welcome line with the links (and across a restart)."
+[[dependencies.colonyseasonsanswers]]
+modId="colony_seasons"
+type="required"
+versionRange="*"
+ordering="AFTER"
+side="SERVER"
+[[dependencies.colonyseasonsanswers]]
+modId="minecolonies"
+type="required"
+versionRange="*"
+ordering="AFTER"
+side="SERVER"
+[[dependencies.colonyseasonsanswers]]
+modId="structurize"
+type="required"
+versionRange="*"
+ordering="AFTER"
+side="SERVER"

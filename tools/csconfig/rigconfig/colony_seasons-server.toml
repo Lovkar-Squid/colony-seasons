@@ -43,3 +43,6 @@
 	winterCropSkipChance = 0.25
 	winterFoodNeed = true
 	winterFoodNeedFactor = 1.5
+
+[links]
+	showWelcome = false

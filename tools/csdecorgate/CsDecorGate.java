@@ -156,7 +156,8 @@ public class CsDecorGate {
     /**
      * Six styles, seven level-1 huts each (pack names as their pack.json has them): what a young colony builds first
      * (a house, the builder, the warehouse, the tavern, the library) and two workshops. Several workshops of several
-     * styles have no door at all; they get nothing, by the design.
+     * styles have no door at all; since S10d (the owner's answer of 20 Nov 2026) they get one wreath on the outside
+     * wall nearest the hut block, and a DOORLESS line says where it went.
      */
     private static final List<String> SAMPLE = List.of("fundamentals/residence1", "fundamentals/builder1", "craftsmanship/storage/warehouse1",
             "fundamentals/tavern1", "education/library1", "craftsmanship/metallurgy/blacksmith1", "craftsmanship/carpentry/fletcher1");
@@ -770,6 +771,9 @@ public class CsDecorGate {
         final int lights = countLights(target.owner());
         note("STYLE {}: doors {}, wreath {}, garland {}, lights {}, row {}, placed {} (hut level 5); main door wreath at hut level 1: {}",
                 name, plan.doors(), wreaths, garlands, lights, plan.row(), outcome.placed(), young.wreaths());
+        if (plan.doors() == 0) {
+            doorlessNote(name, box, target.owner());
+        }
         doorNotes(name, box);
         DecorPlacer.remove(level, ledger, colonyId, target.owner(), DecorPlacer.Stock.FREE);
         final boolean downRight = takenDownRight("style " + name, snap, target.owner(), true);
@@ -784,6 +788,34 @@ public class CsDecorGate {
 
     private int styleOk;
     private int styleAll;
+
+    /**
+     * S10d: where a doorless hut's wreath went (relative to the box), which way it faces, the sky light in front of it
+     * and behind its wall, and how far it is from the hut block; a wreath on an inner wall would show as sky behind.
+     */
+    private void doorlessNote(final String name, final DoorFinder.Box box, final DecorLedger.Owner owner) {
+        final DecorLedger.GroupView group = ledger.group(colonyId, owner);
+        if (group == null || group.entries().isEmpty()) {
+            note("DOORLESS {}: no wreath (no outside wall with room)", name);
+            return;
+        }
+        for (final Map.Entry<BlockPos, DecorLedger.Entry> e : group.entries().entrySet()) {
+            final BlockState state = e.getValue().state();
+            if (!state.is(SeasonsBlocks.WREATH.get())) {
+                continue;
+            }
+            final Direction out = state.getValue(WallDecorationBlock.FACING);
+            final BlockPos cell = e.getKey();
+            final BlockPos wall = cell.relative(out.getOpposite());
+            final int front = level.getBrightness(net.minecraft.world.level.LightLayer.SKY, cell);
+            final int behind = level.getBrightness(net.minecraft.world.level.LightLayer.SKY, wall.relative(out.getOpposite()));
+            note("DOORLESS {}: wreath at {} facing {}, on {}, sky {} in front / {} behind the wall, {} from the hut block",
+                    name, cell.subtract(box.min()).toShortString(), out, shortName(level.getBlockState(wall)), front, behind,
+                    String.format("%.1f", Math.sqrt(Math.pow(cell.getX() - box.hut().getX(), 2) + Math.pow(cell.getZ() - box.hut().getZ(), 2))));
+            check("a doorless hut's wreath (" + name + ") hangs on an outside wall: sky " + DoorFinder.MIN_OUTSIDE_SKY
+                    + " or more in front, more than behind its wall", front >= DoorFinder.MIN_OUTSIDE_SKY && front > behind, front + " / " + behind);
+        }
+    }
 
     /** For the lead: every lower door half in the box and what is above and in front of it. */
     private void doorNotes(final String name, final DoorFinder.Box box) {
@@ -891,8 +923,15 @@ public class CsDecorGate {
                     plan.doors() == 1 && wreaths == 1 && garlands == 10 && lights == 0, counts);
             case "double door" -> check("a double door gets exactly one wreath", plan.doors() == 1 && wreaths == 1 && garlands == 10 && lights == 11, counts);
             case "no door" -> {
+                // S10d, the owner's answer of 20 Nov 2026: one wreath on the outside wall nearest the hut block (the
+                // hut is 3 from the north and the south wall: the tie goes to the lower position, the north wall)
                 final DecorLedger.GroupView g = ledger.group(colonyId, target.owner());
-                check("a house with no door gets nothing", plan.doors() == 0 && (g == null || g.entries().isEmpty()), counts);
+                final BlockPos want = new BlockPos(-25, ground + 3, 35);
+                final BlockState there = level.getBlockState(want);
+                check("a house with no door gets exactly one wreath, on the outside wall nearest its hut block, no garland or lights",
+                        plan.doors() == 0 && wreaths == 1 && garlands == 0 && lights == 0 && g != null && g.entries().size() == 1
+                                && there.is(SeasonsBlocks.WREATH.get()) && there.getValue(WallDecorationBlock.FACING) == Direction.NORTH,
+                        counts + ", at " + (g == null ? "-" : g.entries().keySet()));
             }
             case "player wreath" -> check("the player's wreath stays, the garland goes on both sides of it",
                     wreaths == 0 && garlands == 10 && lights == 11, counts);
