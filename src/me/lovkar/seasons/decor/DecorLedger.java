@@ -583,7 +583,9 @@ public final class DecorLedger extends SavedData {
      * Called by our decoration blocks from {@code onRemove}, for every state change on the server (MineColonies'
      * Builder, a player, a piston, an explosion, a light switched). Only LIT changed: the entry follows (the
      * exact-state rule still removes it at take-down). Anything else: the entry is forgotten at once and the world is
-     * left alone from then on.
+     * left alone from then on; the forgotten entry is kept for the rest of this game tick ({@link #freedNow}), because
+     * a player's break computes the drops after the block is gone and the drop rule needs to know whether it was paid
+     * for (S10d).
      */
     public static void blockChanged(final Level level, final BlockPos pos, final BlockState old, final BlockState now) {
         if (!(level instanceof ServerLevel server) || old == now) {
@@ -600,8 +602,37 @@ public final class DecorLedger extends SavedData {
         if (at.entry().state() == old && onlyLitDiffers(old, now)) {
             ledger.litChanged(pos, now);
         } else {
-            ledger.forget(pos);
+            final Entry gone = ledger.forget(pos);
+            if (gone != null) {
+                ledger.stampFreed(pos, gone, server.getGameTime());
+            }
         }
+    }
+
+    // ---------------------------------------------------------------- entries forgotten this tick (S10d, never saved)
+
+    /** Entries {@link #blockChanged} forgot in game tick {@link #freedTick}, by position; cleared when a new tick stamps. */
+    private final Map<Long, Entry> freed = new HashMap<>();
+    private long freedTick = Long.MIN_VALUE;
+
+    private void stampFreed(final BlockPos pos, final Entry entry, final long gameTime) {
+        if (freedTick != gameTime) {
+            freed.clear();
+            freedTick = gameTime;
+        }
+        freed.put(pos.asLong(), entry);
+    }
+
+    /**
+     * The entry {@link #blockChanged} forgot at {@code pos} in game tick {@code gameTime}, or {@code null}; it is
+     * handed out once (and removed). Only a block of ours that changed by itself is stamped: the Decorator's own
+     * removal and every direct {@link #forget} forget first and never stamp.
+     */
+    public Entry freedNow(final BlockPos pos, final long gameTime) {
+        if (freedTick != gameTime) {
+            return null;
+        }
+        return freed.remove(pos.asLong());
     }
 
     /** Same block, and the two states are equal once LIT is set the same. */

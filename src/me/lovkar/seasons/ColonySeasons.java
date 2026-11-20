@@ -81,6 +81,8 @@ public class ColonySeasons {
         CalendarEvents.register();
         DecoratorSetup.init(modEventBus);
         me.lovkar.seasons.decor.DecorEvents.init(modEventBus);
+        // S10d: free decorations drop nothing (vanilla blocks of a piece through the drop event)
+        me.lovkar.seasons.decor.DecorDrops.init();
         // S7: the festival events (after the calendar's poll, which they read), the gift item and the sounds
         me.lovkar.seasons.festival.FestivalDirector.init(modEventBus);
         me.lovkar.seasons.effects.Effects.register();

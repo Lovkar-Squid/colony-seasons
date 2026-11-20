@@ -6,6 +6,8 @@
 2. Only DecorPlacer sets or clears blocks among the Decorator's code (the packages decor, ai, command): one place
    holds the cell rule and the removal rule.
 3. The festival marker registers itself with the ledger when placed and unregisters when it goes.
+4. Every decoration block the Decorator can place (its class or a parent) overrides getDrops and passes its drops
+   through DecorDrops.filter (S10d: a free decoration, the gift pile and the crate drop nothing when broken).
 
 Run: python -I tools/check_decor.py   (exit 1 on a failure)
 """
@@ -41,6 +43,22 @@ def tells_ledger(cls):
     return False
 
 
+def filters_drops(cls):
+    """True when the class or one of its parents in block/ overrides getDrops and calls DecorDrops.filter."""
+    seen = set()
+    while cls and cls not in seen:
+        seen.add(cls)
+        path = BLOCKS / (cls + ".java")
+        if not path.exists():
+            return False
+        text = path.read_text(encoding="utf-8")
+        if re.search(r"List<ItemStack> getDrops\(", text) and "DecorDrops.filter(" in text:
+            return True
+        match = EXTENDS.search(text)
+        cls = match.group(2) if match else None
+    return False
+
+
 def main():
     bad = 0
     blocks = (BLOCKS / "SeasonsBlocks.java").read_text(encoding="utf-8")
@@ -50,6 +68,9 @@ def main():
             bad += 1
         elif not tells_ledger(cls):
             print(f"  !! {block_id} ({cls}) does not call DecorLedger.blockChanged from onRemove")
+            bad += 1
+        elif not filters_drops(cls):
+            print(f"  !! {block_id} ({cls}) does not pass its drops through DecorDrops.filter from getDrops")
             bad += 1
     base = REPO / "src" / "me" / "lovkar" / "seasons"
     for folder in ("decor", "ai", "command"):
@@ -66,7 +87,7 @@ def main():
         if call not in marker:
             print(f"  !! FestivalMarkerBlock does not call {call[:-1]}")
             bad += 1
-    print("  placing code: every placeable block tells the ledger, only DecorPlacer sets blocks" if bad == 0
+    print("  placing code: every placeable block tells the ledger and filters its drops, only DecorPlacer sets blocks" if bad == 0
           else f"  {bad} problem(s)")
     return 1 if bad else 0
 

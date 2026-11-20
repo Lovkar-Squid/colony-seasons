@@ -3,6 +3,7 @@ package me.lovkar.seasons.block;
 import com.mojang.serialization.MapCodec;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
@@ -13,12 +14,14 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.HorizontalDirectionalBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.storage.loot.LootParams;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.EnumMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -28,8 +31,8 @@ import java.util.Map;
  * <p>{@code facing} is the way it looks out; the wall it hangs on is behind it. It has no collision (the
  * registration gives it {@code noCollission()}, so it never blocks a path or a door), breaks at once, and holds
  * only while the block behind it is solid in the sense wall signs and wall banners use: take that block away and
- * it pops off and drops as an item, like a ladder. Placement follows the ladder: the face clicked, or else the
- * nearest wall the player looks towards.</p>
+ * it pops off and drops as an item, like a ladder (one the Decorator put up for free drops nothing, S10d). Placement
+ * follows the ladder: the face clicked, or else the nearest wall the player looks towards.</p>
  */
 public class WallDecorationBlock extends HorizontalDirectionalBlock {
     public static final MapCodec<WallDecorationBlock> CODEC = simpleCodec(WallDecorationBlock::new);
@@ -57,6 +60,15 @@ public class WallDecorationBlock extends HorizontalDirectionalBlock {
                             final @NotNull BlockState now, final boolean moving) {
         super.onRemove(state, level, pos, now, moving);
         me.lovkar.seasons.decor.DecorLedger.blockChanged(level, pos, state, now);
+    }
+
+    /**
+     * What it drops: its loot table, except when the Decorator put it up for free, or it is the tree's gift pile or
+     * firework crate (S10d, the owner's answer of 20 Nov 2026; see {@link me.lovkar.seasons.decor.DecorDrops}).
+     */
+    @Override
+    protected @NotNull List<ItemStack> getDrops(final @NotNull BlockState state, final LootParams.@NotNull Builder params) {
+        return me.lovkar.seasons.decor.DecorDrops.filter(state, params, super.getDrops(state, params));
     }
 
     @Override
