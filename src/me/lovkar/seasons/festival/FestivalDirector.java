@@ -87,17 +87,22 @@ public final class FestivalDirector {
             if (!(colony.getWorld() instanceof ServerLevel level)) {
                 continue;
             }
+            final long gameDay = DecorWork.day(level);
+            final FestivalData states = FestivalData.of(level);   // colony ids are per dimension
             try {
-                final long gameDay = DecorWork.day(level);
-                final FestivalData states = FestivalData.of(level);   // colony ids are per dimension
                 TreeLighting.tick(level, colony, states, snapshot, gameDay, upkeep);
                 if (Gathering.tick(level, colony, states, snapshot, gameDay, server.getTickCount())) {
                     everyone.add(colony);
                 }
-                Fireworks.dusk(level, colony, states, snapshot, gameDay);
             } catch (final RuntimeException broken) {
                 // one colony in a state we did not expect must not stop the others; the next poll tries again
                 ColonySeasons.LOGGER.warn("Festival events skipped colony {} this time: {}", colony.getID(), broken.toString());
+            }
+            try {
+                // on its own: a tree or a gathering that throws never keeps the New Year rockets on the ground (S10c)
+                Fireworks.dusk(level, colony, states, snapshot, gameDay);
+            } catch (final RuntimeException broken) {
+                ColonySeasons.LOGGER.warn("The dusk fireworks skipped colony {} this time: {}", colony.getID(), broken.toString());
             }
         }
         Gathering.publish(everyone);
