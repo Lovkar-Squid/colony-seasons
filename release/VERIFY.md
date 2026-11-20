@@ -179,8 +179,8 @@ Notes from S7 (19 Nov 2026, probe `csfestival`, all modes and `tools/restart.sh 
 ## Added by S10b
 
 33. README: a new Workshop gets its worker in MineColonies' usual order (the oldest hut with a free place first),
-    so hire the Decorator in its window while other huts have free places; a colonist who works elsewhere can be
-    hired from anywhere in the colony and leaves his old job.
+    so hire the Decorator in its window while other huts have free places; there a colonist who works at another
+    hut can be hired however far away that hut is, and he leaves his old job.
     Proof: cshire (L1 and L5 auto-hire with the Workshop as the only free place; the far moves of a knight and a
     lumberjack with the player at the Workshop; the control: the same far move into a MineColonies hut fails) and
     `tools/restart.sh cshire`. MineColonies ticks its buildings in the order they were added (its building map is

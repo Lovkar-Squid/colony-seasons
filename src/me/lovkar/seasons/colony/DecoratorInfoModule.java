@@ -4,6 +4,7 @@ import com.minecolonies.api.colony.ICitizenData;
 import com.minecolonies.api.colony.IColony;
 import com.minecolonies.api.colony.buildings.modules.AbstractBuildingModule;
 import com.minecolonies.api.colony.buildings.modules.ITickingModule;
+import me.lovkar.seasons.ColonySeasons;
 import me.lovkar.seasons.SeasonsConfig;
 import me.lovkar.seasons.calendar.CalendarManager;
 import me.lovkar.seasons.calendar.Festival;
@@ -43,9 +44,22 @@ public class DecoratorInfoModule extends AbstractBuildingModule implements ITick
     /** The page as the last colony tick read it (never saved: after a restart the first tick sends it once). */
     private Info lastSeen;
 
+    /** Set after the first failed reading, so a broken page warns once and not every colony tick. */
+    private boolean warned;
+
     @Override
     public void onColonyTick(final @NotNull IColony colony) {
-        final Info now = read();
+        final Info now;
+        try {
+            now = read();
+        } catch (final RuntimeException unread) {
+            // MineColonies ticks every building of the colony in one loop: a throw here would stop the huts after this one
+            if (!warned) {
+                warned = true;
+                ColonySeasons.LOGGER.warn("Decorator's Workshop page could not be read on a colony tick: {}", String.valueOf(unread));
+            }
+            return;
+        }
         if (!now.equals(lastSeen)) {
             lastSeen = now;
             markDirty();

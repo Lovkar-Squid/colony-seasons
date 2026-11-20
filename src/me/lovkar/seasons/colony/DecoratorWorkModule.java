@@ -49,12 +49,13 @@ public class DecoratorWorkModule extends WorkerBuildingModule {
 
     @Override
     public boolean assignCitizen(final ICitizenData citizen) {
-        if (!loading && citizen != null && !hasAssignedCitizen(citizen) && !isFull() && citizen.getJob() != null
+        // a child (a pupil at the school) is never taken off his place: the hut window never offers one
+        if (!loading && citizen != null && !citizen.isChild() && !hasAssignedCitizen(citizen) && !isFull() && citizen.getJob() != null
                 && !getJobEntry().equals(citizen.getJob().getJobRegistryEntry())) {
             release(citizen);
         }
         final boolean hired = super.assignCitizen(citizen);
-        if (!hired && citizen != null) {
+        if (!hired && !loading && citizen != null) {
             // the window already lists him: a new copy of the hut puts its list right
             markDirty();
         }

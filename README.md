@@ -49,8 +49,8 @@ room for one worker. Creativity is his main skill and Dexterity the second. He n
 colony can join in the festival.
 
 A new Workshop gets its worker in MineColonies' usual order: a colonist with no job goes to the oldest hut
-with a free place first. While other huts have free places, hire the Decorator in the Workshop's window. A
-colonist who works elsewhere can be hired from anywhere in the colony; he leaves his old job.
+with a free place first. While other huts have free places, hire the Decorator in the Workshop's window. There
+you can also hire a colonist who works at another hut, however far away that hut is; he leaves his old job.
 
 All year he asks the colony's warehouse for materials, such as leaves, string, dye, paper, torches and
 glowstone dust, and assembles decorations at his hut so that stock is ready when the first day of the window
