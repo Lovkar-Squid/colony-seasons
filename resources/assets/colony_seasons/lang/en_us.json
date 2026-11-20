@@ -29,6 +29,7 @@
   "com.colony_seasons.command.decor.remove": "Colony %1$s: %2$s decorations removed, %3$s left alone because they were changed since, %4$s wait for their chunks to load.",
   "com.colony_seasons.command.decor.remove.lost": "%1$s decoration items were lost: colony %2$s has no Decorator's hut to keep them.",
   "com.colony_seasons.decor.no_room": "The Decorator: there is not enough room at the festival marker for the tree.",
+  "com.colony_seasons.decor.second_marker": "Colony Seasons: this colony already has a festival marker. Only the first one counts; this one does nothing.",
 
   "com.colony_seasons.festival.season_turned": "%1$s has come to %2$s.",
   "com.colony_seasons.festival.tree.ready": "The Decorator has finished the tree on the festival square of %s. Right-click it to light it!",

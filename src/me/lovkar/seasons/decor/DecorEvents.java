@@ -125,9 +125,19 @@ public final class DecorEvents {
         QUEUE.add(new Pending(level.dimension(), colony, DecorLedger.Owner.square(marker), false));
     }
 
+    /** Lines "only the first marker counts" sent since the server started (the probe counts them). */
+    private static int secondMarkerNotices;
+
+    public static int secondMarkerNotices() {
+        return secondMarkerNotices;
+    }
+
     /**
      * A marker was put down in a colony: it becomes the colony's square unless the colony has a live one already
-     * (one marker per colony in 0.1.0). A registered marker that no longer stands (its chunk loaded) is replaced.
+     * (one marker per colony in 0.1.0). A registered marker that no longer stands (its chunk loaded) is replaced. A
+     * marker that is not registered because the colony has another one (standing, or in a chunk that is not loaded)
+     * sends the colony's managers one line that only the first one counts (the owner's answer of 20 Nov 2026), once
+     * for this placement; the registered marker placed again at its own position sends nothing.
      */
     public static boolean markerPlaced(final ServerLevel level, final int colony, final BlockPos pos) {
         final DecorLedger ledger = DecorLedger.get(level);
@@ -140,6 +150,10 @@ public final class DecorEvents {
         }
         final boolean registered = ledger.registerMarker(colony, pos);
         ledger.flush(level);
+        if (!registered) {
+            secondMarkerNotices++;
+            DecorWork.toManagers(level, colony, "com.colony_seasons.decor.second_marker");
+        }
         return registered;
     }
 

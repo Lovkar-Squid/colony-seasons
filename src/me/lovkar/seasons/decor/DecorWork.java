@@ -735,13 +735,18 @@ public final class DecorWork {
     /** "Not enough room at the festival marker", to the colony's managers. */
     public static void tellManagers(final ServerLevel level, final int colonyId) {
         notices++;
+        toManagers(level, colonyId, "com.colony_seasons.decor.no_room");
+    }
+
+    /** One chat line (a lang key) to the managers of a colony of this level; nothing when MineColonies cannot send it. */
+    public static void toManagers(final ServerLevel level, final int colonyId, final String key) {
         try {
             final IColony colony = com.minecolonies.api.colony.IColonyManager.getInstance().getColonyByWorld(colonyId, level);
             if (colony != null) {
-                MessageUtils.format("com.colony_seasons.decor.no_room").sendTo(colony).forManagers();
+                MessageUtils.format(key).sendTo(colony).forManagers();
             }
         } catch (final RuntimeException unavailable) {
-            ColonySeasons.LOGGER.debug("No room message not sent: {}", unavailable.toString());
+            ColonySeasons.LOGGER.debug("Message {} not sent: {}", key, unavailable.toString());
         }
     }
 
