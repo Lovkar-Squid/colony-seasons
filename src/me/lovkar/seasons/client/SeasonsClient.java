@@ -26,13 +26,15 @@ public final class SeasonsClient {
     }
 
     /**
-     * The mod-bus side of the client: the clothes models, the clothes layer on MineColonies' citizen renderer and
-     * the hat allow-list. The annotation above only reaches the game bus, and these are mod-bus events.
+     * The mod-bus side of the client: the clothes models, the clothes layer on MineColonies' citizen renderer, the
+     * hat allow-list and the leaves' colour. The annotation above only reaches the game bus, and these are mod-bus events.
      */
     public static void init(final IEventBus modEventBus) {
         modEventBus.addListener(SeasonsClient::registerLayers);
         modEventBus.addListener(SeasonsClient::addLayers);
         modEventBus.addListener(SeasonsClient::registerReloadListeners);
+        // S10d: the ornament and tinsel leaves draw the game's spruce leaves, tinted the evergreen colour
+        LeafColors.init(modEventBus);
     }
 
     /** The state belongs to the world that sent it: forget it when the player leaves. */

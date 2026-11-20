@@ -2,19 +2,17 @@
 
 The textures are drawn the way design/src/make_textures.py drew the look options the owner picked: character
 grids over small hand-picked palettes, whole pixels only (no gradients, no noise, no blending). Everything is
-written under resources/assets/colony_seasons/. The only outside input is the vanilla spruce-leaf texture,
-read from the Minecraft client assets jar (tools/paths.py finds it through SEASONS_LIBS / MC_ASSETS_JAR).
+written under resources/assets/colony_seasons/. Nothing is read from the game's textures: the ornament and tinsel
+leaves name the game's own spruce-leaf texture in their models instead (S10d, tree.py).
 
 Glow: a model element that should shine at night carries NeoForge's element data
 {"neoforge_data": {"block_light": 15, "sky_light": 15, "ambient_occlusion": false}} and "shade": false. NeoForge
 21.1 reads that key in BlockElement's deserializer and bakes the light into the quad (FaceBakery ->
 QuadTransformers.applyingLightmap), so the pixels are drawn at full brightness whatever the light around them.
 """
-import io
 import json
 import os
 import sys
-import zipfile
 
 from PIL import Image
 
@@ -97,12 +95,6 @@ def merge_onto(dst, src):
             if p[3]:
                 dst.putpixel((x, y), p)
     return dst
-
-
-def vanilla_texture(name):
-    jar = paths.lib(os.environ.get("MC_ASSETS_JAR", "client-*-extra.jar"))
-    with zipfile.ZipFile(jar) as z:
-        return Image.open(io.BytesIO(z.read(f"assets/minecraft/textures/block/{name}.png"))).convert("RGBA")
 
 
 def centred_icon(img):

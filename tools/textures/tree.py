@@ -3,26 +3,24 @@ the grand tree), tree_star and the two-block large_star.
 
 Started from design/src/make_textures.py (ornament_leaves(), tree_star()), the record of trees A and B the owner
 picked on 19 Nov 2026. Changed here, as he asked: the baubles are larger (6 and 5 px round instead of 4 and 3) so
-they read from about 20 blocks. The leaf base is the vanilla spruce-leaf texture with the spruce foliage colour
-(#619961) baked in, so the models have no tintindex. The stars keep the drawings of the design; their models are
-rebuilt from a few merged boxes (the design had one box per pixel row: 34 and 96).
+they read from about 20 blocks. The stars keep the drawings of the design; their models are rebuilt from a few merged
+boxes (the design had one box per pixel row: 34 and 96).
 
-`lit=true` adds a second cube (ornaments) or turns the whole star into elements that carry full block light.
+The leaf base (S10d, the owner's answer of 20 Nov 2026) is the game's own spruce-leaf texture, named by the model
+(`minecraft:block/spruce_leaves`, tintindex 0 on every face; the mod's client BlockColors and ItemColors handlers
+give it the fixed evergreen colour #619961, as vanilla does for spruce leaves). Our textures hold only the ornaments,
+lights and tinsel, drawn on a transparent canvas and put on top as a second cube, so no Mojang pixel ships with the
+mod and the block looks as it did when the colour was baked into a copy of the vanilla texture.
+
+`lit=true` adds a third cube (the shining part of the ornaments) or turns the whole star into elements that carry
+full block light.
 """
 from common import (CUTOUT, CUTOUT_MIPPED, blank, block_model, cube, from_grid, glowing, greedy_rects,
                     item_from_block, item_generated, merge_onto, overlay, ref, round_floats, save_tex,
-                    vanilla_texture, write_json, STATES, ITEM_TEX)
+                    write_json, STATES, ITEM_TEX)
 
-
-def spruce_base():
-    """Vanilla spruce_leaves.png with the spruce foliage colour (#619961) baked in, as the game shows it."""
-    im = vanilla_texture("spruce_leaves")
-    px = im.load()
-    for y in range(16):
-        for x in range(16):
-            r, g, b, a = px[x, y]
-            px[x, y] = (r * 0x61 // 255, g * 0x99 // 255, b * 0x61 // 255, a)
-    return im
+# the game's own spruce-leaf texture, tinted in game by the client colour handlers (client/LeafColors.java)
+SPRUCE_LEAVES = "minecraft:block/spruce_leaves"
 
 
 ORN = {"R": "#7a1622", "r": "#b3262c", "h": "#e2553f", "w": "#ffd9b0",   # red bauble: shadow, base, light, glint
@@ -87,16 +85,26 @@ ORNAMENT_LAYOUTS = [
 
 
 def leaf_models(name, tex, glow_tex):
-    textures = {"all": ref(tex), "particle": ref(tex)}
-    block_model(name, textures, [cube("#all")], CUTOUT_MIPPED, ao=True)
+    """Three cubes in the same place, drawn in this order: the game's spruce leaves (tintindex 0, tinted by the client
+    colour handler, as the grass block's base), our ornaments on top (no tint, as the grass block's side overlay), and
+    for lit=true the shining pixels again with full block light."""
+    textures = {"leaves": SPRUCE_LEAVES, "all": ref(tex), "particle": SPRUCE_LEAVES}
+    block_model(name, textures, [tinted(cube("#leaves")), cube("#all")], CUTOUT_MIPPED, ao=True)
     textures_lit = dict(textures, glow=ref(glow_tex))
-    block_model(name + "_lit", textures_lit, [cube("#all"), glowing(cube("#glow"))], CUTOUT_MIPPED, ao=True)
+    block_model(name + "_lit", textures_lit, [tinted(cube("#leaves")), cube("#all"), glowing(cube("#glow"))], CUTOUT_MIPPED, ao=True)
+
+
+def tinted(element):
+    """Every face of the element takes the block's colour of tint index 0."""
+    e = dict(element)
+    e["faces"] = {k: dict(v, tintindex=0) for k, v in element["faces"].items()}
+    return e
 
 
 def ornament_leaves():
     out = []
     for i, layout in enumerate(ORNAMENT_LAYOUTS):
-        img = spruce_base()
+        img = blank()
         glow = draw_ornaments(img, layout)
         save_tex(img, f"ornament_leaves_{i}")
         save_tex(glow, f"ornament_leaves_{i}_glow")
@@ -112,7 +120,7 @@ def ornament_leaves():
 
 
 def tinsel_leaves():
-    img = spruce_base()
+    img = blank()
     tin = {"a": "#fff0a0", "b": "#e9b83a", "c": "#a8701c"}
     swag = ["bb............bb",
             "abb..........bba",

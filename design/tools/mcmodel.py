@@ -48,6 +48,8 @@ TINTS = {
     "mangrove_leaves": (0x92, 0xC1, 0x48), "vine": FOLIAGE,
     "grass_block": GRASS, "short_grass": GRASS, "tall_grass": GRASS, "fern": GRASS, "large_fern": GRASS,
     "sugar_cane": GRASS, "potted_fern": GRASS, "lily_pad": (0x20, 0x80, 0x30), "water": (0x3F, 0x76, 0xE4),
+    # the mod's ornament and tinsel leaves draw vanilla's spruce leaves with tintindex 0 (S10d): the evergreen colour
+    "ornament_leaves": (0x61, 0x99, 0x61), "tinsel_leaves": (0x61, 0x99, 0x61),
 }
 
 SHADE = {"up": 1.0, "down": 0.5, "north": 0.8, "south": 0.8, "east": 0.6, "west": 0.6}
@@ -543,8 +545,15 @@ class Scene:
                 if not m["elements"]:
                     continue
                 emitting = bool(self.emission) and self.emission(name, props) > 0
+                seen_boxes = {}
                 for el in m["elements"]:
                     f, t = el["from"], el["to"]
+                    # an element with the same box as an earlier one (an overlay, as the grass block's side or the
+                    # ornament leaves' ornaments over the spruce leaves) is drawn after it in the game; here it is
+                    # lifted 0.03 px per earlier copy, or Cycles would let the coplanar faces fight
+                    box_key = (tuple(f), tuple(t), json.dumps(el.get("rotation"), sort_keys=True))
+                    rank = seen_boxes.get(box_key, 0)
+                    seen_boxes[box_key] = rank + 1
                     erot = el.get("rotation")
                     shade_on = el.get("shade", True)
                     nd = el.get("neoforge_data") or {}
@@ -637,7 +646,7 @@ class Scene:
                             colour = self.night_colour(pos, corners, n, bright, glow, m["ao"] and not erot and not emitting)
                         # a glowing element drawn over a plane at the same depth (the game draws it after, like
                         # the grass block's overlay) is lifted a hair here, or the renderer would let them fight
-                        lift = 0.03 if glow else 0.0
+                        lift = max(0.03 if glow else 0.0, 0.03 * rank)
                         verts = [(pos[0] + (c_[0] + n[0] * lift) / 16, pos[1] + (c_[1] + n[1] * lift) / 16,
                                   pos[2] + (c_[2] + n[2] * lift) / 16) for c_ in corners]
                         q_ = {"t": key, "v": [[round(q, 5) for q in vv] for vv in verts],
