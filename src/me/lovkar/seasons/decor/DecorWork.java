@@ -41,12 +41,13 @@ import java.util.Map;
  *       marked decorated for its hut level, so it is planned again only when the Decorator's hut level changes;</li>
  *   <li>{@link #nextToTend} / {@link #tend}: once a game day per decorated group, the plan again, what went missing
  *       put back;</li>
- *   <li>{@link #nextToTakeDown} / {@link #takeDown}: one group at a time, by the removal rule.</li>
+ *   <li>{@link #nextToTakeDown} / {@link #takeDown}: one group at a time, by the removal rule, at most
+ *       {@link #SQUARE_SLICE} cells a visit (the grand tree comes down over a few visits).</li>
  * </ul>
  */
 public final class DecorWork {
 
-    /** Cells of the square placed per visit at most. */
+    /** Cells of the square placed per visit at most, and cells of any group taken down per visit at most. */
     public static final int SQUARE_SLICE = 256;
 
     /**
@@ -245,7 +246,27 @@ public final class DecorWork {
         if (first && !plan.fits()) {
             return true;
         }
-        return !plan.slots().isEmpty() && anyInStock(plan.slots(), stock);
+        return !plan.slots().isEmpty() && anyInStock(placeable(plan.slots()), stock);
+    }
+
+    /**
+     * The square's slots in the order they may go up: with {@code decorator.needsMaterials} on, a free cell (the gift
+     * pile, the firework crate, the large star, the tinsel leaves: {@link PieceLoader#costsItem} false) waits until no
+     * cell that costs an item is open, so the tree is built from its materials first and nothing free stands on its own
+     * (S9, H8); a visit that puts up the last of them goes on with the free cells. With decorations free every slot may
+     * go up.
+     */
+    static List<DecorPlacer.Slot> placeable(final List<DecorPlacer.Slot> slots) {
+        if (!SeasonsConfig.needsMaterials()) {
+            return slots;
+        }
+        final List<DecorPlacer.Slot> costed = new ArrayList<>();
+        for (final DecorPlacer.Slot slot : slots) {
+            if (slot.costs()) {
+                costed.add(slot);
+            }
+        }
+        return costed.isEmpty() ? slots : costed;
     }
 
     private static boolean anyInStock(final List<DecorPlacer.Slot> slots, final DecorPlacer.Stock stock) {
@@ -374,8 +395,8 @@ public final class DecorWork {
         final String path = PieceLoader.pathFor(hutLevel);
         final DecorLedger.GroupView group = ledger.group(colony, target.owner());
         if (group != null && !group.entries().isEmpty() && !group.piece().isEmpty() && !group.piece().equals(path)) {
-            // the hut changed level: the old piece comes down, the new one goes up on a later visit
-            final DecorPlacer.Removed removed = DecorPlacer.remove(level, ledger, colony, target.owner(), stock);
+            // the hut changed level: the old piece comes down (in slices), the new one goes up on a later visit
+            final DecorPlacer.Removed removed = DecorPlacer.remove(level, ledger, colony, target.owner(), stock, SQUARE_SLICE);
             tended(ledger, colony, target, day, tending);
             ledger.flush(level);
             return Outcome.of(0, 1, false, "took the old tree down (" + removed.removed() + " blocks) for a new one");
@@ -388,6 +409,8 @@ public final class DecorWork {
         if (!(level.getBlockState(marker).getBlock() instanceof FestivalMarkerBlock)) {
             return Outcome.of(0, 0, false, "the festival marker is gone: no tree");
         }
+        // leaves of the tree that re-read their distance (a player broke a log) are still ours: the entries follow first
+        DecorPlacer.followLeaves(level, ledger, colony, target.owner());
         final PieceLoader.Piece piece = PieceLoader.request(level, target.pack(), path, target.facing());
         if (piece == null) {
             if (!PieceLoader.missing(target.pack(), path, target.facing())) {
@@ -424,7 +447,8 @@ public final class DecorWork {
         for (final BlockPos pos : plan.gone()) {
             ledger.forget(pos);
         }
-        final List<DecorPlacer.Slot> slice = plan.slots().subList(0, Math.min(SQUARE_SLICE, plan.slots().size()));
+        final List<DecorPlacer.Slot> order = placeable(plan.slots());
+        final List<DecorPlacer.Slot> slice = order.subList(0, Math.min(SQUARE_SLICE, order.size()));
         final Map<Item, Integer> missing = new LinkedHashMap<>();
         for (final DecorPlacer.Slot slot : slice) {
             final Item item = slot.costs() ? DecorPlacer.itemOf(slot.state()) : null;
@@ -432,7 +456,14 @@ public final class DecorWork {
                 missing.merge(item, 1, Integer::sum);
             }
         }
-        final int placed = DecorPlacer.place(level, ledger, colony, target.owner(), festival, hutLevel, slice, stock);
+        int placed = DecorPlacer.place(level, ledger, colony, target.owner(), festival, hutLevel, slice, stock);
+        if (order.size() < plan.slots().size() && placed == order.size() && placed < SQUARE_SLICE) {
+            // every cell that costs an item went up in this visit: the free ones follow at once, in what is left of the slice
+            final List<DecorPlacer.Slot> free = new ArrayList<>(plan.slots());
+            free.removeAll(order);
+            placed += DecorPlacer.place(level, ledger, colony, target.owner(), festival, hutLevel,
+                    free.subList(0, Math.min(SQUARE_SLICE - placed, free.size())), stock);
+        }
         if (placed > 0) {
             DecorPlacer.settleLeaves(level, ledger, colony, target.owner());
             if (!tending) {
@@ -456,7 +487,12 @@ public final class DecorWork {
         }
     }
 
-    /** Takes one group down by the removal rule; a group with cells in unloaded chunks is left to the sweep. */
+    /**
+     * One take-down visit to a group by the removal rule: at most {@link #SQUARE_SLICE} cells (the S4 hand-off: the grand
+     * tree is taken down in slices like it is put up), the rest stays listed for his next visits, and the group counts
+     * once against the day's budget however many visits it takes. A group with cells in unloaded chunks is also marked
+     * for the sweep.
+     */
     public static DecorPlacer.Removed takeDown(final ServerLevel level, final int colony, final DecorLedger.Owner owner,
                                                final DecorPlacer.Stock sink, final long day, final DecorLedger ledger) {
         final DecorLedger.GroupView group = ledger.group(colony, owner);
@@ -466,7 +502,7 @@ public final class DecorWork {
         if (!group.entries().isEmpty()) {
             ledger.charge(colony, owner, day);
         }
-        final DecorPlacer.Removed removed = DecorPlacer.remove(level, ledger, colony, owner, sink);
+        final DecorPlacer.Removed removed = DecorPlacer.remove(level, ledger, colony, owner, sink, SQUARE_SLICE);
         if (removed.waiting() > 0) {
             ledger.markRemoving(colony, owner);
         }

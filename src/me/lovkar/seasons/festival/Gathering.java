@@ -337,6 +337,22 @@ public final class Gathering {
         }
     }
 
+    /**
+     * A colony's marker went (broken, replaced): it leaves MineColonies' leisure sites at once. The hourly upkeep above
+     * only looks at the registered marker, so without this a site broken in the gathering hours stayed on the list (S9,
+     * H15). Never loads a chunk or a colony that is not there.
+     */
+    public static void markerGone(final ServerLevel level, final int colonyId, final BlockPos pos) {
+        try {
+            final IColony colony = com.minecolonies.api.colony.IColonyManager.getInstance().getColonyByWorld(colonyId, level);
+            if (colony != null && colony.getServerBuildingManager().getLeisureSites().contains(pos)) {
+                colony.getServerBuildingManager().removeLeisureSite(pos);
+            }
+        } catch (final RuntimeException unavailable) {
+            ColonySeasons.LOGGER.debug("Leisure site not taken off: {}", unavailable.toString());
+        }
+    }
+
     /** Publishes the colonies whose working colonists come now (the mixin reads it). */
     static void publish(final Set<IColony> colonies) {
         everyone = Set.copyOf(colonies);

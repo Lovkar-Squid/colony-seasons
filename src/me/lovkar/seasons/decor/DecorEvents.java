@@ -37,7 +37,9 @@ import java.util.concurrent.atomic.AtomicInteger;
  *       loaded chunks and never before MineColonies' colony manager has loaded: groups marked for removal; a
  *       building's group while the building is under construction (an upgrade or repair would clear our blocks in
  *       its CLEAR_NON_SOLIDS stage) or once the building is gone; and after the window, everything of a colony with
- *       no staffed Decorator hut (or no colony at all). Empty groups are dropped once the window is over.</li>
+ *       no staffed Decorator hut (or no colony at all). Empty groups are dropped once the window is over;</li>
+ *   <li>a colony MineColonies no longer has (deleted): its marker is taken off at once, and its record here and its
+ *       festival state are dropped once it lists no entry (S9, H12: a new colony may get its id).</li>
  * </ul>
  * Events only enqueue; the queue is drained with {@code poll()} and never iterated.
  */
@@ -85,8 +87,10 @@ public final class DecorEvents {
             subscribed = true;
         } catch (final RuntimeException unavailable) {
             // the sweep waits for ColonyManagerLoadedModEvent from this same bus, so it does not run either
-            ColonySeasons.LOGGER.warn("MineColonies' event bus is not available: decorations of removed buildings stay up and the server "
-                    + "sweep does not run; the Decorator and decor remove still take decorations down");
+            ColonySeasons.LOGGER.warn("MineColonies' event bus is not available, so the server sweep does not run: decorations of removed "
+                    + "buildings stay up until the Decorator takes them down after the window, and a colony with no Decorator keeps its "
+                    + "decorations until /colonyseasons decor remove. The Decorator's take-down, a broken marker's square and decor remove "
+                    + "still work");
         }
     }
 
@@ -132,6 +136,7 @@ public final class DecorEvents {
                 && !(level.getBlockState(old).getBlock() instanceof me.lovkar.seasons.block.FestivalMarkerBlock)) {
             ledger.unregisterMarker(colony, old);
             squareGone(level, colony, old);
+            me.lovkar.seasons.festival.Gathering.markerGone(level, colony, old);
         }
         final boolean registered = ledger.registerMarker(colony, pos);
         ledger.flush(level);
@@ -148,6 +153,7 @@ public final class DecorEvents {
         if (colony >= 0) {
             ledger.unregisterMarker(colony, pos);
             squareGone(level, colony, pos);
+            me.lovkar.seasons.festival.Gathering.markerGone(level, colony, pos);
         }
     }
 
@@ -206,6 +212,9 @@ public final class DecorEvents {
                 break;
             }
             final IColony colony = IColonyManager.getInstance().getColonyByWorld(id, level);
+            if (colony == null && gone(level, ledger, id)) {
+                continue;                             // a deleted colony with nothing listed: its record is gone now
+            }
             final boolean noDecorator = colony == null || !DecorWork.staffed(colony);
             for (final DecorLedger.GroupView group : ledger.groups(id)) {
                 if (budget <= 0) {
@@ -229,10 +238,28 @@ public final class DecorEvents {
                 }
             }
         }
-        if (budget != before) {
+        if (budget != before || ledger.isDirty()) {
             ledger.flush(level);
         }
         return before - budget;
+    }
+
+    /**
+     * A colony MineColonies does not have any more (the manager is loaded, so it was deleted): its marker comes off at
+     * once, so a new colony that gets the same id inherits no square; once nothing of it is listed its record and its
+     * festival state are dropped (true then). Its entries go by the rules above (after the window, as with no Decorator).
+     */
+    private static boolean gone(final ServerLevel level, final DecorLedger ledger, final int id) {
+        final BlockPos marker = ledger.marker(id);
+        if (marker != null) {
+            ledger.unregisterMarker(id, marker);
+        }
+        if (ledger.hasEntries(id)) {
+            return false;
+        }
+        ledger.dropColony(id);
+        me.lovkar.seasons.festival.FestivalData.of(level).dropColony(id);
+        return true;
     }
 
     /** A building's group whose building is gone or under construction, or a square whose marker is gone. */
@@ -254,7 +281,7 @@ public final class DecorEvents {
                            final DecorLedger.Owner owner, final int budget) {
         final int[] lost = new int[1];
         final DecorPlacer.Removed removed = DecorPlacer.remove(level, ledger, id, owner, DecorWork.sinkOf(colony, lost), budget);
-        if (removed.waiting() > 0) {
+        if (removed.waiting() > 0 || removed.left() > 0) {
             ledger.markRemoving(id, owner);
         }
         if (lost[0] > 0) {

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Restart check: two server runs on ONE kept world. Phase 1 (mode restart-save) sets state and lets the world save,
-# phase 2 (mode restart-load) starts the server again on the same world and reads the state back.
+# phase 2 (mode restart-load) starts the server again on the same world and reads the state back. A probe whose
+# tools/<probe>/phases.txt exists runs the phases listed there instead (csfullcycle: restart-save,restart-mid,restart-load).
 #   bash tools/restart.sh <probe>
 # <probe> is a folder under tools/ whose probe understands the modes restart-save and restart-load (cscalendar; S3 and S4
 # add their own). Optional there: rigjars.txt (extra jars, %REPO% = this repo), rigconfig-restart/ (seeded config).
@@ -29,7 +30,12 @@ if [ -f "tools/$probe/rigjars.txt" ]; then
   done < "tools/$probe/rigjars.txt"
 fi
 
-args=(-Name "$probe" -Jars "$jars" -Phases "restart-save,restart-load" -RigDir "$RUN_RIG_DIR" -ErrorMatch "colony_seasons|me\.lovkar\.seasons|$probe")
+# a probe with more than two phases names them in tools/<probe>/phases.txt (one line: mode words, comma-separated)
+phases="restart-save,restart-load"
+if [ -f "tools/$probe/phases.txt" ]; then
+  phases="$(head -1 "tools/$probe/phases.txt" | tr -d '\r ')"
+fi
+args=(-Name "$probe" -Jars "$jars" -Phases "$phases" -RigDir "$RUN_RIG_DIR" -ErrorMatch "colony_seasons|me\.lovkar\.seasons|$probe")
 if [ -d "tools/$probe/rigconfig-restart" ]; then
   args+=(-Config "$repo/tools/$probe/rigconfig-restart")
 fi

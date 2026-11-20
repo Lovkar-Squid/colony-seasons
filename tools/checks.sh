@@ -25,6 +25,7 @@ step "test piece"  python -I tools/csdecorgate/make_piece.py --check
 step "festival"    python -I tools/check_festival.py
 step "packets"     python -I tools/check_packets.py
 step "windows"     python -I tools/check_windows.py
+step "script syntax" bash -c 'for f in tools/packboot.sh tools/probe.sh tools/restart.sh tools/build.sh; do bash -n "$f" || exit 1; done'
 
 version="$(sed -n 's/^version="\([^"]*\)".*/\1/p' resources/META-INF/neoforge.mods.toml | head -1)"
 jar="colony_seasons-$version.jar"

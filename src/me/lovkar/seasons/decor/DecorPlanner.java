@@ -86,7 +86,6 @@ public final class DecorPlanner {
     /**
      * The slots for one building.
      *
-     * @param inClaim  true for a cell inside this colony's claim
      * @param costs    whether each decoration costs an item (decorator.needsMaterials)
      */
     public static Plan plan(final ServerLevel level, final DoorFinder.Box box, final int hutLevel, final int maxPerSide,

@@ -9,7 +9,11 @@ files in resources/data/*/decorator_kits/ before they ship:
   * every item is one of our decorations (colony_seasons:<a name below>) or a vanilla item, and every tag is a
     vanilla item tag (both read from the client assets jar, found like tools/check_models.py finds it);
   * no shipped kit takes an ingredient of the csdecorator probe's test kit (#minecraft:wool, minecraft:clay_ball),
-    or the probe could not tell its own kit's work from a shipped one.
+    or the probe could not tell its own kit's work from a shipped one;
+  * no item comes back into itself: every kit and every crafting recipe we ship is an edge from each ingredient
+    (an item tag expanded through the vanilla tags and ours, nested tags too) to its output, and that graph has no
+    cycle. A cycle would be an endless loop of the Decorator's assembling, or a dupe if a step ever gave more than it
+    took (S9 hostile review, H6).
 
 Run:  python -I tools/check_kits.py
 """
@@ -35,6 +39,108 @@ def vanilla():
     tags = {n[len("data/minecraft/tags/item/"):-5] for n in names
             if n.startswith("data/minecraft/tags/item/") and n.endswith(".json")}
     return items, tags
+
+
+def item_tags():
+    """Every item tag we know, as {"ns:name": [entries]}: the vanilla ones of the client jar, then ours (merged)."""
+    out = {}
+    with zipfile.ZipFile(paths.lib(MC_ASSET_PATTERN)) as jar:
+        for n in jar.namelist():
+            if n.startswith("data/minecraft/tags/item/") and n.endswith(".json"):
+                out["minecraft:" + n[len("data/minecraft/tags/item/"):-5]] = list(json.loads(jar.read(n)).get("values", []))
+    for path in glob.glob(os.path.join(paths.RESOURCES, "data", "*", "tags", "item", "**", "*.json"), recursive=True):
+        rel = os.path.relpath(path, paths.RESOURCES).replace(os.sep, "/").split("/")
+        name = rel[1] + ":" + "/".join(rel[4:])[:-5]
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+        entries = list(data.get("values", []))
+        out[name] = entries if data.get("replace") else out.get(name, []) + entries
+    return out
+
+
+def expand(ref, tags, seen=None):
+    """An item id, or every item of a tag (#ns:name, nested tags followed once)."""
+    if isinstance(ref, dict):
+        ref = ref.get("id", "")
+    ref = str(ref)
+    if not ref.startswith("#"):
+        return {ref}
+    seen = seen if seen is not None else set()
+    name = ref[1:]
+    if name in seen:
+        return set()
+    seen.add(name)
+    found = set()
+    for entry in tags.get(name, []):
+        found |= expand(entry, tags, seen)
+    return found
+
+
+def ingredient_items(ing, tags):
+    """The items one ingredient of a kit or a recipe accepts."""
+    if isinstance(ing, list):
+        found = set()
+        for one in ing:
+            found |= ingredient_items(one, tags)
+        return found
+    if not isinstance(ing, dict):
+        return set()
+    if "item" in ing:
+        return {str(ing["item"])}
+    if "tag" in ing:
+        return expand("#" + str(ing["tag"]).lstrip("#"), tags)
+    return set()
+
+
+def edges():
+    """{ingredient item: {output items}} over every kit and every crafting recipe we ship."""
+    tags = item_tags()
+    graph = {}
+
+    def add(sources, output):
+        for src in sources:
+            graph.setdefault(src, set()).add(output)
+
+    for path in glob.glob(os.path.join(paths.RESOURCES, "data", "*", "decorator_kits", "*.json")):
+        with open(path, encoding="utf-8") as f:
+            kit = json.load(f)
+        out = kit.get("output", {}).get("item")
+        for ing in kit.get("ingredients", []):
+            add(ingredient_items(ing, tags), out)
+    for path in glob.glob(os.path.join(paths.RESOURCES, "data", "*", "recipe", "*.json")):
+        with open(path, encoding="utf-8") as f:
+            recipe = json.load(f)
+        result = recipe.get("result", {})
+        out = result.get("id") or result.get("item")
+        for ing in list(recipe.get("key", {}).values()) + list(recipe.get("ingredients", [])):
+            add(ingredient_items(ing, tags), out)
+    return graph
+
+
+def find_cycle(graph):
+    """One cycle as a list of items, or None."""
+    state = {}
+
+    def visit(node, path):
+        if state.get(node) == 2:
+            return None
+        if state.get(node) == 1:
+            return path[path.index(node):] + [node]
+        state[node] = 1
+        path.append(node)
+        for nxt in sorted(graph.get(node, ())):
+            found = visit(nxt, path)
+            if found:
+                return found
+        path.pop()
+        state[node] = 2
+        return None
+
+    for start in sorted(graph):
+        found = visit(start, [])
+        if found:
+            return found
+    return None
 
 
 def item_known(ident, items):
@@ -108,7 +214,14 @@ def main():
         for p in problems:
             print(f"  !! {rel}: {p}")
         bad += len(problems)
-    print(f"kits: {len(files)} file(s) checked, {bad} problem(s)")
+    graph = edges()
+    cycle = find_cycle(graph)
+    if cycle:
+        print("  !! kits and recipes: an item comes back into itself: " + " -> ".join(cycle))
+        bad += 1
+    print(f"kits: {len(files)} file(s) checked, {sum(len(v) for v in graph.values())} ingredient-to-output edges without a cycle"
+          if not cycle else f"kits: {len(files)} file(s) checked")
+    print(f"kits: {bad} problem(s)")
     return 1 if bad else 0
 
 

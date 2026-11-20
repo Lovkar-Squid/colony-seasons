@@ -38,8 +38,11 @@ import java.util.Map;
  *
  * <p>Removing, per entry: a cell in an unloaded chunk waits; a cell whose state equals the record exactly is
  * forgotten first, then set to air with no drops, and its item handed back if it was paid for; a cell whose state
- * differs (a player changed it, the Builder cleared it) is forgotten and left alone. Afterwards the neighbours of the
- * cleared cells are updated once, so snow and anything attached settle.</p>
+ * differs (a player changed it, the Builder cleared it) is forgotten and left alone. A removal may have a budget (the
+ * Decorator takes a big tree down in slices, the sweep has its own): the cells past it stay listed for the next one.
+ * Afterwards the neighbours of the cleared cells are updated once, so snow and anything attached settle; a neighbour
+ * the ledger still lists is not updated (it comes down in a later slice exactly as listed: a leaf would re-read its
+ * distance, half a large star would pop off and drop), nor one in a chunk that is not loaded (never loaded for it).</p>
  */
 public final class DecorPlacer {
 
@@ -106,12 +109,19 @@ public final class DecorPlacer {
         }
     }
 
-    /** What one removal did: cells set to air, entries forgotten because the world had changed, cells still waiting. */
-    public record Removed(int removed, int forgotten, int waiting) {
-        public static final Removed NONE = new Removed(0, 0, 0);
+    /**
+     * What one removal did: cells set to air, entries forgotten because the world had changed, cells waiting for their
+     * chunk to load, and cells left for a later removal because the budget was used up (all still listed).
+     */
+    public record Removed(int removed, int forgotten, int waiting, int left) {
+        public static final Removed NONE = new Removed(0, 0, 0, 0);
+
+        public Removed(final int removed, final int forgotten, final int waiting) {
+            this(removed, forgotten, waiting, 0);
+        }
 
         public Removed plus(final Removed other) {
-            return new Removed(removed + other.removed, forgotten + other.forgotten, waiting + other.waiting);
+            return new Removed(removed + other.removed, forgotten + other.forgotten, waiting + other.waiting, left + other.left);
         }
 
         public int touched() {
@@ -261,8 +271,8 @@ public final class DecorPlacer {
     }
 
     /**
-     * Removes up to {@code budget} entries of one group by the removal rule, top down. A group with no entries left
-     * is dropped from the ledger.
+     * Removes up to {@code budget} entries of one group by the removal rule, top down; the rest stay listed
+     * ({@link Removed#left}). A group with no entries left is dropped from the ledger.
      */
     public static Removed remove(final ServerLevel level, final DecorLedger ledger, final int colony, final DecorLedger.Owner owner,
                                  final Stock sink, final int budget) {
@@ -276,6 +286,7 @@ public final class DecorPlacer {
         int removed = 0;
         int forgotten = 0;
         int waiting = 0;
+        int left = 0;
         int spent = 0;
         final List<BlockPos> cleared = new ArrayList<>();
         for (final Map.Entry<BlockPos, DecorLedger.Entry> e : work) {
@@ -285,7 +296,7 @@ public final class DecorPlacer {
                 continue;
             }
             if (spent >= budget) {
-                waiting++;
+                left++;
                 continue;
             }
             spent++;
@@ -307,12 +318,20 @@ public final class DecorPlacer {
             }
         }
         final BlockState air = Blocks.AIR.defaultBlockState();
+        final BlockPos.MutableBlockPos next = new BlockPos.MutableBlockPos();
         for (final BlockPos pos : cleared) {
-            air.updateNeighbourShapes(level, pos, Block.UPDATE_ALL);
-            level.updateNeighborsAt(pos, Blocks.AIR);
+            for (final Direction direction : Direction.values()) {
+                next.setWithOffset(pos, direction);
+                // a cell still listed comes down later as listed; a chunk that is not loaded is never loaded for this (S9 review, H9c)
+                if (!level.hasChunkAt(next) || ledger.at(next) != null) {
+                    continue;
+                }
+                level.neighborShapeChanged(direction.getOpposite(), air, next, pos, Block.UPDATE_ALL, Block.UPDATE_LIMIT);
+                level.neighborChanged(next, Blocks.AIR, pos);
+            }
         }
         ledger.dropGroup(colony, owner);
-        return new Removed(removed, forgotten, waiting);
+        return new Removed(removed, forgotten, waiting, left);
     }
 
     /** Every group of a colony, by the rule; groups with cells in unloaded chunks are marked for the sweep. */
@@ -361,6 +380,34 @@ public final class DecorPlacer {
             }
         }
         return changed;
+    }
+
+    /**
+     * Listed vanilla leaves whose block re-read its distance since (a neighbour changed: a player broke a log of the tree,
+     * which never tells the ledger) are still the leaves we put there: their entries follow the world, as
+     * {@link #settleLeaves}' do. Only the same block with the same {@code persistent} and only {@code distance} changed;
+     * anything else stays "changed by someone". Run by a visit to the square before it plans, so the take-down later
+     * finds every leaf exactly as listed (S9, H17). Returns how many entries followed.
+     */
+    public static int followLeaves(final ServerLevel level, final DecorLedger ledger, final int colony, final DecorLedger.Owner owner) {
+        final DecorLedger.GroupView group = ledger.group(colony, owner);
+        if (group == null) {
+            return 0;
+        }
+        int followed = 0;
+        for (final Map.Entry<BlockPos, DecorLedger.Entry> e : group.entries().entrySet()) {
+            final BlockState recorded = e.getValue().state();
+            if (!(recorded.getBlock() instanceof LeavesBlock) || !recorded.hasProperty(LeavesBlock.DISTANCE) || !level.hasChunkAt(e.getKey())) {
+                continue;
+            }
+            final BlockState now = level.getBlockState(e.getKey());
+            if (now != recorded && now.getBlock() == recorded.getBlock()
+                    && now.setValue(LeavesBlock.DISTANCE, recorded.getValue(LeavesBlock.DISTANCE)) == recorded) {
+                ledger.restate(e.getKey(), now);
+                followed++;
+            }
+        }
+        return followed;
     }
 
     /** Vanilla's leaf distance at a position (1 next to a log, 7 far from any). */

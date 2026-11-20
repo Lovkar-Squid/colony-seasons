@@ -144,7 +144,9 @@ public final class Gifts {
         }
         final DecorLedger ledger = DecorLedger.peek(level);
         final DecorLedger.Located at = ledger == null ? null : ledger.at(pos);
-        if (at == null || at.owner().kind() != DecorLedger.Kind.SQUARE) {
+        // the Decorator's own pile: a square entry AND the world holds exactly what it lists. A vanilla log of the tree
+        // never tells the ledger it went, so its entry can outlive it; a pile a player put in that cell is not his (S9, H2)
+        if (at == null || at.owner().kind() != DecorLedger.Kind.SQUARE || level.getBlockState(pos) != at.entry().state()) {
             return Outcome.NOT_DECORATORS;
         }
         final CalendarManager.Snapshot snapshot = CalendarManager.current();
