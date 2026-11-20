@@ -220,9 +220,14 @@ public class BuildingDecorator extends AbstractBuilding {
         return storage == null ? 0 : storage.step();
     }
 
-    /** True when the hut window may offer the next storage step: built, at the upgrade level, a step left. */
+    /**
+     * True when the hut window may offer the next storage step: built, at the upgrade level, a step left, and the
+     * module that counts the steps is there (without it {@link #upgradeStorage} would do nothing after the price was
+     * taken).
+     */
     public boolean canUpgradeStorage() {
-        return isBuilt() && getBuildingLevel() >= STORAGE_UPGRADE_LEVEL && storageStep() < MAX_STORAGE_STEP;
+        return isBuilt() && getBuildingLevel() >= STORAGE_UPGRADE_LEVEL && getModule(DecoratorModules.STORAGE) != null
+                && storageStep() < MAX_STORAGE_STEP;
     }
 
     /**
