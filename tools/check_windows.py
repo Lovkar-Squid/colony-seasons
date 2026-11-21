@@ -155,7 +155,9 @@ def check_footers(repo):
         pw, ph = _pair(pane.get("size"))
         scale = Fraction(pane.get("textscale", "1"))
         space = int(pane.get("linespace", "0"))
-        lines = math.floor((Fraction(pane.get("size").split()[1]) / scale + space) / (LINE + space))
+        # BlockUI's own rule (AbstractTextElement.recalcPreparedTextBox): (int) (height / scale) + 1 font units, cut
+        # into lines of LINE + linespace; a height of 25 at scale 0.8 and line space 2 holds 2 lines, not 3
+        lines = (math.floor(Fraction(pane.get("size").split()[1]) / scale) + 1) // (LINE + space)
         row = next((e for e in lst.iter("text")), None)
         row_w = _pair(row.get("size"))[0] if row is not None else pw
         problems = []
