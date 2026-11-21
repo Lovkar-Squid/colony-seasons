@@ -104,10 +104,12 @@ import java.util.TreeSet;
  *       both sets; a hand-built Workshop with no tags (an empty read changes nothing, a listed piece of it stays) and
  *       its removal (the building-removed hook takes its room); then the real Decorator: off season, a window's start and
  *       end (the room festive until the outside is down, then packed; the outside ledger empty, the room's group still
- *       listed), festival force and clear both ways, a Decorator hired in the middle of a window, decor list and decor
- *       remove and the room coming back, no Decorator after a window (a festive room goes, a packed one stays, also in
- *       an unstaffed second Workshop of a staffed colony), the switch off and on, and the Builder clearing the cells
- *       (the ledger forgets them, the next day's check puts them back);</li>
+ *       listed), festival force and clear both ways, no calendar state yet (as before a session's first poll: the
+ *       dressed room is left as it is), a Decorator hired in the middle of a window, decor list and decor remove and
+ *       the room coming back, no Decorator after a window (a festive room goes, a packed one stays, also in an
+ *       unstaffed second Workshop of a staffed colony; with only packed rooms listed the sweep says the decorations
+ *       are down at the unstaffed huts), the switch off and on, and the Builder clearing the cells (the ledger forgets
+ *       them, the next day's check puts them back);</li>
  *   <li>{@code restart-save} then {@code restart-load} (tools/restart.sh): a check stopped in the middle (part taken
  *       off, part placed) in a forced window with nobody hired; after the restart the ledger equals the world and the
  *       next check ends at the festival set.</li>
@@ -436,6 +438,20 @@ public class CsStoreroom {
     private void dressing(final boolean on) {
         setConfig("STOREROOM_DRESSING", "decorator.storeroomDressing", on);
         checkEq("decorator.storeroomDressing is now " + on, SeasonsConfig.storeroomDressing(), on);
+    }
+
+    /**
+     * The calendar as a session has it before its first poll: no snapshot. Only the snapshot goes; the clock, the
+     * bridge and the saved data stay, so the next poll gives back the same state.
+     */
+    private void noSnapshot() {
+        try {
+            final java.lang.reflect.Field f = CalendarManager.class.getDeclaredField("current");
+            f.setAccessible(true);
+            f.set(null, null);
+        } catch (final ReflectiveOperationException unreadable) {
+            check("the calendar's snapshot can be taken away", false, unreadable.getClass().getSimpleName().replace("Exception", ""));
+        }
     }
 
     // ================================================================ the Workshops
@@ -1265,6 +1281,43 @@ public class CsStoreroom {
                 checkEq("force with the day's budget used up: nothing went up outside", ledger().countOutdoor(colony.getID()), 0);
             }
         });
+        step(new Live("before the calendar's first poll: the dressed room is left as it is", 400) {
+            int decisions0;
+            boolean festive = true;
+            boolean sawNone;
+
+            @Override
+            void start() {
+                statuses.clear();
+                decisions0 = job(decorator).decisions();
+                bringIn(decorator, turned[0]);
+                noSnapshot();
+            }
+
+            @Override
+            boolean live() {
+                fillBudget();
+                festive &= isRoom(turned[0], 5, true);
+                // with no snapshot his phase reads Off season (DecorPhase.of): his decisions saw none
+                sawNone |= job(decorator).phase() == DecorPhase.OFF_SEASON;
+                if (t % 100 == 0) {
+                    bringIn(decorator, turned[0]);
+                }
+                noSnapshot();                         // after this tick's poll: the next tick's decisions see none either
+                return false;
+            }
+
+            @Override
+            void end(final boolean done) {
+                CalendarManager.refresh(server);
+                check("no snapshot: he decided at his hut with no calendar state", sawNone && job(decorator).decisions() > decisions0,
+                        (job(decorator).decisions() - decisions0) + " decisions, saw none " + sawNone);
+                check("no snapshot: the dressed room is left as it is (no packing before the first poll)", festive && isRoom(turned[0], 5, true),
+                        diff(listed(turned[0]), golden(turned[0], 5, true)));
+                check("no snapshot: no room line", !statuses.contains(DecoratorTexts.ROOM_PACKING), String.valueOf(statuses));
+                check("no snapshot: the first poll gives the forced festival back", DecorPhase.windowOpen(CalendarManager.current()), "");
+            }
+        });
         step(new Live("festival clear with nothing up outside: packed at once", 600) {
             @Override
             void start() {
@@ -1374,6 +1427,11 @@ public class CsStoreroom {
                 check("no Decorator is left in the colony", !DecorWork.staffed(colony), "");
                 direct(mirrored[0], "");
                 room("the unstaffed Workshop packed by a check", mirrored[0], 5, false);
+                // as a hut whose Decorator left with the decorations up: the sweep's reset reads the outside only
+                turned[0].setDecorationsUp(true);
+                mirrored[0].setDecorationsUp(true);
+                check("no Decorator: nothing is listed outside, only the packed rooms", !ledger().hasOutdoorEntries(colony.getID())
+                        && ledger().hasEntries(colony.getID()), "");
             }
 
             @Override
@@ -1385,6 +1443,8 @@ public class CsStoreroom {
             void end(final boolean done) {
                 room("no Decorator, " + t + " ticks after the window: the turned room", turned[0], 5, false);
                 room("no Decorator, " + t + " ticks after the window: the mirrored room", mirrored[0], 5, false);
+                check("no Decorator: the sweep says the decorations are down at both unstaffed huts, the packed rooms listed",
+                        !turned[0].decorationsUp() && !mirrored[0].decorationsUp(), "turned " + turned[0].decorationsUp() + ", mirrored " + mirrored[0].decorationsUp());
             }
         });
         step(new Live("the switch off: the sweep takes the rooms off and nothing is placed", 900) {

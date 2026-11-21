@@ -190,9 +190,11 @@ bash tools/probe.sh csstoreroom    # the ledger's files (version 1, no version, 
                                    # set; one upgrade in a forced window); level 5 pasted MIR_R270; a Workshop with no tags (an empty
                                    # read changes nothing) and its removal; then the real Decorator: off season, a window's start and
                                    # end (festive until the outside is down, then packed; the outside ledger empty, the room still
-                                   # listed), festival force and clear both ways, a hire in the middle of a window, decor list and
-                                   # decor remove, no Decorator after a window (a festive room goes, a packed one stays, also in an
-                                   # unstaffed second Workshop), the switch off and on, the Builder clearing the cells
+                                   # listed), festival force and clear both ways, no calendar state yet (the room is left as it is),
+                                   # a hire in the middle of a window, decor list and decor remove, no Decorator after a window (a
+                                   # festive room goes, a packed one stays, also in an unstaffed second Workshop; with only packed
+                                   # rooms listed the sweep says the decorations are down), the switch off and on, the Builder
+                                   # clearing the cells
 bash tools/restart.sh csstoreroom  # a check stopped half done in a forced window (5 off, 2 of 13 up) with nobody hired; after the
                                    # restart the ledger equals the world and the next check ends at the festival set
 ```

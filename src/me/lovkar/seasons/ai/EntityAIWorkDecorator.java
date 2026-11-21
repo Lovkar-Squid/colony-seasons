@@ -227,7 +227,7 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
 
         final long now = world.getGameTime();
         // ahead of the phase visits and of the free and window-only returns: in every phase, whenever he is at his hut
-        if (storeroom(phase, ledger, now)) {
+        if (storeroom(snapshot, phase, ledger, now)) {
             return AIWorkerState.START_WORKING;
         }
         if (phase != DecorPhase.OFF_SEASON && now >= nextPhaseVisit) {
@@ -264,10 +264,12 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
      * not checked today for this target and this Workshop level), the room is brought to its target in this tick. True
      * when the check changed a block (his status line says so, and this decision ends there); false otherwise, so the
      * decision goes on as before. Runs at most every {@link #ROOM_RECHECK_TICKS} after a complete check (every
-     * {@link #ROOM_RETRY_TICKS} after one that could not finish), and at once when the target turned since.
+     * {@link #ROOM_RETRY_TICKS} after one that could not finish), and at once when the target turned since. Before the
+     * calendar's first poll of a session there is no target yet (the phase reads Off season then), so the room is left as
+     * it is, as the sweep does.
      */
-    private boolean storeroom(final DecorPhase phase, final DecorLedger ledger, final long now) {
-        if (ledger == null || !(world instanceof ServerLevel level) || !atHut()) {
+    private boolean storeroom(final CalendarManager.Snapshot snapshot, final DecorPhase phase, final DecorLedger ledger, final long now) {
+        if (snapshot == null || ledger == null || !(world instanceof ServerLevel level) || !atHut()) {
             return false;
         }
         final int colony = building.getColony().getID();
