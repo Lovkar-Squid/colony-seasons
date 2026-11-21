@@ -170,6 +170,7 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
     private long nextPhaseVisit = Long.MIN_VALUE;
     // scratch: the storeroom's own progress is its ledger group (a reset only makes him look at the room once more)
     private long nextRoomCheck = Long.MIN_VALUE;
+    private String lastRoomTarget;
     private int walkAttempts;
     private Kits.Kit kitToAssemble;
     private DecorWork.Target target;
@@ -262,10 +263,11 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
      * The storeroom check (S10g2, storage-look 3.2): when he is at his hut and the room is due ({@link StoreroomWork#due}:
      * not checked today for this target and this Workshop level), the room is brought to its target in this tick. True
      * when the check changed a block (his status line says so, and this decision ends there); false otherwise, so the
-     * decision goes on as before. Runs at most every {@link #ROOM_RECHECK_TICKS} after a complete check.
+     * decision goes on as before. Runs at most every {@link #ROOM_RECHECK_TICKS} after a complete check (every
+     * {@link #ROOM_RETRY_TICKS} after one that could not finish), and at once when the target turned since.
      */
     private boolean storeroom(final DecorPhase phase, final DecorLedger ledger, final long now) {
-        if (ledger == null || now < nextRoomCheck || !(world instanceof ServerLevel level) || !atHut()) {
+        if (ledger == null || !(world instanceof ServerLevel level) || !atHut()) {
             return false;
         }
         final int colony = building.getColony().getID();
@@ -273,10 +275,15 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
         final long day = DecorWork.day(level);
         final DecorLedger.GroupView room = phase == DecorPhase.TAKING_DOWN ? ledger.group(colony, DecorLedger.Owner.storeroom(hut)) : null;
         final String target = StoreroomWork.target(phase, building.decorateEnabled(), DecorWork.festival(), room);
+        // a target that turned (a window opened or ended, a festival forced or cleared) is looked at on this decision
+        if (now < nextRoomCheck && target.equals(lastRoomTarget)) {
+            return false;
+        }
         if (!StoreroomWork.due(ledger, colony, hut, target, building.getBuildingLevel(), day)) {
             return false;
         }
         final StoreroomWork.Result result = StoreroomWork.check(level, building.getColony(), building, target, ledger, day, Integer.MAX_VALUE);
+        lastRoomTarget = target;
         nextRoomCheck = now + (result.complete() ? ROOM_RECHECK_TICKS : ROOM_RETRY_TICKS);
         job.countRoomCheck();
         if (result.status() == null) {
