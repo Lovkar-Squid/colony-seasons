@@ -182,7 +182,7 @@ So the room needs, all [A]:
    <colony>` removes the room with everything else; the Decorator dresses it again at his next check, as he puts the
    outside decorations back during a window. Before uninstalling this is harmless: every storeroom block is our own
    and vanishes with the mod (there is no vanilla part, as there is with the tree).
-6. **A switch.** Config `decor.storeroomDressing` (default true): off, he never dresses the room and the sweep takes
+6. **A switch.** Config `decorator.storeroomDressing` (default true; S10g2 put it in the `decorator` section): off, he never dresses the room and the sweep takes
    any storeroom group down, so an admin who wants the room bare for good has a way.
 
 ### 3.4 Upgrades, repairs and the Builder

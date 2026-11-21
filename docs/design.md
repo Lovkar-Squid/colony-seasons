@@ -215,7 +215,7 @@ Server (`colony_seasons-server.toml`, `ModConfigSpec` SERVER, getters that fall 
 |---|---|
 | `calendar` | `yearLengthDays` (48), `startSeason` (auto), `useSereneSeasons` (true), `timeZone` (system) |
 | `festivals` | per festival: `enabled` (true), `decorFrom`, `decorUntil`, `daysFrom`, `daysUntil` (month-day strings) |
-| `decorator` | `needsMaterials` (true), `buildingsPerDayBase` (2), `buildingsPerDayPerLevel` (2), `maxPerSide` (6) |
+| `decorator` | `needsMaterials` (true), `buildingsPerDayBase` (2), `buildingsPerDayPerLevel` (2), `maxPerSide` (6), `storeroomDressing` (true, S10g2) |
 | `events` | `gatherFromTick` (8500), `gatherUntilTick` (10500), `whoComes` (everyone_once_a_day), `midnightShow` (true), `giftsPerPlayerPerDay` (1) |
 | `effects` | `festivalHappiness` (false), `winterCropSlowdown` (false), `winterFoodNeed` (false), with their strengths |
 
