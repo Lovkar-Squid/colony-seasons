@@ -1,0 +1,154 @@
+{
+  "variants": {
+    "content=wreath,facing=north,fill=full": {
+      "model": "colony_seasons:block/storage_box_wreath_full"
+    },
+    "content=wreath,facing=east,fill=full": {
+      "model": "colony_seasons:block/storage_box_wreath_full",
+      "y": 90
+    },
+    "content=wreath,facing=south,fill=full": {
+      "model": "colony_seasons:block/storage_box_wreath_full",
+      "y": 180
+    },
+    "content=wreath,facing=west,fill=full": {
+      "model": "colony_seasons:block/storage_box_wreath_full",
+      "y": 270
+    },
+    "content=wreath,facing=north,fill=low": {
+      "model": "colony_seasons:block/storage_box_wreath_low"
+    },
+    "content=wreath,facing=east,fill=low": {
+      "model": "colony_seasons:block/storage_box_wreath_low",
+      "y": 90
+    },
+    "content=wreath,facing=south,fill=low": {
+      "model": "colony_seasons:block/storage_box_wreath_low",
+      "y": 180
+    },
+    "content=wreath,facing=west,fill=low": {
+      "model": "colony_seasons:block/storage_box_wreath_low",
+      "y": 270
+    },
+    "content=garland,facing=north,fill=full": {
+      "model": "colony_seasons:block/storage_box_garland_full"
+    },
+    "content=garland,facing=east,fill=full": {
+      "model": "colony_seasons:block/storage_box_garland_full",
+      "y": 90
+    },
+    "content=garland,facing=south,fill=full": {
+      "model": "colony_seasons:block/storage_box_garland_full",
+      "y": 180
+    },
+    "content=garland,facing=west,fill=full": {
+      "model": "colony_seasons:block/storage_box_garland_full",
+      "y": 270
+    },
+    "content=garland,facing=north,fill=low": {
+      "model": "colony_seasons:block/storage_box_garland_low"
+    },
+    "content=garland,facing=east,fill=low": {
+      "model": "colony_seasons:block/storage_box_garland_low",
+      "y": 90
+    },
+    "content=garland,facing=south,fill=low": {
+      "model": "colony_seasons:block/storage_box_garland_low",
+      "y": 180
+    },
+    "content=garland,facing=west,fill=low": {
+      "model": "colony_seasons:block/storage_box_garland_low",
+      "y": 270
+    },
+    "content=lights,facing=north,fill=full": {
+      "model": "colony_seasons:block/storage_box_lights_full"
+    },
+    "content=lights,facing=east,fill=full": {
+      "model": "colony_seasons:block/storage_box_lights_full",
+      "y": 90
+    },
+    "content=lights,facing=south,fill=full": {
+      "model": "colony_seasons:block/storage_box_lights_full",
+      "y": 180
+    },
+    "content=lights,facing=west,fill=full": {
+      "model": "colony_seasons:block/storage_box_lights_full",
+      "y": 270
+    },
+    "content=lights,facing=north,fill=low": {
+      "model": "colony_seasons:block/storage_box_lights_low"
+    },
+    "content=lights,facing=east,fill=low": {
+      "model": "colony_seasons:block/storage_box_lights_low",
+      "y": 90
+    },
+    "content=lights,facing=south,fill=low": {
+      "model": "colony_seasons:block/storage_box_lights_low",
+      "y": 180
+    },
+    "content=lights,facing=west,fill=low": {
+      "model": "colony_seasons:block/storage_box_lights_low",
+      "y": 270
+    },
+    "content=lanterns,facing=north,fill=full": {
+      "model": "colony_seasons:block/storage_box_lanterns_full"
+    },
+    "content=lanterns,facing=east,fill=full": {
+      "model": "colony_seasons:block/storage_box_lanterns_full",
+      "y": 90
+    },
+    "content=lanterns,facing=south,fill=full": {
+      "model": "colony_seasons:block/storage_box_lanterns_full",
+      "y": 180
+    },
+    "content=lanterns,facing=west,fill=full": {
+      "model": "colony_seasons:block/storage_box_lanterns_full",
+      "y": 270
+    },
+    "content=lanterns,facing=north,fill=low": {
+      "model": "colony_seasons:block/storage_box_lanterns_low"
+    },
+    "content=lanterns,facing=east,fill=low": {
+      "model": "colony_seasons:block/storage_box_lanterns_low",
+      "y": 90
+    },
+    "content=lanterns,facing=south,fill=low": {
+      "model": "colony_seasons:block/storage_box_lanterns_low",
+      "y": 180
+    },
+    "content=lanterns,facing=west,fill=low": {
+      "model": "colony_seasons:block/storage_box_lanterns_low",
+      "y": 270
+    },
+    "content=gifts,facing=north,fill=full": {
+      "model": "colony_seasons:block/storage_box_gifts_full"
+    },
+    "content=gifts,facing=east,fill=full": {
+      "model": "colony_seasons:block/storage_box_gifts_full",
+      "y": 90
+    },
+    "content=gifts,facing=south,fill=full": {
+      "model": "colony_seasons:block/storage_box_gifts_full",
+      "y": 180
+    },
+    "content=gifts,facing=west,fill=full": {
+      "model": "colony_seasons:block/storage_box_gifts_full",
+      "y": 270
+    },
+    "content=gifts,facing=north,fill=low": {
+      "model": "colony_seasons:block/storage_box_gifts_low"
+    },
+    "content=gifts,facing=east,fill=low": {
+      "model": "colony_seasons:block/storage_box_gifts_low",
+      "y": 90
+    },
+    "content=gifts,facing=south,fill=low": {
+      "model": "colony_seasons:block/storage_box_gifts_low",
+      "y": 180
+    },
+    "content=gifts,facing=west,fill=low": {
+      "model": "colony_seasons:block/storage_box_gifts_low",
+      "y": 270
+    }
+  }
+}

@@ -346,3 +346,33 @@ variant and build it, he looks at the pictures in the morning). So, until he say
 3. At levels 3 to 5 the ground floor's corner **keeps its racks bare**; the dressing is in the attic.
 
 These are [A] picks made for him, not [B] answers: if he picks otherwise in the morning, the change is a small follow-up.
+
+## 8. Built in S10g1 (the pieces and the spots)
+
+- **Blocks** (section 5): `storage_box` (`content` wreath, garland, lights, lanterns, gifts; `fill` full, low;
+  `facing`) and `storage_coil` (`kind` garland, lights; `facing`), drawn by `tools/textures/storage.py` from this
+  round's drafts (`model_box`, `model_coil` without B's loose end). Two changes to the drafts' geometry: the outer
+  ring of lights in a full box of lights is 9 px across, not 11.4 (the draft's bulbs went through the box's walls),
+  and the outer ring of a coil of lights is 11.8 px, not 13 (its bulbs ended 0.6 px outside the cell). Block only,
+  `noLootTable()`, no collision, instant break, they stand on the block below like a carpet. Renders:
+  `docs/renders/s10g/2026-11-21-s10g-blocks.png`.
+- **Blueprints** (3.7): variant A's barrels in `tools/decorator_hut.storage_room` (`STOREROOM_BARRELS`). Levels 1 and
+  5 are this round's plan A. Level 2: its third rack takes level 1's barrel cell at (3, 1, -3), and a barrel in front
+  of that rack would wall it in, so the pair of standing barrels moves west along the back wall, next to the racks
+  ((0, 1, -3) and (-1, 1, -3), the box of lights and the coil of garland on them); the hung set is level 1's.
+  Levels 3 and 4: level 5's attic one barrel lower (single barrels where level 5 stacks two), with level 5's barrels
+  at (-4, 6, -2) and (2, 6, -3) from level 3 on, so the six pieces and the fifteen hung blocks of level 5 are there
+  too. Racks as shipped (2, 3, 6, 9, 12).
+- **Spots** (3.5): the tags of `decorator_hut.STOREROOM`, one per cell. A piece's facing is not stored;
+  `decorator_hut.spot_facing` is the rule the renders use and the placing code is to follow: away from the first
+  whole wall block beside the spot (not a barrel or a rack), looking north, east, west and south in the building's
+  own frame; a hung piece needs one, a standing piece with none faces south. It reproduces this round's facings at
+  levels 1 and 5. `tools/build_pack.py` checks the rules of 3.1 and 3.5 on every level, with a self-test.
+- **[V] of 3.5, proven** by the `csspots` probe: `IBuilding.getLocationsFromTag` gives the spots turned and mirrored
+  with the building (a level 1 Workshop pasted R90 and a level 5 one pasted MIR_R270, checked against the pasted
+  world: every packed spot is air on a barrel, every hung spot air beside a wall), and after an upgrade work order
+  completes the cached tag map holds exactly the new level's tags (MineColonies' `AbstractWorkOrder.onCompleted`
+  reads the new blueprint's hut data into the hut block; until then the old level's stay). The fallback is not needed.
+  The code that reads them is `decor/StoreroomSpots.java`.
+- Renders of all five levels with the pieces at their tags, packed and in the festival:
+  `docs/renders/s10g/2026-11-21-s10g-levels.png`, and levels 1 and 5 on their own (`-l1-*`, `-l5-*`).

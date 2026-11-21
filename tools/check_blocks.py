@@ -15,8 +15,14 @@ does not exist is dropped with one log line. So for every block registered anywh
   * every block tag file names only registered blocks;
   * every model of ours is used by a blockstate or an item model.
 
-One named exception, NO_ITEM: the festival tree's trunk (S10c) has no item of its own (it stands for a spruce log),
-so it has no item model and no recipe, and its loot table drops that item instead of itself.
+Two named exceptions:
+
+  * NO_ITEM: the festival tree's trunk (S10c) has no item of its own (it stands for a spruce log), so it has no item
+    model and no recipe, and its loot table drops that item instead of itself.
+  * NO_DROP: the storeroom pieces (S10g1, docs/storage-look-design.md section 5) are block only: no item (no item
+    model, no item registered for them anywhere under src/), no recipe, and no loot table file; their registration
+    gives them noLootTable(), so the game drops nothing for them and looks for no file. Every other block must not
+    have noLootTable() (it would drop nothing without a word).
 
 Run:  python -I tools/check_blocks.py   (needs the client assets jar, see tools/paths.py)
 """
@@ -38,6 +44,9 @@ RENDER_TYPES = {"minecraft:solid", "minecraft:cutout", "minecraft:cutout_mipped"
 
 # blocks with no item of their own -> the item their loot table drops instead (no item model, no recipe)
 NO_ITEM = {"festival_trunk": "minecraft:spruce_log"}
+# blocks with no item and no drop at all: no item model, no item registered, no recipe, no loot table file, and
+# noLootTable() in their registration (the Decorator's storeroom pieces, S10g1)
+NO_DROP = {"storage_box", "storage_coil"}
 
 problems = []
 
@@ -68,22 +77,44 @@ class Vanilla:
 SRC = os.path.join(paths.ROOT, "src")
 
 
-def registered_blocks():
-    """Every block id registered through BLOCKS.register(...) anywhere under src/: the decoration blocks of
-    SeasonsBlocks.java and the hut of colony/DecoratorSetup.java (a name given as a String constant of the same
-    file is resolved)."""
-    found = []
+REGISTER = re.compile(r'(?:\b(\w+)\s*=\s*)?(?:\w+\.)?\bBLOCKS\.register\(\s*(?:"([a-z0-9_]+)"|(\w+)\s*,)')
+
+
+def registrations():
+    """{block id: (the field it is held in or None, the text of its registration statement)} for every block
+    registered through BLOCKS.register(...) anywhere under src/: the decoration blocks of SeasonsBlocks.java and the hut
+    of colony/DecoratorSetup.java (a name given as a String constant of the same file is resolved)."""
+    found = {}
     for p in sorted(glob.glob(os.path.join(SRC, "**", "*.java"), recursive=True)):
         with open(p, encoding="utf-8") as f:
             java = f.read()
         consts = dict(re.findall(r'static\s+final\s+String\s+(\w+)\s*=\s*"([a-z0-9_]+)"', java))
-        for literal, const in re.findall(r'\bBLOCKS\.register\(\s*(?:"([a-z0-9_]+)"|(\w+)\s*,)', java):
+        for m in REGISTER.finditer(java):
+            field, literal, const = m.groups()
             name = literal or consts.get(const)
             if name is None:
                 bad(f"{os.path.relpath(p, paths.ROOT)}: BLOCKS.register({const}, ...) names no String constant of that file")
             elif name not in found:
-                found.append(name)
+                end = java.find(";", m.end())
+                found[name] = (field, java[m.start():end if end >= 0 else len(java)])
     return found
+
+
+def registered_blocks():
+    """Every block id registered anywhere under src/ (see registrations)."""
+    return list(registrations())
+
+
+def item_fields():
+    """The block fields an item is registered for anywhere under src/: registerSimpleBlockItem(X), registerBlockItem(X)
+    and new BlockItem(X.get(), ...) or new ItemBlockHut(X.get(), ...)."""
+    fields = set()
+    for p in sorted(glob.glob(os.path.join(SRC, "**", "*.java"), recursive=True)):
+        with open(p, encoding="utf-8") as f:
+            java = f.read()
+        fields.update(re.findall(r'\bregister(?:Simple)?BlockItem\(\s*(?:"[a-z0-9_]+"\s*,\s*)?(\w+)', java))
+        fields.update(re.findall(r'\bnew\s+\w*(?:BlockItem|ItemBlock\w*)\(\s*(\w+)\.get\(\)', java))
+    return fields
 
 
 class ModItems:
@@ -157,7 +188,9 @@ def check_model(vanilla, ref, where, seen):
 
 def main():
     vanilla = Vanilla()
-    blocks = registered_blocks()
+    regs = registrations()
+    blocks = list(regs)
+    with_item = item_fields()
     mod_items = ModItems()
     if not blocks:
         print("no blocks registered - nothing to check")
@@ -196,7 +229,16 @@ def main():
                     used_models.add(one["model"])
                     check_model(vanilla, one["model"], f"{b} multipart", seen)
         item_ref = f"{NS}:item/{b}"
-        if b in NO_ITEM:
+        field, statement = regs[b]
+        no_loot = ".noLootTable()" in statement
+        if b in NO_DROP:
+            if field in with_item:
+                bad(f"{b}: has no item, but an item is registered for {field}")
+            if not no_loot:
+                bad(f"{b}: drops nothing, but its registration does not give it noLootTable()")
+        elif no_loot:
+            bad(f"{b}: its registration gives it noLootTable(), so it would drop nothing (list it in NO_DROP if meant)")
+        if b in NO_ITEM or b in NO_DROP:
             if model_json(vanilla, item_ref) is not None:
                 bad(f"{b}: has no item, but an item model {item_ref}")
         elif check_model(vanilla, item_ref, f"{b} item", seen) is not None:
@@ -208,11 +250,14 @@ def main():
             bad(f"{b}: no lang line block.{NS}.{b}")
         drop = NO_ITEM.get(b, f"{NS}:{b}")
         loot_path = os.path.join(DATA, NS, "loot_table", "blocks", b + ".json")
-        if not os.path.exists(loot_path):
+        if b in NO_DROP:
+            if os.path.exists(loot_path):
+                bad(f"{b}: drops nothing, but has a loot table {os.path.relpath(loot_path, paths.ROOT)}")
+        elif not os.path.exists(loot_path):
             bad(f"{b}: no loot table")
         elif f'"{drop}"' not in json.dumps(load(loot_path)):
             bad(f"{b}: its loot table does not drop {drop}")
-        if b in NO_ITEM:
+        if b in NO_ITEM or b in NO_DROP:
             if f"{NS}:{b}" in made:
                 bad(f"{b}: has no item, but a recipe makes it")
         elif f"{NS}:{b}" not in made:

@@ -18,6 +18,8 @@ floor and a dark oak gable roof. Levels 1 to 4 stand on the same plan and grow t
 The storage room (S10e, storage_room()): the Decorator keeps last year's decorations in MineColonies racks, which are
 the hut's storage. At levels 1 and 2 it is the ground floor's back-east corner (the racks and stacked barrels); from
 level 3 it is the attic upstairs, with more racks at every level: 2, 3, 6, 9 and 12 racks in the hut at levels 1 to 5.
+S10g1 dresses it (docs/storage-look-design.md, variant A): a few more barrels in the blueprint, and position tags for
+the spots where the Decorator puts his packed boxes and coils and, in the festival, hangs his decorations (STOREROOM).
 
 Every level is a complete building: a door, light (lanterns inside), storage (MineColonies racks, which are what a
 hut's inventory is made of; the design's barrels outside stay barrels), walkable floors and no bed (the Decorator lives
@@ -96,7 +98,9 @@ def gable_plaster(z, y):
     return PLASTER if (z + y) % 5 else "minecraft:spruce_log[axis=y]"
 
 
-def workshop(level):
+def workshop(level, barrels=True):
+    """The Workshop at `level` as the blueprint holds it. `barrels=False` leaves out S10g1's storeroom barrels
+    (STOREROOM_BARRELS), so build_pack.py can check that each of them goes into a cell the rest leaves as air."""
     if not 1 <= level <= 5:
         raise ValueError(level)
     s = Structure(f"{LOOK}{level}")
@@ -224,8 +228,11 @@ def workshop(level):
     for p in GROUND_RACKS[:{1: 2, 2: 3, 3: 4, 4: 5, 5: 6}[level]]:
         s.set(*p, RACK)
     # the storage room (S10e) goes in last: the corner at levels 1 and 2, the attic from level 3
-    for p, b in storage_room(level).items():
+    for p, b in storage_room(level, barrels).items():
         s.set(*p, b)
+    # the storeroom's spots (S10g1): position tags in the hut block's data, not blocks
+    for p, name in storeroom_tags(level).items():
+        s.tag(*p, name)
     return s
 
 
@@ -238,14 +245,19 @@ ATTIC_RACKS = {3: [(-2, 6, -3), (-1, 6, -3)],
 BARREL_UP = "minecraft:barrel[facing=up]"
 
 
-def storage_room(level):
+def storage_room(level, barrels=True):
     """The Decorator's storage room (the owner's decision of 20 Nov 2026, S10e), {position: block}: where last year's
     decorations wait for the next festival, in MineColonies racks (a hut's stock lives only in racks) with barrels
     beside them as crates, so it shows what the room is. Levels 1 and 2 have no upper floor, so the room is the
     ground floor's back-east corner: the S5 racks with barrels stacked in the corner. From level 3 it is the attic, the
     back wall of the upper floor: 2, 4 and 6 racks at levels 3, 4 and 5 (12 racks in the hut at level 5) and crates.
     Only racks and vanilla blocks (the Builder's bill gets no decoration), all inside the walls, nothing on the ladder's
-    way up, away from the front windows; build_pack.py checks these rules. The S5 racks are not part of it."""
+    way up, away from the front windows; build_pack.py checks these rules. The S5 racks are not part of it.
+
+    S10g1 (docs/storage-look-design.md, variant A "tidy storeroom", picked 21 Nov 2026) adds the barrels the
+    Decorator's packed pieces stand on, the same kind of block the bill already has (storeroom_barrels): at level 1 and
+    level 5 where design/src/storage_round.py places them, at levels 2 to 4 laid out by this chunk on the same rules
+    (left out with `barrels=False`)."""
     if not 1 <= level <= 5:
         raise ValueError(level)
     room = {}
@@ -253,19 +265,158 @@ def storage_room(level):
         room[(4, 1, -3)] = BARREL_UP
         room[(4, 2, -3)] = BARREL_UP
         room[(4, 1, -2)] = "minecraft:barrel[facing=west]"
-        return room
-    for lv in range(3, level + 1):
-        for p in ATTIC_RACKS[lv]:
-            room[p] = RACK
-    room[(-3, 6, -3)] = BARREL_UP
-    room[(-4, 6, -3)] = "minecraft:barrel[facing=east]"
-    if level >= 4:
-        room[(-4, 6, -2)] = BARREL_UP
-    if level >= 5:
-        room[(-3, 7, -3)] = BARREL_UP
-        room[(2, 6, -3)] = "minecraft:barrel[facing=west]"
-        room[(3, 6, -3)] = "minecraft:loom[facing=south]"
+    else:
+        for lv in range(3, level + 1):
+            for p in ATTIC_RACKS[lv]:
+                room[p] = RACK
+        room[(-3, 6, -3)] = BARREL_UP
+        room[(-4, 6, -3)] = "minecraft:barrel[facing=east]"
+        if level >= 4:
+            room[(-4, 6, -2)] = BARREL_UP
+        if level >= 5:
+            room[(-3, 7, -3)] = BARREL_UP
+            room[(2, 6, -3)] = "minecraft:barrel[facing=west]"
+            room[(3, 6, -3)] = "minecraft:loom[facing=south]"
+    if barrels:
+        room.update(storeroom_barrels(level))
     return room
+
+
+BARREL_WEST = "minecraft:barrel[facing=west]"
+# Variant A's barrels (S10g1), on top of the S10e room. Levels 1 and 5 are storage_round.py's plan("A", 1 / 5): two
+# standing side by side and one lying at level 1; a stack of two in the east corner, one on the west stack and one on
+# the east side at level 5. Level 2: its third rack takes level 1's barrel cell at (3, 1, -3), and a barrel in front
+# of that rack would wall it in, so the standing pair moves west along the back wall, next to the racks (0 and -1);
+# the lying one stays. Levels 3 and 4: the attic of level 5 one barrel lower (single barrels where level 5 stacks
+# two), with level 5's barrels at (-4, 6, -2) and (2, 6, -3) from level 3 on, so levels 3 and 4 carry the same six
+# pieces as level 5.
+STOREROOM_BARRELS = {
+    1: {(3, 1, -3): BARREL_UP, (3, 1, -2): BARREL_UP, (4, 1, 0): BARREL_WEST},
+    2: {(-1, 1, -3): BARREL_UP, (0, 1, -3): BARREL_UP, (4, 1, 0): BARREL_WEST},
+    3: {(4, 6, -3): BARREL_UP, (4, 6, -1): BARREL_UP, (-4, 6, -2): BARREL_UP, (2, 6, -3): BARREL_WEST},
+    4: {(4, 6, -3): BARREL_UP, (4, 6, -1): BARREL_UP, (2, 6, -3): BARREL_WEST},
+    5: {(4, 6, -3): BARREL_UP, (4, 7, -3): BARREL_UP, (-4, 7, -2): BARREL_UP, (4, 6, -1): BARREL_UP},
+}
+
+
+def storeroom_barrels(level):
+    """The barrels variant A adds to the storage room at `level` (S10g1), {position: block}."""
+    return dict(STOREROOM_BARRELS[level])
+
+
+# ---------------------------------------------------------------------------------------------- the storeroom's spots
+# Where the Decorator dresses the storeroom (S10g1, docs/storage-look-design.md 3.5): Structurize position tags in the
+# hut block's blueprint data, not blocks (nothing goes on the Builder's bill). cs_pack_<set>_<piece> marks a packed
+# piece standing on a barrel (a box swaps to its nearly empty state in the festival, a coil is taken away);
+# cs_hang_<set>_<piece> a festival piece hung on a wall face. The set id is in every name (3.6); 0.1.0 has one set.
+# The Java side reads them with decor/StoreroomSpots.java, which names the same pieces.
+PACK_PREFIX, HANG_PREFIX = "cs_pack_", "cs_hang_"
+SETS = ("winter",)
+PACKED_PIECES = ("box_wreath", "box_garland", "box_lights", "box_lanterns", "box_gifts", "coil_garland", "coil_lights")
+HUNG_PIECES = ("garland", "wreath", "lights")
+FURNITURE = ("minecraft:barrel",)        # what a packed piece stands on (variant A: barrels only)
+
+
+def _row(piece, cells):
+    return {c: piece for c in cells}
+
+
+# Level 1 and level 5 are storage_round.py's plan("A", 1 / 5), cell for cell. Level 2 keeps level 1's pieces on the
+# moved barrels and its hung row; levels 3 and 4 carry level 5's six pieces one barrel lower and level 5's hung pieces.
+# Nothing hangs over the upper attic racks' cells and nothing stands on the floor or above a rack (3.1).
+_HANG_LOW = {**_row("garland", [(x, 4, -3) for x in range(1, 5)]), (2, 3, -3): "wreath",
+             **_row("lights", [(4, 4, z) for z in range(-2, 3)])}
+_HANG_ATTIC = {**_row("garland", [(x, 8, -3) for x in range(0, 4)]), (3, 7, -3): "wreath",
+               **_row("lights", [(-4, 8, z) for z in (-1, 1, 2, 3)]), **_row("lights", [(4, 8, z) for z in range(-2, 4)])}
+_PACK_ATTIC_LOW = {(-4, 7, -3): "box_wreath", (-3, 7, -3): "box_gifts", (-4, 7, -2): "box_lights",
+                   (2, 7, -3): "box_lanterns", (4, 7, -3): "box_garland", (4, 7, -1): "coil_lights"}
+STOREROOM = {
+    1: {"pack": {(3, 2, -3): "box_lights", (3, 2, -2): "coil_garland", (4, 3, -3): "coil_lights",
+                 (4, 2, -2): "box_gifts", (4, 2, 0): "box_wreath"},
+        "hang": _HANG_LOW},
+    2: {"pack": {(0, 2, -3): "box_lights", (-1, 2, -3): "coil_garland", (4, 3, -3): "coil_lights",
+                 (4, 2, -2): "box_gifts", (4, 2, 0): "box_wreath"},
+        "hang": _HANG_LOW},
+    3: {"pack": _PACK_ATTIC_LOW, "hang": _HANG_ATTIC},
+    4: {"pack": _PACK_ATTIC_LOW, "hang": _HANG_ATTIC},
+    5: {"pack": {(-4, 7, -3): "box_wreath", (-3, 8, -3): "box_gifts", (-4, 8, -2): "box_lights",
+                 (2, 7, -3): "box_lanterns", (4, 8, -3): "box_garland", (4, 7, -1): "coil_lights"},
+        "hang": _HANG_ATTIC},
+}
+
+
+def storeroom_tags(level, set_id="winter"):
+    """{position: tag name} of every storeroom spot of `level` (one tag per cell)."""
+    if not 1 <= level <= 5:
+        raise ValueError(level)
+    tags = {p: PACK_PREFIX + set_id + "_" + piece for p, piece in STOREROOM[level]["pack"].items()}
+    tags.update({p: HANG_PREFIX + set_id + "_" + piece for p, piece in STOREROOM[level]["hang"].items()})
+    return tags
+
+
+def parse_tag(name):
+    """('pack' or 'hang', set id, piece) for one of our spot tags, or None for any other tag (or an unknown piece)."""
+    for kind, prefix, pieces in (("pack", PACK_PREFIX, PACKED_PIECES), ("hang", HANG_PREFIX, HUNG_PIECES)):
+        if name.startswith(prefix):
+            rest = name[len(prefix):]
+            for piece in pieces:
+                if rest.endswith("_" + piece) and rest[:-len(piece) - 1] in SETS:
+                    return kind, rest[:-len(piece) - 1], piece
+    return None
+
+
+# the order the facing rule looks round a spot, and the facing away from each side (x east, z south)
+_SIDES = (((0, 0, -1), "south"), ((1, 0, 0), "west"), ((-1, 0, 0), "east"), ((0, 0, 1), "north"))
+_NOT_FULL = ("lantern", "ladder", "glass", "_pane", "_bars", "chain", "torch", "stonecutter", "_door", "_trapdoor",
+             "_stairs", "_slab", "_carpet", "_fence", "_wall")
+
+
+def full_wall_block(state):
+    """True for a whole block a wall piece can hang on, and a standing piece can turn its back to: not a thin or
+    partial block and not furniture (a barrel or a rack is what the pieces stand on, not a wall)."""
+    if state is None:
+        return False
+    name = state.split("[", 1)[0]
+    return name not in FURNITURE and name != RACK and not any(w in name for w in _NOT_FULL)
+
+
+def spot_facing(get, pos, kind):
+    """The facing of the piece at `pos` (S10g2 works it out in the game the same way, docs/storage-look-design.md 3.5):
+    away from the first whole wall block beside it, looking north, east, west and south in that order (the back wall
+    first). A hung piece needs one (None when there is none); a standing piece with none faces south, into the room.
+    `get(x, y, z)` gives the block state at a cell or None for air."""
+    x, y, z = pos
+    for (dx, dy, dz), facing in _SIDES:
+        if full_wall_block(get(x + dx, y + dy, z + dz)):
+            return facing
+    return None if kind == "hang" else "south"
+
+
+def piece_state(piece, kind, festival, facing):
+    """The block state the Decorator places at a spot: packed (festival False) or in the festival. A coil is taken off
+    in the festival (None)."""
+    if kind == "hang":
+        name = {"garland": "garland", "wreath": "wreath", "lights": "fairy_lights"}[piece]
+        lit = ",lit=false" if name == "fairy_lights" else ""
+        return f"colony_seasons:{name}[facing={facing}{lit}]"
+    what, sort = piece.split("_", 1)
+    if what == "coil":
+        return None if festival else f"colony_seasons:storage_coil[facing={facing},kind={sort}]"
+    return f"colony_seasons:storage_box[content={sort},facing={facing},fill={'low' if festival else 'full'}]"
+
+
+def storeroom_set(level, structure, festival):
+    """{position: block state} of the storeroom dressing of `level` in `structure` (its blueprint), packed or in the
+    festival: what the Decorator's set looks like with the facings worked out (renders and build_pack's walk check)."""
+    out = {}
+    for pos, name in storeroom_tags(level).items():
+        kind, _, piece = parse_tag(name)
+        if kind == "hang" and not festival:
+            continue
+        state = piece_state(piece, kind, festival, spot_facing(structure.get, pos, kind))
+        if state is not None:
+            out[pos] = state
+    return out
 
 
 def _upper_floor(s, level):
