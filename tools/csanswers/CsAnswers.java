@@ -69,8 +69,10 @@ import net.minecraft.world.level.block.DoorBlock;
 import net.minecraft.world.level.block.LeavesBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.StairBlock;
 import net.minecraft.world.level.block.state.properties.DoorHingeSide;
 import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
+import net.minecraft.world.level.block.state.properties.Half;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.storage.LevelResource;
 import net.minecraft.world.level.storage.PlayerDataStorage;
@@ -328,6 +330,7 @@ public class CsAnswers {
                 planTree();
                 planWelcome();
                 planDoorless();
+                planJetty();
                 planDrops();
                 planLeaves();
                 planSecondMarker();
@@ -960,6 +963,188 @@ public class CsAnswers {
         });
     }
 
+    // ================================================================ a door under a jetty (S10h)
+
+    /** The Medieval Dark Oak town hall of the fourth in-game test, at its level there; its door sits under the jettied upper floor. */
+    private static final String JETTY_PACK = "Medieval Dark Oak";
+    private static final String JETTY_HALL = "fundamentals/townhall2.blueprint";
+    /** The blueprint's one door under the jetty (relative to the box, unrotated); its two other doorways stood open in the test world. */
+    private static final BlockPos JETTY_HALL_DOOR = new BlockPos(10, 7, 2);
+
+    /**
+     * S10h: the in-game test's town hall got one wreath beside its door and nothing else. Its door was found, but the
+     * upper floor juts out one block over it: a row of stairs under the jetty fills the cell in front of door + 2, the
+     * jetty's wall the cell in front of door + 3. A hand-built house of that shape (a stone house, its upper floor one
+     * block out over the door, stairs under it) and the real town hall pasted from MineColonies' own blueprint, its two
+     * open doorways as in the test world, must get the door set: the wreath above the door on the front of the jetty,
+     * the garland beside it and the lights above; then taking down gives the world back.
+     */
+    private void planJetty() {
+        final DoorFinder.Box[] boxes = new DoorFinder.Box[2];
+        final int[] doorsOut = new int[1];
+        final Map<BlockPos, BlockState> before = new LinkedHashMap<>();
+        step(new Step("jetty: a door under a jettied upper floor, hand-built and the real town hall of the in-game test", 300, true) {
+            @Override
+            void start() {
+                // the hand-built house: 11 x 7 stone, door in the south wall at x -25; its upper floor (planks) juts out
+                // one block over the whole south wall, with top stairs under it in the row two above the door
+                final DoorFinder.Box shell = house(-30, 36, 11, 7, -25);
+                final int y0 = ground;
+                for (int x = -30; x <= -20; x++) {
+                    set(new BlockPos(x, y0 + 3, 43), Blocks.DARK_OAK_STAIRS.defaultBlockState().setValue(StairBlock.FACING, Direction.WEST)
+                            .setValue(StairBlock.HALF, Half.TOP));
+                    set(new BlockPos(x, y0 + 4, 43), Blocks.DARK_OAK_PLANKS.defaultBlockState());
+                    set(new BlockPos(x, y0 + 5, 43), Blocks.DARK_OAK_PLANKS.defaultBlockState());
+                }
+                boxes[0] = new DoorFinder.Box(shell.min(), shell.max().offset(0, 0, 1), shell.hut());
+                // the real town hall, pasted in the air; the test world's hall had only the door under the jetty
+                boxes[1] = paste(JETTY_PACK, JETTY_HALL, new BlockPos(-40, ground + 30, -62));
+                if (boxes[1] != null) {
+                    final BlockPos keep = boxes[1].min().offset(JETTY_HALL_DOOR);
+                    for (final BlockPos pos : BlockPos.betweenClosed(boxes[1].min(), boxes[1].max())) {
+                        final BlockState state = level.getBlockState(pos);
+                        if (state.is(BlockTags.DOORS) && !pos.equals(keep) && !pos.equals(keep.above())) {
+                            if (state.getValue(DoorBlock.HALF) == DoubleBlockHalf.LOWER) {
+                                doorsOut[0]++;
+                            }
+                            level.setBlock(pos, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE | Block.UPDATE_SUPPRESS_DROPS);
+                        }
+                    }
+                }
+            }
+
+            @Override
+            boolean tick() {
+                return t >= 60 && !level.getChunkSource().getLightEngine().hasLightWork();
+            }
+
+            @Override
+            void end(final boolean done) {
+                // the hand-built house: every cell of the expected set, through DecorWork.decorate at hut level 5
+                final int y0 = ground;
+                final DecorWork.Target house = DecorWork.Target.box(boxes[0]);
+                snapshot(boxes[0].grown(2), before);
+                final List<DoorFinder.Door> doors = DoorFinder.find(level, boxes[0]);
+                check("the jettied house: its one door is found, outside to the south", doors != null && doors.size() == 1
+                                && doors.get(0).outside() == Direction.SOUTH && doors.get(0).sky() >= DoorFinder.MIN_OUTSIDE_SKY,
+                        doors == null ? "unloaded" : doors.toString());
+                final DecorPlanner.Plan plan = DecorPlanner.plan(level, boxes[0], 5, 6, ledger, colonyId, house.owner(), true);
+                final DecorWork.Outcome placed = DecorWork.decorate(level, colonyId, house, 5, DecorPlacer.Stock.FREE, day(), ledger);
+                final BlockPos wreathAt = new BlockPos(-25, y0 + 4, 44);
+                final BlockState wreath = level.getBlockState(wreathAt);
+                final int wreaths = countIn(house.owner(), SeasonsBlocks.WREATH.get());
+                final int garlands = countIn(house.owner(), SeasonsBlocks.GARLAND.get());
+                final int lights = countIn(house.owner(), SeasonsBlocks.LANTERN_STRING.get()) + countIn(house.owner(), SeasonsBlocks.FAIRY_LIGHTS.get());
+                final String counts = "row " + plan.row() + ", wreath " + wreaths + ", garland " + garlands + ", lights " + lights + ", " + placed.status();
+                check("the jettied house gets the door set, not the doorless wreath: the wreath three above the door on the jetty's front, "
+                                + "five garlands each side along the jetty, the lights above (hut level 5)",
+                        plan.doors() == 1 && plan.row() == 3 && wreaths == 1 && garlands == 10 && lights == 11 && wreath.is(SeasonsBlocks.WREATH.get())
+                                && wreath.getValue(WallDecorationBlock.FACING) == Direction.SOUTH && ledger.isOurs(colonyId, house.owner(), wreathAt, wreath),
+                        counts);
+                check("nothing of it hangs in the recess under the jetty or on the wall behind it",
+                        cellsAtZ(house.owner(), 43) == 0 && level.getBlockState(new BlockPos(-24, y0 + 2, 43)).isAir()
+                                && level.getBlockState(new BlockPos(-26, y0 + 2, 43)).isAir(), cellsAtZ(house.owner(), 43) + " at the jetty's own row");
+                final DecorPlanner.Plan young = DecorPlanner.plan(level, boxes[0], 1, 6, ledger, colonyId, house.owner(), true);
+                check("at hut level 1 the jettied house keeps the one wreath on the jetty (ours, nothing new)",
+                        young.slots().isEmpty() && young.wreaths() == 1 && young.ours() == 1 && young.row() == 3,
+                        young.slots().size() + " slots, " + young.wreaths() + " wreaths, row " + young.row());
+                DecorPlacer.remove(level, ledger, colonyId, house.owner(), DecorPlacer.Stock.FREE);
+                check("the jettied house taken down: the world as before, nothing listed", same(boxes[0].grown(2), before)
+                        && ledger.group(colonyId, house.owner()) == null, changed(boxes[0].grown(2), before));
+
+                // the real town hall
+                if (boxes[1] == null) {
+                    return;
+                }
+                final DoorFinder.Box hall = boxes[1];
+                final DecorWork.Target target = DecorWork.Target.box(hall);
+                before.clear();
+                snapshot(hall.grown(2), before);
+                final List<DoorFinder.Door> hallDoors = DoorFinder.find(level, hall);
+                final BlockPos door = hall.min().offset(JETTY_HALL_DOOR);
+                check("the pasted town hall: its two open doorways as in the test world, the one door under the jetty is found",
+                        doorsOut[0] == 2 && hallDoors != null && hallDoors.size() == 1 && hallDoors.get(0).lower().equals(door),
+                        doorsOut[0] + " doors taken out, " + (hallDoors == null ? "unloaded" : hallDoors.toString()));
+                final DoorFinder.Door main = hallDoors == null || hallDoors.isEmpty() ? null : hallDoors.get(0);
+                if (main != null) {
+                    final StringBuilder rows = new StringBuilder();
+                    for (int up = 1; up <= 4; up++) {
+                        rows.append(" | +").append(up);
+                        for (int out = 0; out <= 2; out++) {
+                            final BlockPos at = main.lower().above(up).relative(main.outside(), out);
+                            final BlockState st = level.getBlockState(at);
+                            rows.append(out == 0 ? " " : ", ").append(BuiltInRegistries.BLOCK.getKey(st.getBlock()).getPath())
+                                    .append(st.isFaceSturdy(level, at, main.outside()) ? "*" : "");
+                        }
+                    }
+                    note("JETTY town hall door at {} out {}, sky {} / {}{}", main.lower().subtract(hall.min()).toShortString(), main.outside(),
+                            main.sky(), main.insideSky(), rows);
+                }
+                final DecorPlanner.Plan hallPlan = DecorPlanner.plan(level, hall, 5, 6, ledger, colonyId, target.owner(), true);
+                final DecorWork.Outcome hallPlaced = DecorWork.decorate(level, colonyId, target, 5, DecorPlacer.Stock.FREE, day(), ledger);
+                final int hw = countIn(target.owner(), SeasonsBlocks.WREATH.get());
+                final int hg = countIn(target.owner(), SeasonsBlocks.GARLAND.get());
+                final int hl = countIn(target.owner(), SeasonsBlocks.LANTERN_STRING.get()) + countIn(target.owner(), SeasonsBlocks.FAIRY_LIGHTS.get());
+                BlockPos hallWreath = null;
+                final DecorLedger.GroupView listed = ledger.group(colonyId, target.owner());
+                if (listed != null) {
+                    for (final Map.Entry<BlockPos, DecorLedger.Entry> e : listed.entries().entrySet()) {
+                        if (e.getValue().state().is(SeasonsBlocks.WREATH.get())) {
+                            hallWreath = e.getKey();
+                        }
+                    }
+                }
+                // the wreath above the door, two blocks out from the door's own wall: on the jetty's front
+                final boolean onJetty = main != null && hallWreath != null && hallWreath.getY() > main.lower().getY() + DecorPlanner.BESIDE_ROW
+                        && hallWreath.subtract(main.lower()).get(main.outside().getAxis()) * main.outside().getAxisDirection().getStep() == 2;
+                check("the town hall of the in-game test gets the door set: the wreath above its door on the jetty's front (not beside the door), "
+                                + "garland and lights beside and above it (hut level 5)",
+                        hallPlan.doors() == 1 && hallPlan.row() > DecorPlanner.BESIDE_ROW && hw == 1 && hg >= 2 && hl >= 1 && onJetty,
+                        "row " + hallPlan.row() + ", wreath " + hw + (hallWreath == null ? "" : " at " + hallWreath.subtract(hall.min()).toShortString())
+                                + ", garland " + hg + ", lights " + hl + ", " + hallPlaced.status());
+                DecorPlacer.remove(level, ledger, colonyId, target.owner(), DecorPlacer.Stock.FREE);
+                check("the town hall taken down: the world as before, nothing listed", same(hall.grown(2), before)
+                        && ledger.group(colonyId, target.owner()) == null, changed(hall.grown(2), before));
+            }
+        });
+    }
+
+    /** Entries of a group in the row z (the hand-built jetty's own row). */
+    private int cellsAtZ(final DecorLedger.Owner groupOwner, final int z) {
+        final DecorLedger.GroupView g = ledger.group(colonyId, groupOwner);
+        int n = 0;
+        if (g != null) {
+            for (final BlockPos pos : g.entries().keySet()) {
+                n += pos.getZ() == z ? 1 : 0;
+            }
+        }
+        return n;
+    }
+
+    private void snapshot(final DoorFinder.Box box, final Map<BlockPos, BlockState> into) {
+        for (final BlockPos pos : BlockPos.betweenClosed(box.min(), box.max())) {
+            into.put(pos.immutable(), level.getBlockState(pos));
+        }
+    }
+
+    private boolean same(final DoorFinder.Box box, final Map<BlockPos, BlockState> snap) {
+        return changed(box, snap).isEmpty();
+    }
+
+    /** The cells of the box that differ from the snapshot ("" when none), at most five named. */
+    private String changed(final DoorFinder.Box box, final Map<BlockPos, BlockState> snap) {
+        final StringBuilder out = new StringBuilder();
+        int n = 0;
+        for (final BlockPos pos : BlockPos.betweenClosed(box.min(), box.max())) {
+            if (level.getBlockState(pos) != snap.get(pos)) {
+                if (n++ < 5) {
+                    out.append(pos.toShortString()).append(' ');
+                }
+            }
+        }
+        return n == 0 ? "" : n + " cells changed: " + out.toString().trim();
+    }
+
     // ================================================================ drops (item 2)
 
     private void planDrops() {
@@ -1162,6 +1347,18 @@ public class CsAnswers {
                 checkEq("the first marker placed again: no notice", DecorEvents.secondMarkerNotices() - n0, 1);
                 checkEq("and it is still the square", ledger.marker(colonyId), marker);
                 level.setBlock(second, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+                // S10h, the README: a marker counts only when a player places it. Structurize's own placement call (a
+                // paste, and MineColonies' builder the same way) passes no player: a plain block, no notice, no square
+                final BlockPos pasted = new BlockPos(20, ground + 1, 32);
+                com.ldtteam.structurize.placement.handlers.placement.PlacementHandlers.handleBlockPlacement(level, pasted, m);
+                final BlockEntity pastedEntity = level.getBlockEntity(pasted);
+                check("a marker pasted the way Structurize pastes a blueprint stands there, with no player as its placer",
+                        level.getBlockState(pasted).is(SeasonsBlocks.FESTIVAL_MARKER.get())
+                                && pastedEntity instanceof me.lovkar.seasons.block.FestivalMarkerBlockEntity e && e.getPlacedBy() == null,
+                        String.valueOf(level.getBlockState(pasted)));
+                checkEq("a pasted marker counts for nothing: no second-marker notice", DecorEvents.secondMarkerNotices() - n0, 1);
+                checkEq("and the first marker is still the square", ledger.marker(colonyId), marker);
+                level.setBlock(pasted, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
             }
 
             @Override

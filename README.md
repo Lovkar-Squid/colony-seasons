@@ -122,7 +122,8 @@ is not touched until the take-down. Switching the tree off stops a new tree from
 ## The festival marker
 
 The tree stands where you want it. Place a **Festival Marker** on the square and the Decorator builds the
-tree there, facing the way the marker faces. Without a marker there is no tree, but the buildings are still
+tree there, facing the way the marker faces. The marker counts only when a player places it by hand: a marker
+set with a command or pasted with a blueprint does not. Without a marker there is no tree, but the buildings are still
 decorated. A colony has one marker: if you place a second one, the colony's managers get one chat line saying
 that only the first one counts. If something is in the way of the tree, he builds the rest when at most
 a tenth of it is blocked and none of that is the trunk. Otherwise he builds nothing and the hut window says

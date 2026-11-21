@@ -8,6 +8,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
@@ -28,8 +29,9 @@ import org.jetbrains.annotations.Nullable;
  * 3.5). Its {@code facing} points at the player who placed it, so the pennant is seen broadside from there; the
  * tree piece is placed relative to the marker and its facing. No collision. Its block entity
  * ({@link FestivalMarkerBlockEntity}) keeps who placed it and the colony it was placed in; placed in a colony that
- * has no marker yet, it becomes that colony's square (the decoration ledger keeps it), and broken it takes its
- * square's decorations with it.
+ * has no marker yet by a player, it becomes that colony's square (the decoration ledger keeps it), and broken it takes
+ * its square's decorations with it. A marker set by a command or pasted with a blueprint (a builder's too) is a plain
+ * block: it has no player placing it, so it never becomes a square.
  */
 public class FestivalMarkerBlock extends HorizontalDirectionalBlock implements EntityBlock {
     public static final MapCodec<FestivalMarkerBlock> CODEC = simpleCodec(FestivalMarkerBlock::new);
@@ -70,7 +72,10 @@ public class FestivalMarkerBlock extends HorizontalDirectionalBlock implements E
         }
         marker.setPlacedBy(placer == null ? null : placer.getUUID());
         marker.setColonyId(colonyAt(level, pos));
-        if (level instanceof ServerLevel server && marker.getColonyId() != FestivalMarkerBlockEntity.NO_COLONY) {
+        // only a player's own placing chooses the square (design 3.5; 3.2: nothing with collision goes up except at a
+        // marker the player put down). Structurize's paste and MineColonies' builder call this with no placer, and
+        // /setblock never calls it, so a marker from a blueprint or a command is a plain block (S10h)
+        if (level instanceof ServerLevel server && placer instanceof Player && marker.getColonyId() != FestivalMarkerBlockEntity.NO_COLONY) {
             DecorEvents.markerPlaced(server, marker.getColonyId(), pos);
         }
     }
