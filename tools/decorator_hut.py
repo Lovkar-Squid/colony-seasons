@@ -98,7 +98,9 @@ def gable_plaster(z, y):
     return PLASTER if (z + y) % 5 else "minecraft:spruce_log[axis=y]"
 
 
-def workshop(level):
+def workshop(level, barrels=True):
+    """The Workshop at `level` as the blueprint holds it. `barrels=False` leaves out S10g1's storeroom barrels
+    (STOREROOM_BARRELS), so build_pack.py can check that each of them goes into a cell the rest leaves as air."""
     if not 1 <= level <= 5:
         raise ValueError(level)
     s = Structure(f"{LOOK}{level}")
@@ -226,7 +228,7 @@ def workshop(level):
     for p in GROUND_RACKS[:{1: 2, 2: 3, 3: 4, 4: 5, 5: 6}[level]]:
         s.set(*p, RACK)
     # the storage room (S10e) goes in last: the corner at levels 1 and 2, the attic from level 3
-    for p, b in storage_room(level).items():
+    for p, b in storage_room(level, barrels).items():
         s.set(*p, b)
     # the storeroom's spots (S10g1): position tags in the hut block's data, not blocks
     for p, name in storeroom_tags(level).items():
@@ -243,7 +245,7 @@ ATTIC_RACKS = {3: [(-2, 6, -3), (-1, 6, -3)],
 BARREL_UP = "minecraft:barrel[facing=up]"
 
 
-def storage_room(level):
+def storage_room(level, barrels=True):
     """The Decorator's storage room (the owner's decision of 20 Nov 2026, S10e), {position: block}: where last year's
     decorations wait for the next festival, in MineColonies racks (a hut's stock lives only in racks) with barrels
     beside them as crates, so it shows what the room is. Levels 1 and 2 have no upper floor, so the room is the
@@ -254,7 +256,8 @@ def storage_room(level):
 
     S10g1 (docs/storage-look-design.md, variant A "tidy storeroom", picked 21 Nov 2026) adds the barrels the
     Decorator's packed pieces stand on, the same kind of block the bill already has (storeroom_barrels): at level 1 and
-    level 5 where design/src/storage_round.py places them, at levels 2 to 4 laid out by this chunk on the same rules."""
+    level 5 where design/src/storage_round.py places them, at levels 2 to 4 laid out by this chunk on the same rules
+    (left out with `barrels=False`)."""
     if not 1 <= level <= 5:
         raise ValueError(level)
     room = {}
@@ -274,7 +277,8 @@ def storage_room(level):
             room[(-3, 7, -3)] = BARREL_UP
             room[(2, 6, -3)] = "minecraft:barrel[facing=west]"
             room[(3, 6, -3)] = "minecraft:loom[facing=south]"
-    room.update(storeroom_barrels(level))
+    if barrels:
+        room.update(storeroom_barrels(level))
     return room
 
 

@@ -285,7 +285,8 @@ run (`tools/nbt.py` is a small NBT writer, so the scripts need no packages and r
   spot tags in every level (`STOREROOM`: `cs_pack_winter_<piece>` for a box or coil on a barrel, `cs_hang_winter_<piece>`
   for a festival piece on a wall face; `spot_facing` is the facing rule). `build_pack.py` checks them on every level
   (in air inside the walls on the room's floor, off the ladder, nothing above a rack or behind a window, packed pieces on
-  a barrel and never hung, hung pieces beside a whole wall block, both sets, the walk with either set placed) after a
+  a barrel and never hung, hung pieces beside a whole wall block, both sets, the walk with either set placed; the
+  barrels into the blueprint's air and none above a rack or behind a window, `workshop(level, barrels=False)`) after a
   self-test that plants each fault once, and writes `tools/csspots/res/csspots/spots.json` for the `csspots` probe.
 - `tools/tree_pieces.py`: the tree pieces the Decorator places at the festival marker, `pieces/village_spruce_small`,
   `village_spruce_full`, `village_spruce_rich` (tree A) and `grand_tree` (tree B) of `design/src/trees.py`. A piece is

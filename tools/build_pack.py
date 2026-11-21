@@ -23,7 +23,8 @@ picked designs only where decorator_hut.DESIGN_CHANGES / tree_pieces.DESIGN_CHAN
 (S10e: racks and vanilla blocks inside the walls, off the ladder, racks kept and more at every level, 2, 3, 6, 9 and
 12 of them); the storeroom's spot tags (S10g1, docs/storage-look-design.md 3.1 and 3.5: in air inside the walls, nothing
 above a rack, nothing behind a window, packed pieces standing on a barrel and never hung, hung pieces on a wall face,
-the walk and the ladder clear with either set placed, after a self-test of each rule); the piece contract (air
+the walk and the ladder clear with either set placed; the storeroom barrels into air, none above a rack or behind a
+window; after a self-test of each rule); the piece contract (air
 anchor, tags, the trunk a column of colony_seasons:festival_trunk and no log block in a piece, open sky over the
 crate); and a read-back of every written file.
 """
@@ -387,15 +388,39 @@ def spot_problems(level, s):
     return out
 
 
+def barrel_problems(bare, barrels):
+    """The blueprint layer of docs/storage-look-design.md 3.1 for S10g1's storeroom barrels `barrels` ({position:
+    block}) on one level's Workshop without them (`bare`): each goes into a cell `bare` leaves as air, none stands
+    directly above a rack (3.1: nothing at all in that cell, blueprint furniture included) and none right behind a
+    window (the outside stays look A). Inside the walls and off the ladder's way: check_storage."""
+    out = []
+    glass = {q for q, b in bare.blocks.items() if "glass" in b}
+    for (x, y, z), b in sorted(barrels.items()):
+        if bare.get(x, y, z) is not None:
+            out.append(f"barrel {(x, y, z)}: the blueprint has {bare.get(x, y, z)} there (only air cells)")
+        below = bare.get(x, y - 1, z)
+        if below is not None and voxel.parse_state(below)[0] == dh.RACK:
+            out.append(f"barrel {(x, y, z)}: directly above a rack (its boxes stand 6 px up into this cell)")
+        if any((x + dx, y, z + dz) in glass for dx, dz in ((1, 0), (-1, 0), (0, 1), (0, -1))):
+            out.append(f"barrel {(x, y, z)}: right behind a window")
+    return out
+
+
 def check_spots():
-    """The storeroom's spots (S10g1) of every level: spot_problems, after a self-test that the rules catch the faults
-    the design round's review found (a festival piece above a rack, a packed piece hung on a wall) and the others.
+    """The storeroom's spots (S10g1) of every level: spot_problems, and barrel_problems for the level's storeroom
+    barrels (which add nothing else to the blueprint), after a self-test that the rules catch the faults the design
+    round's review found (a festival piece above a rack, a packed piece hung on a wall) and the others.
     Returns (ok, per level (packed, hung))."""
     ok = selftest_spots()
     counts = []
     for lv in range(1, 6):
         s = dh.workshop(lv)
-        for p in spot_problems(lv, s):
+        bare = dh.workshop(lv, barrels=False)
+        barrels = dh.storeroom_barrels(lv)
+        found = spot_problems(lv, s) + barrel_problems(bare, barrels)
+        if s.blocks != {**bare.blocks, **barrels}:
+            found.append("the blueprint differs from the one without the storeroom barrels in more than those barrels")
+        for p in found:
             problem(f"storeroom spots, level {lv}: {p}")
             ok = False
         names = [dh.parse_tag(n) for ns in s.tags.values() for n in ns if dh.parse_tag(n)]
@@ -425,6 +450,12 @@ def selftest_spots():
         found = spot_problems(level, s)
         if not any(str(pos) in f and want in f for f in found):
             problem(f"storeroom spots self-test: {name} at {pos} on level {level} was not reported as '{want}': {found[:3]}")
+            ok = False
+    for level, pos, want in [(5, (-2, 8, -3), "directly above a rack"), (5, (4, 7, 2), "right behind a window"),
+                             (5, (-4, 6, -3), "only air cells")]:
+        found = barrel_problems(dh.workshop(level, barrels=False), {**dh.storeroom_barrels(level), pos: dh.BARREL_UP})
+        if not any(str(pos) in f and want in f for f in found):
+            problem(f"storeroom spots self-test: a barrel at {pos} on level {level} was not reported as '{want}': {found[:3]}")
             ok = False
     s = dh.workshop(1)
     for z in range(-3, 4):                                    # a wall across the room, between the door and the hut block

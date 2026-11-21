@@ -13,6 +13,8 @@ import com.minecolonies.api.colony.workorders.WorkOrderType;
 import com.minecolonies.api.tileentities.AbstractTileEntityColonyBuilding;
 import com.minecolonies.core.colony.workorders.WorkOrderBuilding;
 import me.lovkar.seasons.block.SeasonsBlocks;
+import me.lovkar.seasons.block.StorageBoxBlock;
+import me.lovkar.seasons.block.StorageCoilBlock;
 import me.lovkar.seasons.colony.BuildingDecorator;
 import me.lovkar.seasons.decor.StoreroomSpots;
 import net.minecraft.commands.CommandSource;
@@ -496,20 +498,21 @@ public class CsSpots {
         final Map<String, Set<BlockPos>> helper = new TreeMap<>();
         int states = 0;
         int missingStates = 0;
+        String wrongState = "";
         for (final StoreroomSpots.Spot s : StoreroomSpots.read(hut, StoreroomSpots.WINTER)) {
             helper.computeIfAbsent(s.tag(), k -> new TreeSet<>()).add(s.pos());
-            final BlockState packed = StoreroomSpots.state(s, false);
-            final BlockState festival = StoreroomSpots.state(s, true);
-            final boolean ok = switch (s.kind()) {
-                case HANG -> packed == null && festival != null;
-                case PACK -> packed != null && (s.piece().startsWith("coil_") ? festival == null : festival != null);
-            };
+            final String packed = describe(StoreroomSpots.state(s, false));
+            final String festival = describe(StoreroomSpots.state(s, true));
+            final boolean ok = packed.equals(wanted(s, false)) && festival.equals(wanted(s, true));
+            if (!ok && wrongState.isEmpty()) {
+                wrongState = s.tag() + ": packed " + packed + ", festival " + festival;
+            }
             states++;
             missingStates += ok ? 0 : 1;
         }
         checkEq(at + "StoreroomSpots.read lists the same spots", helper, want);
-        check(at + "every spot has its block packed and in the festival (a coil none in the festival, a hung piece none packed)",
-                missingStates == 0 && states > 0, states + " spots, " + missingStates + " without");
+        check(at + "every spot has the block its tag names, packed and in the festival (a box full, then low; a coil, then none; a hung piece none, then hung)",
+                missingStates == 0 && states > 0, states + " spots, " + missingStates + " wrong" + (wrongState.isEmpty() ? "" : ", e.g. " + wrongState));
         if (!world) {
             return;
         }
@@ -529,6 +532,32 @@ public class CsSpots {
         }
         check(at + "in the world every packed spot is air on a barrel and every hung spot air beside a wall", bad.isEmpty(),
                 bad.isEmpty() ? want.values().stream().mapToInt(Set::size).sum() + " spots" : bad.size() + " wrong, e.g. " + bad.get(0));
+    }
+
+    /** A state as "block prop=value ..." for the properties that say what a piece is (facing is the placer's), or "none". */
+    private static String describe(final BlockState state) {
+        if (state == null) {
+            return "none";
+        }
+        final StringBuilder out = new StringBuilder(BuiltInRegistries.BLOCK.getKey(state.getBlock()).getPath());
+        for (final Property<?> p : List.<Property<?>>of(StorageBoxBlock.CONTENT, StorageBoxBlock.FILL, StorageCoilBlock.KIND)) {
+            if (state.hasProperty(p)) {
+                out.append(' ').append(p.getName()).append('=').append(valueName(state, p));
+            }
+        }
+        return out.toString();
+    }
+
+    /** What docs/storage-look-design.md 3.5 says a spot's tag means, written out independently of StoreroomSpots.state. */
+    private static String wanted(final StoreroomSpots.Spot spot, final boolean festival) {
+        final String piece = spot.piece();
+        if (spot.kind() == StoreroomSpots.Kind.HANG) {
+            return festival ? Map.of("garland", "garland", "wreath", "wreath", "lights", "fairy_lights").get(piece) : "none";
+        }
+        if (piece.startsWith("coil_")) {
+            return festival ? "none" : "storage_coil kind=" + piece.substring("coil_".length());
+        }
+        return "storage_box content=" + piece.substring("box_".length()) + " fill=" + (festival ? "low" : "full");
     }
 
     /** A whole block a wall decoration hangs on, not furniture (a barrel or a rack). */
