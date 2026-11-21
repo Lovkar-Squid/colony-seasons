@@ -170,7 +170,7 @@
 
   "com.minecolonies.coremod.setting.tooltip.colony_seasons:decorate": "On: the Decorator puts decorations up and looks after them. Off: he puts nothing up (he still makes stock and takes everything down afterwards).",
   "com.minecolonies.coremod.setting.colony_seasons:kind_wreaths": "Wreaths",
-  "com.minecolonies.coremod.setting.tooltip.colony_seasons:kind_wreaths": "Whether the Decorator hangs wreaths above doors.",
+  "com.minecolonies.coremod.setting.tooltip.colony_seasons:kind_wreaths": "Whether the Decorator hangs wreaths above doors, and the one wreath on the outside wall of a building with no door.",
   "com.minecolonies.coremod.setting.colony_seasons:kind_garlands": "Garlands",
   "com.minecolonies.coremod.setting.tooltip.colony_seasons:kind_garlands": "Whether the Decorator hangs garlands beside the doors.",
   "com.minecolonies.coremod.setting.colony_seasons:kind_lights": "Lights",
