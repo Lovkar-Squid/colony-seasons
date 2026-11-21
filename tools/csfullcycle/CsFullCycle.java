@@ -1091,7 +1091,8 @@ public class CsFullCycle {
 
                 @Override
                 void end(final boolean done) {
-                    check(label + ": before the window nothing is up, gifts are closed, nobody is called", ledger.count(colonyId) == 0
+                    // the outside decorations (a Workshop's storeroom would stand packed before a window, S10g2)
+                    check(label + ": before the window nothing is up, gifts are closed, nobody is called", ledger.countOutdoor(colonyId) == 0
                                     && !Gifts.season(CalendarManager.current()) && Gathering.pulls() == pulls0,
                             ledger.count(colonyId) + " entries, gifts season " + Gifts.season(CalendarManager.current()) + ", " + (Gathering.pulls() - pulls0) + " pulls");
                 }
@@ -1272,7 +1273,7 @@ public class CsFullCycle {
                 step(day(d, label + " game day " + (i + 1), EVENING, new DayHook() {
                     @Override
                     void start() {
-                        if (!ledger.hasEntries(colonyId) && (hut == null || !hut.decorationsUp())) {
+                        if (!ledger.hasOutdoorEntries(colonyId) && (hut == null || !hut.decorationsUp())) {
                             setTimeOfDay(EVENING - 200);   // everything is down: this game day only passes
                         }
                     }

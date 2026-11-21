@@ -33,6 +33,9 @@ public final class DecoratorTexts {
     public static final String WAITING_CHUNKS = "com.colony_seasons.status.waiting_chunks";
     public static final String ON_WAY_DOWN = "com.colony_seasons.status.on_way_down";
     public static final String TOOK_DOWN_AT = "com.colony_seasons.status.took_down_at";
+    // the storeroom in his Workshop (S10g2): a check that changed the room's set, one line each way
+    public static final String ROOM_UNPACKING = "com.colony_seasons.status.room_unpacking";
+    public static final String ROOM_PACKING = "com.colony_seasons.status.room_packing";
     // the festival states (S7): Hosting at the tree, Launching at the square, the shows
     public static final String ON_WAY_GATHERING = "com.colony_seasons.status.on_way_gathering";
     public static final String HOSTING = "com.colony_seasons.status.hosting";

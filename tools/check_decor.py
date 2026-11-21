@@ -23,6 +23,8 @@ PLACEABLE = {
     "fairy_lights": "LitWallDecorationBlock", "ornament_leaves": "OrnamentLeavesBlock", "tinsel_leaves": "OrnamentLeavesBlock",
     "tree_star": "TreeStarBlock", "large_star": "LargeStarBlock", "gift_pile": "GiftPileBlock", "firework_crate": "FireworkCrateBlock",
     "festival_trunk": "FestivalTrunkBlock",
+    # the storeroom's dressing in the Workshop (S10g2): no item, placed for free
+    "storage_box": "StorageBoxBlock", "storage_coil": "StorageCoilBlock",
 }
 EXTENDS = re.compile(r"class\s+(\w+)\s+extends\s+(\w+)")
 
