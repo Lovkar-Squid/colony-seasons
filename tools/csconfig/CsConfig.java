@@ -40,6 +40,7 @@ public class CsConfig {
     private record Expected(int yearLengthDays, String startSeason, boolean useSereneSeasons, String timeZone,
                             Festival winter, Festival newYear,
                             boolean needsMaterials, int buildingsPerDayBase, int buildingsPerDayPerLevel, int maxPerSide,
+                            boolean storeroomDressing,
                             int gatherFromTick, int gatherUntilTick, String whoComes, boolean midnightShow, int giftsPerPlayerPerDay,
                             boolean festivalHappiness, double festivalHappinessBonus,
                             boolean winterCropSlowdown, double winterCropSkipChance,
@@ -52,6 +53,7 @@ public class CsConfig {
             new Festival(true, "12-01", "01-06", "12-24", "12-26"),
             new Festival(true, "12-31", "01-01", "12-31", "01-01"),
             true, 2, 2, 6,
+            true,
             8500, 10500, "everyone_once_a_day", true, 1,
             false, 1.0, false, 0.5, false, 1.25, true);
 
@@ -61,6 +63,7 @@ public class CsConfig {
             new Festival(false, "11-15", "01-10", "12-20", "12-28"),
             new Festival(false, "12-30", "01-02", "12-30", "01-02"),
             false, 5, 3, 9,
+            false,
             7000, 9000, "off_duty", false, 3,
             true, 2.5, true, 0.25, true, 1.5, false);
 
@@ -124,6 +127,7 @@ public class CsConfig {
         checkEq("buildingsPerDayBase", SeasonsConfig.buildingsPerDayBase(), want.buildingsPerDayBase());
         checkEq("buildingsPerDayPerLevel", SeasonsConfig.buildingsPerDayPerLevel(), want.buildingsPerDayPerLevel());
         checkEq("maxPerSide", SeasonsConfig.maxPerSide(), want.maxPerSide());
+        checkEq("storeroomDressing", SeasonsConfig.storeroomDressing(), want.storeroomDressing());
 
         checkEq("gatherFromTick", SeasonsConfig.gatherFromTick(), want.gatherFromTick());
         checkEq("gatherUntilTick", SeasonsConfig.gatherUntilTick(), want.gatherUntilTick());
@@ -169,6 +173,7 @@ public class CsConfig {
                 && SeasonsConfig.DEFAULT_BUILDINGS_PER_DAY_BASE == d.buildingsPerDayBase()
                 && SeasonsConfig.DEFAULT_BUILDINGS_PER_DAY_PER_LEVEL == d.buildingsPerDayPerLevel()
                 && SeasonsConfig.DEFAULT_MAX_PER_SIDE == d.maxPerSide()
+                && SeasonsConfig.DEFAULT_STOREROOM_DRESSING == d.storeroomDressing()
                 && SeasonsConfig.DEFAULT_GATHER_FROM_TICK == d.gatherFromTick()
                 && SeasonsConfig.DEFAULT_GATHER_UNTIL_TICK == d.gatherUntilTick()
                 && SeasonsConfig.DEFAULT_WHO_COMES.equals(d.whoComes())
