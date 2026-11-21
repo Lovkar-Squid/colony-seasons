@@ -334,3 +334,15 @@ Questions for the owner [O]:
 A note on S10e as shipped (not changed here): the attic's racks stand two high, and MineColonies draws a full rack's
 two boxes 6 px up into the cell above, so while the lower rack holds anything its boxes show inside the rack above,
 as in any MineColonies warehouse with stacked racks.
+
+## 7. Picked (21 Nov 2026, ~01:55)
+
+The owner let the build pick the recommendation overnight (his answer before he went to sleep: pick the recommended
+variant and build it, he looks at the pictures in the morning). So, until he says otherwise:
+
+1. **Variant A**, the tidy storeroom, without B's vanilla touches.
+2. The packed boxes **always look the same** (they do not follow the real stock); simpler, and the racks already show
+   the real stock.
+3. At levels 3 to 5 the ground floor's corner **keeps its racks bare**; the dressing is in the attic.
+
+These are [A] picks made for him, not [B] answers: if he picks otherwise in the morning, the change is a small follow-up.
