@@ -31,6 +31,9 @@ import me.lovkar.seasons.calendar.CalendarManager;
 import me.lovkar.seasons.calendar.DateSource;
 import me.lovkar.seasons.colony.BuildingDecorator;
 import me.lovkar.seasons.colony.DecoratorModules;
+import me.lovkar.seasons.colony.DecoratorStorageModule;
+import me.lovkar.seasons.colony.DecoratorStorageModuleView;
+import me.lovkar.seasons.colony.StorageTabState;
 import me.lovkar.seasons.colony.JobDecorator;
 import me.lovkar.seasons.decor.DecorLedger;
 import me.lovkar.seasons.decor.DecorPhase;
@@ -921,6 +924,29 @@ public class CsStorage {
         return UpgradeStoragePayload.apply(owner, hutPos);
     }
 
+    /**
+     * S10h: the hut window's storage tab as the client holds it, fed the same bytes the module writes for a building
+     * packet ({@link DecoratorStorageModule#serializeToView}), and its state ({@link StorageTabState}) that the window
+     * asks every client tick. One view and one state for the whole run: a click after an earlier one must work
+     * without the window being opened again.
+     */
+    private final DecoratorStorageModuleView tabView = new DecoratorStorageModuleView();
+    private final StorageTabState tab = new StorageTabState();
+
+    /** The server sends the building: the client's view reads the module's bytes (MineColonies deserializes it in place). */
+    private void sendView() {
+        final DecoratorStorageModule module = hut.getModule(DecoratorModules.STORAGE);
+        final RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), server.registryAccess());
+        module.serializeToView(buf);
+        tabView.deserialize(buf);
+        check("(e2) the view reads exactly the bytes the module wrote", buf.readableBytes() == 0, buf.readableBytes() + " left");
+    }
+
+    /** What the tab shows now: the view's step, the hut's level, the blocks the player holds (the client's copy after the slot sync). */
+    private StorageTabState.Shown tabShown() {
+        return tab.shown(tabView.step(), hut.getBuildingLevel(), emeraldBlocks());
+    }
+
     /** One storage step clicked; the next tick checks the racks (MineColonies rebuilds the hut's combined handler each tick). */
     private void upgradeClick(final int expectStep, final List<Integer> ours) {
         final int[] before = new int[3];
@@ -928,10 +954,35 @@ public class CsStorage {
             before[0] = emeraldBlocks();
             before[1] = hut.getItemHandlerCap().getSlots();
             before[2] = racks(hut).size();
+            sendView();
+            tab.tick(tabView.step());
+            final StorageTabState.Shown open = tabShown();
+            check("(e2) before click " + expectStep + " the tab (never reopened) offers the button: step " + (expectStep - 1) + ", "
+                    + before[0] + " held", open.clickable() && open.step() == expectStep - 1 && open.have() == before[0], String.valueOf(open));
+            tab.clicked(tabView.step());
             final UpgradeStoragePayload.Result r = clickUpgrade();
             checkEq("(e) step " + expectStep + " is taken", r, UpgradeStoragePayload.Result.UPGRADED);
             checkEq("(e) step " + expectStep + " takes exactly one emerald block", before[0] - emeraldBlocks(), 1);
             checkEq("(e) the step count", hut.storageStep(), expectStep);
+            // the in-game test: the old window drew once at the click and kept the count it read before the server took the block
+            final StorageTabState.Shown waiting = tabShown();
+            check("(e2) right after click " + expectStep + ", before the building packet: the new step at once, the button waiting, "
+                            + "the count the server left (so the window draws again)",
+                    waiting.step() == expectStep && !waiting.offered() && waiting.have() == before[0] - 1 && !waiting.equals(open), String.valueOf(waiting));
+            for (int i = 0; i < 5; i++) {
+                tab.tick(tabView.step());
+            }
+            check("(e2) the button keeps waiting while no packet came", tab.waiting() && !tabShown().offered(), String.valueOf(tabShown()));
+            sendView();
+            checkEq("(e2) the view's step after the building packet is the server's", tabView.step(), expectStep);
+            tab.tick(tabView.step());
+            final StorageTabState.Shown answered = tabShown();
+            final boolean more = expectStep < BuildingDecorator.MAX_STORAGE_STEP;
+            check("(e2) the server's answer ends the wait at once: step " + expectStep + " counted once, the button "
+                            + (more ? "offered again for a second click" : "gone after the last step"),
+                    !tab.waiting() && answered.step() == expectStep && answered.offered() == more
+                            && answered.clickable() == (more && answered.have() >= StorageTabState.PRICE) && (!more || !answered.equals(waiting)),
+                    String.valueOf(answered));
         });
         now("(e) step " + expectStep + ": the racks", () -> {
             final int size = 27 + 9 * expectStep;
@@ -973,8 +1024,20 @@ public class CsStorage {
                     new GameProfile(UUID.nameUUIDFromBytes("csstorage_stranger".getBytes(StandardCharsets.UTF_8)), "csstorage_stranger"));
             stranger.setPos(hutPos.getX() + 0.5, hutPos.getY(), hutPos.getZ() + 6.5);
             stranger.getInventory().add(new ItemStack(Items.EMERALD_BLOCK, 1));
+            sendView();
+            tab.tick(tabView.step());
+            tab.clicked(tabView.step());
             checkEq("(e) a player with no rank: refused", UpgradeStoragePayload.apply(stranger, hutPos),
                     UpgradeStoragePayload.Result.NO_PERMISSION);
+            // S10h: a refused click sends no building packet (nothing changed); the tab's wait ends on its own
+            for (int i = 1; i < StorageTabState.ANSWER_TICKS; i++) {
+                tab.tick(tabView.step());
+            }
+            final boolean stillWaiting = tab.waiting();
+            tab.tick(tabView.step());
+            final StorageTabState.Shown refused = tab.shown(tabView.step(), hut.getBuildingLevel(), stranger.getInventory().countItem(Items.EMERALD_BLOCK));
+            check("(e2) a refused click: the tab waits " + StorageTabState.ANSWER_TICKS + " client ticks, then shows the server's step 0 and offers the button again",
+                    stillWaiting && !tab.waiting() && refused.step() == 0 && refused.clickable(), stillWaiting + " " + refused);
             checkEq("(e) nothing taken from him, nothing changed", stranger.getInventory().countItem(Items.EMERALD_BLOCK)
                     + " blocks, step " + hut.storageStep(), "1 blocks, step 0");
             stranger.getInventory().clearContent();

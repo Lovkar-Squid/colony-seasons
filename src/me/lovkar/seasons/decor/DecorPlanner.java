@@ -21,7 +21,9 @@ import java.util.function.Predicate;
  *   <li>The doors come from {@link DoorFinder}: the main door, and at hut level 5 the second one too.</li>
  *   <li>The wreath goes on the wall above the door, in the cell one out from it: two up, else three up, else beside the
  *       door's upper half ({@link #WREATH_ROWS}, {@link #BESIDE_ROW}); the wall needs a sturdy face towards the outside
- *       and the cell must pass the cell rule.</li>
+ *       and the cell must pass the cell rule. Where the building juts out over its door (an upper floor on a jetty, a
+ *       porch roof of whole blocks), the wall of a row above the door is the front of that overhang
+ *       ({@link #JETTY_DEPTH}, {@link #wallAbove}).</li>
  *   <li>The garland runs left and right of the wreath in the same row, the lights in the row above (wreath column
  *       included), cell by cell; a walk stops at the first cell that fails the cell rule, so a torch, a window, the
  *       player's own wreath, the corner of the house or the edge of the claim ends it, and it is never touched. A cell
@@ -52,6 +54,16 @@ public final class DecorPlanner {
      * whose lintel and the wall above it hold no free spot (a porch roof, a sign, a lantern).
      */
     public static final int BESIDE_ROW = 1;
+    /**
+     * How far out from a door's own wall the wall of a row above the door may stand (S10h): where the building juts out
+     * over the door, the wreath, the garland and the lights hang on the front of the overhang, not on the wall behind
+     * it. Found in the fourth in-game test: the town hall of the Medieval Dark Oak style has its door under the jettied
+     * upper floor, with a row of stairs under the jetty in front of door + 2 and the jetty's wall in front of door + 3,
+     * so both rows failed, the wreath went beside the door and the garland and lights found no row; the building looked
+     * like a doorless one. The front is taken only over blocks whose face towards the outside is sturdy, so a lantern, a
+     * sign or a stair turned sideways in front of the wall ends the search as before ({@link #wallAbove}).
+     */
+    public static final int JETTY_DEPTH = 2;
 
     /** What one hut level puts on a building (design 3.4's table). Each side is also capped by the config's maxPerSide. */
     public record Amounts(boolean wreath, int garland, int lights, boolean secondDoor) {
@@ -222,8 +234,9 @@ public final class DecorPlanner {
     }
 
     /**
-     * One door's slots; returns where the wreath went: 2 or 3 (that many above the door), 1 (beside the door's upper
-     * half), or for no wreath the garland row's height (0 for nothing at all).
+     * One door's slots; returns where the wreath went: 2 or 3 (that many above the door, on the wall above it or on the
+     * front of an overhang, {@link #wallAbove}), 1 (beside the door's upper half), or for no wreath the garland row's
+     * height (0 for nothing at all).
      *
      * <p>The wreath spots are tried in {@link #WREATH_ROWS} order, then {@link #BESIDE_ROW}: the first whose wall is
      * sturdy towards the outside and whose cell in front is free by the cell rule (or holds a wreath already, the
@@ -239,7 +252,7 @@ public final class DecorPlanner {
         final BlockState lights = facing(light, out);
         final List<BlockPos> spots = new ArrayList<>();
         for (final int up : WREATH_ROWS) {
-            spots.add(door.lower().above(up));
+            spots.add(wallAbove(level, door, up));
         }
         final Direction along = door.along();
         spots.add(door.lower().relative(along.getOpposite()).above(BESIDE_ROW));
@@ -268,7 +281,7 @@ public final class DecorPlanner {
         BlockPos anchor = wreathWall != null && wreathWall.getY() > door.lower().getY() + BESIDE_ROW ? wreathWall : null;
         if (anchor == null) {
             for (final int up : WREATH_ROWS) {
-                final BlockPos wall = door.lower().above(up);
+                final BlockPos wall = wallAbove(level, door, up);
                 if (level.getBlockState(wall).isFaceSturdy(level, wall, out)) {
                     anchor = wall;
                     break;
@@ -316,6 +329,30 @@ public final class DecorPlanner {
             return wreathWall.getY() - door.lower().getY();
         }
         return anchor.getY() - door.lower().getY();
+    }
+
+    /**
+     * The wall of the row {@code up} above a door (S10h): the block above the door's lower half, or, where the building
+     * juts out over the door, the front of that overhang. From the door's wall it steps one block out while the block in
+     * front is not air, not one of our wall decorations, in a loaded chunk, and has a sturdy face towards the outside, at
+     * most {@link #JETTY_DEPTH} times. A door with open air in front of the rows above it (nearly every door) keeps the
+     * wall above the door, as before. The caller still checks the wall's face and the cell in front of it.
+     */
+    static BlockPos wallAbove(final ServerLevel level, final DoorFinder.Door door, final int up) {
+        final Direction out = door.outside();
+        BlockPos wall = door.lower().above(up);
+        for (int step = 0; step < JETTY_DEPTH; step++) {
+            final BlockPos front = wall.relative(out);
+            if (!level.hasChunkAt(front)) {
+                break;                                // never read (and so load) a chunk that is not loaded
+            }
+            final BlockState state = level.getBlockState(front);
+            if (state.isAir() || state.getBlock() instanceof WallDecorationBlock || !state.isFaceSturdy(level, front, out)) {
+                break;
+            }
+            wall = front;
+        }
+        return wall;
     }
 
     /**

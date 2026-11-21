@@ -8,7 +8,12 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.NotNull;
 
-/** The client's copy of the Workshop's storage step: it reads what {@link DecoratorStorageModule#serializeToView} wrote. */
+/**
+ * The client's copy of the Workshop's storage step: it reads what {@link DecoratorStorageModule#serializeToView} wrote.
+ * MineColonies deserializes a building's module views in place when the server sends the building again, so an open
+ * window reads the new step from this same object. The client never counts a step here itself (S10h): the window's
+ * {@link StorageTabState} shows a click at once and waits for this value, so the server's step always wins.
+ */
 public class DecoratorStorageModuleView extends AbstractBuildingModuleView {
 
     private int step;
@@ -21,13 +26,6 @@ public class DecoratorStorageModuleView extends AbstractBuildingModuleView {
     /** Steps paid for, as the last packet said. */
     public int step() {
         return step;
-    }
-
-    /** The window counts its own click at once, as MineColonies' Warehouse window does; the next packet sets it right. */
-    public void stepTaken() {
-        if (step < BuildingDecorator.MAX_STORAGE_STEP) {
-            step++;
-        }
     }
 
     /** Typed as BlockUI's base window, so a dedicated server can load this view without the window classes. */

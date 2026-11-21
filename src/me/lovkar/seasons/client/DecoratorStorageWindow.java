@@ -9,6 +9,7 @@ import com.minecolonies.core.client.gui.AbstractModuleWindow;
 import me.lovkar.seasons.ColonySeasons;
 import me.lovkar.seasons.colony.BuildingDecorator;
 import me.lovkar.seasons.colony.DecoratorStorageModuleView;
+import me.lovkar.seasons.colony.StorageTabState;
 import me.lovkar.seasons.network.UpgradeStoragePayload;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
@@ -26,7 +27,12 @@ import net.neoforged.neoforge.network.PacketDistributor;
  * button that sends {@link UpgradeStoragePayload}. As in the Warehouse window, the button is offered only at the
  * upgrade level with a step left; below that level it reads a dark red "X" with a tooltip naming the level. The
  * client greys the button when a player outside creative has no emerald block; the server decides either way.
- * After a click the window counts the step at once and locks the button until it is opened again, as MineColonies does.
+ *
+ * <p>S10h: the tab follows the server while it is open. Every client tick it asks {@link StorageTabState#shown} with
+ * the view's step, the hut's level and the blocks the player holds, and redraws when that differs from what it drew:
+ * the count follows the inventory once the server has taken the block, the step and the button follow the server's
+ * answer (MineColonies updates the module view in place), and a second click works without opening the window again.
+ * After a click the step shows one more at once and the button waits for the answer ({@link StorageTabState}).</p>
  */
 public class DecoratorStorageWindow extends AbstractModuleWindow<DecoratorStorageModuleView> {
 
@@ -34,10 +40,10 @@ public class DecoratorStorageWindow extends AbstractModuleWindow<DecoratorStorag
     private static final int RED = 0xFF0000;
     private static final int DARK_GREEN = 0x006400;
     private static final int BLACK = 0x000000;
-    /** The price of one step, as in MineColonies' Warehouse window. */
-    private static final int PRICE = 1;
 
-    private boolean lockUpgrade;
+    private final StorageTabState state = new StorageTabState();
+    /** What the tab drew last ({@code null}: nothing yet). */
+    private StorageTabState.Shown drawn;
 
     /** The window for a view, typed as BlockUI's base window (see {@link DecoratorStorageModuleView#getWindow}). */
     public static BOWindow create(final DecoratorStorageModuleView view) {
@@ -52,14 +58,33 @@ public class DecoratorStorageWindow extends AbstractModuleWindow<DecoratorStorag
     @Override
     public void onOpened() {
         super.onOpened();
-        updateResourcePane();
+        refresh(true);
+    }
+
+    /** Every client tick (BlockUI's screen tick): the wait for the server's answer, then a redraw if anything changed. */
+    @Override
+    public void onUpdate() {
+        super.onUpdate();
+        state.tick(moduleView.step());
+        refresh(false);
     }
 
     private void upgrade() {
+        if (drawn == null || !drawn.clickable()) {
+            return;
+        }
         PacketDistributor.sendToServer(new UpgradeStoragePayload(buildingView.getID()));
-        moduleView.stepTaken();
-        lockUpgrade = true;
-        updateResourcePane();
+        state.clicked(moduleView.step());
+        refresh(false);
+    }
+
+    /** Draws the tab when what it shows changed since the last drawing (or always, when {@code force}). */
+    private void refresh(final boolean force) {
+        final StorageTabState.Shown now = state.shown(moduleView.step(), buildingView.getBuildingLevel(), playerHas(Minecraft.getInstance().player));
+        if (force || !now.equals(drawn)) {
+            drawn = now;
+            updateResourcePane(now);
+        }
     }
 
     /** Emerald blocks the player holds (the price counts as held in creative, as in MineColonies). */
@@ -68,7 +93,7 @@ public class DecoratorStorageWindow extends AbstractModuleWindow<DecoratorStorag
             return 0;
         }
         if (player.isCreative()) {
-            return PRICE;
+            return StorageTabState.PRICE;
         }
         int total = 0;
         for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
@@ -80,12 +105,11 @@ public class DecoratorStorageWindow extends AbstractModuleWindow<DecoratorStorag
         return total;
     }
 
-    private void updateResourcePane() {
-        final int step = moduleView.step();
-        final int level = buildingView.getBuildingLevel();
-        final boolean atLevel = level >= BuildingDecorator.STORAGE_UPGRADE_LEVEL;
-        final boolean offered = step < BuildingDecorator.MAX_STORAGE_STEP && atLevel && !lockUpgrade;
-        final int have = playerHas(Minecraft.getInstance().player);
+    private void updateResourcePane(final StorageTabState.Shown shown) {
+        final int step = shown.step();
+        final boolean atLevel = shown.atLevel();
+        final boolean offered = shown.offered();
+        final int have = shown.have();
 
         final Text name = findPaneOfTypeByID("resourceName", Text.class);
         final Text missing = findPaneOfTypeByID("resourceMissing", Text.class);
@@ -102,7 +126,7 @@ public class DecoratorStorageWindow extends AbstractModuleWindow<DecoratorStorag
         if (!offered) {
             button.disable();
             color = BLACK;
-        } else if (have < PRICE) {
+        } else if (have < StorageTabState.PRICE) {
             button.disable();
             color = RED;
         } else {
@@ -122,15 +146,22 @@ public class DecoratorStorageWindow extends AbstractModuleWindow<DecoratorStorag
                     .appendNL(Component.translatable("com.colony_seasons.gui.storage.disabled.2", BuildingDecorator.STORAGE_UPGRADE_LEVEL))
                     .hoverPane(button)
                     .build();
+        } else if (button.getHoverPane() != null) {
+            // the hut reached the upgrade level while the window was open (a redraw since S10h): the row as at that level
+            button.setHoverPane(null);
+            button.setText(Component.literal("↥"));            // the layout's label
+            name.show();
+            missing.show();
+            neededText.show();
         }
         name.setText(Items.EMERALD_BLOCK.getDescription().copy());
-        final int lacking = PRICE - Math.min(have, PRICE);
+        final int lacking = StorageTabState.PRICE - Math.min(have, StorageTabState.PRICE);
         if (offered && lacking > 0) {
             missing.setText(Component.literal("-" + lacking));
         } else {
             missing.clearText();
         }
-        neededText.setText(Component.literal(Math.min(have, 99) + " / " + PRICE));
+        neededText.setText(Component.literal(Math.min(have, 99) + " / " + StorageTabState.PRICE));
         if (icon != null && atLevel) {
             icon.setItem(new ItemStack(Items.EMERALD_BLOCK, 1));
         }
