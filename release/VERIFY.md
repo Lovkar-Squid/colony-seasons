@@ -19,6 +19,10 @@ S11b changed is listed under it; the items of S9 and S10 follow as the record. C
 `src/me/lovkar/seasons/` unless a path says otherwise. "Look" marks a claim that only an in-game look can prove (the
 probes run headless on the rig and see no picture).
 
+State after S10i (21 Nov 2026, branch ekipa-s10i): the owner's answers of 21 Nov 2026 (design, last section). The two
+findings of S11b below are fixed in the code: `showParticles` is gone from the client config, and the Calendar page
+says when the tree has no room. The CurseForge page was approved as written and named neither, so it is unchanged.
+
 ## The CurseForge page, claim by claim (S11b)
 
 `release/curseforge-description.md`: about 8,200 characters, no images (CurseForge needs absolute image links, and
@@ -72,11 +76,19 @@ Found by S11b in the code and not changed (only the page texts and one tooltip w
 - `SeasonsClientConfig.showParticles` is in the client config with a comment that promises snow over the tree, the
   glow of lit decorations and firework sparks, but nothing reads it and the mod has no particles of its own (the
   only ones are the hearts the server sends at the gathering, `festival/Gifts.java:208`). The pages now say it does
-  nothing yet.
+  nothing yet. Fixed (S10i, the owner's answer of 21 Nov 2026): the key is gone (`SeasonsClientConfig.java`); a
+  client file that still has it loads and NeoForge drops the key, keeping `showClothes` (csconfig seeded, with the
+  file 0.1.0-beta.1 wrote); csconfig defaults checks the written file's keys against a hand-written list. The README
+  sentence and the player changelog's limit are gone.
 - The hut window never says that the tree does not fit at the marker: `DecorLedger.squareProblem` is set
   (`decor/DecorWork.java:645`) and csdecorgate checks that it is "noted for the hut window", but
   `colony/DecoratorInfoModule.java` never reads it, and the status line then reads "Decorated Festival square: 0
   placed, 0 still open." What the player gets is the managers' chat line once a game day; the pages now say that.
+  Fixed (S10i, the owner's answer of 21 Nov 2026): `colony/DecoratorInfoModule.java` (`read`) sends the note with the
+  page while a decoration window is open, `client/DecoratorInfoWindow.java` (`lines`) shows one red line under
+  "Now:" (`com.colony_seasons.gui.info.square_no_room`), and a colony tick sends the page again when the note
+  changes; csdecorgate square reads the module's own packet back (the line on, off outside the window, gone once the
+  tree fits). The chat line stays. README and the player changelog say both again.
 - The tree switch (found by the S11b review): only `nextToDecorate` reads it (`decor/DecorWork.java:192`). With the
   tree off, a tree he is still building stays half built (`nextToTend`, `:450-471`, takes only a group whose
   `decoratedDay` is set, which a tree gets when it is finished or found no room, `:644,698`); a finished or no-room
@@ -161,11 +173,11 @@ README:
 - The marker: inside the colony's claim (`block/FestivalMarkerBlock.java:94-103`); without it no gift pile and no
   fireworks either (`festival/Fireworks.java:470`); breaking it takes the tree down (`decor/DecorEvents.java:166-177`);
   a second marker does not take over (H14); "the hut window says there is not enough room" became the managers' chat
-  line once a game day (see above).
+  line once a game day (see above). S10i: the Calendar page says it again, next to the chat line.
 - Lighting: the strings of lights "on the buildings" (`festival/TreeLighting.java:26-28`).
 - Gifts: from Workshop level 2 (`decor/PieceLoader.java:60`), `events.giftsPerPlayerPerDay`, the colony's
   protection, all three gift tables.
-- Clothes: `showParticles` does nothing yet (see above).
+- Clothes: `showParticles` does nothing yet (see above). S10i: the key is gone, and the sentence with it.
 - The food effect: "takes a quarter" became "the extra share ... (a quarter with the default factor)"
   (`effects/FoodEffect.java:82-97`).
 - Crops: "grew one of them 4000 steps" became "made one of them try to grow 4000 times"
@@ -240,6 +252,10 @@ sentence moved.
    Changed (S11b): the note reaches the colony's managers as a chat line once a game day; the hut window does not show
    it (`DecorLedger.squareProblem` is set but never read), so README and the CurseForge page say the chat line. The
    marker counts only when a player places it by hand (S10h), inside the colony's claim.
+   Changed (S10i): the hut window shows the note again (the owner's answer of 21 Nov 2026), as a line on the Calendar
+   page while a decoration window is open, and the chat line stays; csdecorgate square checks the page's packet. The
+   README says both. The CurseForge page has no sentence about the room (S11b's "and the CurseForge page" above was
+   wrong) and stays as approved.
 10. Uninstalling: `decor remove` first; the tree's leaves stay (design 3.3; since S10c its trunk is the mod's own
    `festival_trunk` and goes with the mod).
    Proof: hostile-world H18: decor remove in the middle of the festival leaves nothing listed, the square as it was before

@@ -29,6 +29,8 @@ Ornamentum. Serene Seasons is optional. Install it on the server and on every cl
   blocks only the Decorator places, with no item: the festival tree's trunk and the storeroom's boxes and coils.
 - The festival marker: place it on the square and the Decorator builds the tree there. Only a marker a player
   places by hand counts. A second marker in a colony tells the colony's managers that only the first one counts.
+  When the tree does not fit at the marker, the Workshop's Calendar page says so and the colony's managers get a
+  chat line.
 - The tree's trunk is the mod's own block, in no log tag, so a Forester never cuts the festival tree.
 - Gifts: from 1 December to 6 January each player takes a gift a day from the pile at the tree (from Workshop
   level 2), a better one on 24 to 26 December.
@@ -51,7 +53,5 @@ Ornamentum. Serene Seasons is optional. Install it on the server and on every cl
 - Only the Winter Festival and New Year are in this version.
 - The happiness bonus is not listed in the citizen window; the Decorator's hut window shows it.
 - MineColonies' own crops grow through their own code and are not slowed in winter.
-- When the tree does not fit at the marker, the colony's managers get a chat line; the hut window does not say so.
-- The client config's `showParticles` switch does nothing yet.
 - Streets are not decorated.
 - English only.
