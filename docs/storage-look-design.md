@@ -376,3 +376,27 @@ These are [A] picks made for him, not [B] answers: if he picks otherwise in the 
   The code that reads them is `decor/StoreroomSpots.java`.
 - Renders of all five levels with the pieces at their tags, packed and in the festival:
   `docs/renders/s10g/2026-11-21-s10g-levels.png`, and levels 1 and 5 on their own (`-l1-*`, `-l5-*`).
+
+## 9. Built in S10g2 (the ledger kind, the check and the probe)
+
+- **Ledger** (3.3): `DecorLedger.Kind.STOREROOM`, `Owner.storeroom(hut position)`, file version 2 with the same layout
+  (a version 1 file or one with no version loads as before; the csstoreroom probe loads hand-written ones). The group's
+  `festival` is the set a complete check left there (`""` packed), `level` the Workshop level, `tendedDay` the day of
+  that check (`DecorLedger.setRoom`). `hasOutdoorEntries` and `countOutdoor` (buildings and the square only) are read by
+  the AI's phase, `takingDown`, `upkeep`, the sweep's reset of "decorations up" and the hut page's count; `hasEntries`
+  stays for `dropColony` and the sweep's `gone()`.
+- **The check** (3.2): `decor/StoreroomWork.java`. Run from the AI's `decide()` ahead of the phase visits, whenever he
+  is at his hut (inside the Workshop's box grown by 2, or within 6 blocks of the hut block), when the room is due (no
+  complete check today for this target and level) and at once when the target turned; otherwise at most every 600
+  ticks after a complete check, 100 after one that could not finish. A listed piece is kept when the target has the
+  same block with the same properties at its cell, facing and lit aside, so a wall that changed beside a piece or a
+  string of lights switched on causes no swap. An empty spot read (the hut's data not there, a Workshop with no tags)
+  changes nothing. The facing is decorator_hut.spot_facing in the world: the four sides turned with the building's
+  `getRotationMirror()`, our own pieces and listed cells counting as air, as they are in the blueprint.
+- **The sweep** (3.3 point 4): a festive room goes after the window when **that Workshop** has no worker, not only
+  when the colony has none. This covers the case of 3.3 and also an unstaffed second Workshop in a colony whose other
+  Workshop is staffed, whose festive room would otherwise stay all year.
+- **The switch** (3.3 point 6): `decorator.storeroomDressing`, in the Decorator's existing `decorator` section (this
+  document's `decor.` prefix names no section of the config).
+- **Upgrades** (3.4): proven by the probe with the new level built into the world as the Builder builds it; repairs
+  open a work order the same way and are not run separately.

@@ -81,6 +81,12 @@ gift pile. On festival days he stands at the tree, hands out gifts and sets off 
 window he visits every building he decorated, takes his decorations down and keeps them in his hut for next
 year.
 
+His Workshop has a storeroom of its own: outside the decoration window labelled boxes and coils of decorations
+stand packed on its barrels, and from the first day of the window until his take-down is done the boxes are nearly
+empty and garland, a wreath and fairy lights hang on its walls; he changes the room himself whenever he is at his
+hut, for free, so its pieces drop nothing when broken. Set `decorator.storeroomDressing` to false (it sits with his
+other keys in the `decorator` section) and the room stays bare, and whatever is in it comes off.
+
 ### Where decorations go
 
 There is no list of doors in MineColonies, so the Decorator finds them the way a player would. He looks
@@ -205,7 +211,7 @@ constant in `SeasonsConfig.java`.
 | --- | --- |
 | `calendar` | year length in game days, starting season, whether to follow Serene Seasons, time zone |
 | `festivals` | for each festival: on or off, the first and last day of decorations, the first and last festival day |
-| `decorator` | whether he needs materials, how many buildings he does per game day, the most decorations on one side |
+| `decorator` | whether he needs materials, how many buildings he does per game day, the most decorations on one side, whether he dresses his Workshop's storeroom (`storeroomDressing`) |
 | `events` | when the gathering starts and ends, who comes, the midnight show, gifts per player per day |
 | `effects` | the three switches above and how strong each one is |
 | `links` | `showWelcome`: the one chat line with the Discord and Patreon links (see Links) |

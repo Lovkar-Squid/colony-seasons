@@ -1,7 +1,8 @@
-"""Renders of chunk S10g1 for the owner's look check, with the design's renderer (design/tools: mcmodel.py +
+"""Renders of chunks S10g1 and S10g2 for the owner's look check, with the design's renderer (design/tools: mcmodel.py +
 render_scene.py, Blender headless) reading the mod's own resources/assets and the MineColonies jar (for the racks).
 
     bash tools/render_s10g.sh [name ...]     (names: blocks, l1, l2, l3, l4, l5, levels; none = all)
+    bash tools/render_s10g.sh --from-dump <dump.json> [l1 l5]
 
 What is drawn is read from what ships: the new blocks' blockstates and models (resources/assets), and the five
 Workshop blueprints with their storeroom spot tags (resources/blueprints/...). Writes to docs/renders/s10g/:
@@ -15,11 +16,17 @@ Workshop blueprints with their storeroom spot tags (resources/blueprints/...). W
   <date>-s10g-levels.png          all five levels, packed and festival side by side (levels 2 to 4 were laid out by
                                   this chunk; the design round drew levels 1 and 5)
 
+With --from-dump (S10g2) the pieces are the ones the Decorator's code placed in a rig run: the csstoreroom probe writes
+the rooms it placed at levels 1 and 5, turned back to the blueprint's frame (csstoreroom-dump.json in the rig's server
+folder; it is never committed). The script prints whether the dump equals decorator_hut.storeroom_set, then draws
+<date>-s10g2-l1-packed.png, -l1-festival, -l5-packed and -l5-festival from it.
+
 The facing of each piece is worked out as the game will (decorator_hut.spot_facing). Racks are drawn as single racks
 facing south, full while they hold anything; in the festival the racks that held the decorations are drawn empty, as
 the design round drew them (an assumption about the stock, not something the mod sets).
 """
 import datetime
+import json
 import os
 import shutil
 import sys
@@ -114,10 +121,11 @@ def hut_scene(s):
     return blocks
 
 
-def cutaway(level, festival):
+def cutaway(level, festival, pieces=None):
+    """The cutaway of one level with the pieces at their tags, or with `pieces` ({position: state}) instead."""
     s = shipped(level)
     blocks = hut_scene(s)
-    blocks.update(pieces_at_tags(s, festival))
+    blocks.update(pieces_at_tags(s, festival) if pieces is None else pieces)
     empty = EMPTY_IN_FESTIVAL[level] if festival else set()
     for q, b in list(blocks.items()):
         if voxel.parse_state(b)[0] == dh.RACK:
@@ -290,7 +298,62 @@ def levels_sheet():
 CAPTIONS = {1: "Level 1 corner", 5: "Level 5 attic"}
 
 
+# ------------------------------------------------------------------ S10g2: the rooms the rig placed
+def read_dump(path):
+    """{(level, state): {position: block state}} from the csstoreroom probe's dump, in decorator_hut's frame."""
+    with open(path, encoding="utf-8") as f:
+        d = json.load(f)
+    hx, hy, hz = dh.HUT_SPOT
+    out = {}
+    for lv, states in d["levels"].items():
+        for state, pieces in states.items():
+            out[(int(lv), state)] = {(hx + dx, hy + dy, hz + dz): b for dx, dy, dz, b in pieces}
+    return out
+
+
+def same_pieces(a, b):
+    """Two {position: state} maps hold the same blocks with the same properties."""
+    return a.keys() == b.keys() and all(voxel.parse_state(a[p]) == voxel.parse_state(b[p]) for p in a)
+
+
+def from_dump(path, names):
+    dump = read_dump(path)
+    levels = sorted({lv for lv, _ in dump if f"l{lv}" in names or not names})
+    jobs, rows = [], []
+    for lv in levels:
+        for state in ("packed", "festival"):
+            pieces = dump.get((lv, state))
+            if pieces is None:
+                print(f"level {lv} {state}: not in the dump")
+                continue
+            want = dh.storeroom_set(lv, dh.workshop(lv), state == "festival")
+            same = same_pieces(pieces, want)
+            print(f"level {lv} {state}: {len(pieces)} pieces placed by the rig, "
+                  f"{'equal to' if same else 'NOT equal to'} decorator_hut.storeroom_set ({len(want)})")
+            jobs.append(dict(blocks=cutaway(lv, state == "festival", pieces), out=scratch(f"dump-l{lv}-{state}"), bg=SKY,
+                             samples=24, **camera(lv)))
+            rows.append((lv, state, pieces))
+    if jobs:
+        driver.render_jobs(jobs)
+    for lv, state, pieces in rows:
+        hung = sum(1 for b in pieces.values() if "storage_" not in b)
+        p = os.path.join(OUT, f"{DATE}-s10g2-l{lv}-{state}.png")
+        shutil.copyfile(scratch(f"dump-l{lv}-{state}"), p)
+        what = f"{len(pieces)} pieces" if state == "packed" else f"{len(pieces)} blocks, {hung} of them hung"
+        caption(p, f"{CAPTIONS.get(lv, f'Level {lv}')}, {state}: {what}, as the Decorator placed them on the rig")
+        shrink(p)
+        print(f"{os.path.relpath(p, ROOT)}: {Image.open(p).size}, {os.path.getsize(p) // 1024} KB")
+
+
 def main():
+    if "--from-dump" in sys.argv:
+        i = sys.argv.index("--from-dump")
+        if i + 1 >= len(sys.argv):
+            sys.exit("--from-dump needs the dump file")
+        os.makedirs(OUT, exist_ok=True)
+        os.makedirs(os.environ["CS_SCRATCH"], exist_ok=True)
+        from_dump(sys.argv[i + 1], set(sys.argv[1:i] + sys.argv[i + 2:]))
+        return
     os.makedirs(OUT, exist_ok=True)
     os.makedirs(os.environ["CS_SCRATCH"], exist_ok=True)
     if not shutil.which(driver.BLENDER) and not os.path.exists(driver.BLENDER):
