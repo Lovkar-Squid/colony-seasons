@@ -43,3 +43,7 @@ ingame/
 design/square/*.png
 !design/square/sheet-*.png
 !design/square/square-night.png
+
+# Storage room picture round (S10g): only the two contact sheets are committed
+design/storage/*.png
+!design/storage/sheet-*.png
