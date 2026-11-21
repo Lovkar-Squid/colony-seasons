@@ -10,6 +10,7 @@ import me.lovkar.seasons.calendar.CalendarManager;
 import me.lovkar.seasons.calendar.Festival;
 import me.lovkar.seasons.calendar.Season;
 import me.lovkar.seasons.decor.DecorLedger;
+import me.lovkar.seasons.decor.DecorPhase;
 import me.lovkar.seasons.decor.DecorWork;
 import me.lovkar.seasons.decor.Kits;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -26,7 +27,8 @@ import java.util.List;
  * The Decorator's page in the hut window (chunk S8): today's season and day of the year, the festival that is on (or
  * the next one), what he is doing right now, how many decorations are up and buildings done, the stock of each kit
  * against its cap, what the next kit still lacks, and what the three effect switches do. It keeps nothing of its own:
- * every number is read from the calendar, the ledger and the hut when the window asks.
+ * every number is read from the calendar, the ledger and the hut when the window asks. Since S10i (the owner's answer
+ * of 21 Nov 2026) it also says when the festival square's tree has no room at the marker ({@link Info#squareProblem}).
  *
  * <p>The packet {@link #serializeToView} writes is read by {@link DecoratorInfoModuleView#deserialize} field for field;
  * tools/check_packets.py compares the two. Strings are lang keys, ids and plain numbers only: the window does the
@@ -83,6 +85,8 @@ public class DecoratorInfoModule extends AbstractBuildingModule implements ITick
         for (final String arg : info.statusArgs()) {
             buf.writeUtf(arg);
         }
+        // the tree has no room at the festival marker (S10i)
+        buf.writeBoolean(info.squareProblem());
         // progress
         buf.writeBoolean(info.decorateOn());
         buf.writeVarInt(info.decorationsUp());
@@ -125,9 +129,12 @@ public class DecoratorInfoModule extends AbstractBuildingModule implements ITick
     /**
      * Everything one packet says. {@code daysUntilNext} is -1 unless no festival is on and one is coming;
      * {@code decorWindow} and {@code daysWindow} are "MM-DD MM-DD" (from, until) or "" when there is no festival.
+     * {@code squareProblem}: the ledger's note that the tree did not fit at the festival marker on his last look
+     * ({@link DecorLedger#squareProblem}), shown only while a decoration window is open (outside it there is no tree
+     * to put up, and nobody looks at the square until the next window).
      */
     public record Info(int season, int dayOfYear, int yearLength, String festival, boolean festivalDays, int daysUntilNext,
-                       String decorWindow, String daysWindow, String statusKey, List<String> statusArgs,
+                       String decorWindow, String daysWindow, String statusKey, List<String> statusArgs, boolean squareProblem,
                        boolean decorateOn, int decorationsUp, int buildingsDone, int usedToday, int quota, boolean needsMaterials,
                        int stockCap, List<StockRow> stock, String nextKit, List<MissingRow> missing,
                        boolean happinessOn, double happinessBonus, boolean cropsOn, double cropSkip, boolean foodOn,
@@ -184,6 +191,7 @@ public class DecoratorInfoModule extends AbstractBuildingModule implements ITick
         int up = 0;
         int done = 0;
         int used = 0;
+        boolean square = false;
         final IColony colony = building == null ? null : building.getColony();
         if (colony != null && colony.getWorld() instanceof ServerLevel serverLevel) {
             final DecorLedger ledger = DecorLedger.peek(serverLevel);
@@ -191,6 +199,7 @@ public class DecoratorInfoModule extends AbstractBuildingModule implements ITick
                 up = ledger.countOutdoor(colony.getID());     // the storeroom is no decoration that is "up"
                 done = ledger.buildingsDone(colony.getID());
                 used = ledger.budgetUsed(colony.getID(), DecorWork.day(serverLevel));
+                square = ledger.squareProblem(colony.getID()) && DecorPhase.windowOpen(snapshot);
             }
         }
 
@@ -229,7 +238,7 @@ public class DecoratorInfoModule extends AbstractBuildingModule implements ITick
         }
 
         final boolean winter = snapshot != null && snapshot.season().season() == Season.WINTER;
-        return new Info(season, day, year, festival, days, until, decorWindow, daysWindow, statusKey, List.copyOf(statusArgs),
+        return new Info(season, day, year, festival, days, until, decorWindow, daysWindow, statusKey, List.copyOf(statusArgs), square,
                 hut == null || hut.decorateEnabled(), up, done, used, DecorWork.quota(level), SeasonsConfig.needsMaterials(),
                 hut == null ? 0 : hut.stockCap(), List.copyOf(stock), nextKit, List.copyOf(missing),
                 SeasonsConfig.festivalHappiness(), SeasonsConfig.festivalHappinessBonus(), SeasonsConfig.winterCropSlowdown(),

@@ -54,6 +54,8 @@ public class DecoratorInfoWindow extends AbstractModuleWindow<DecoratorInfoModul
     static final int ROW_WIDTH = 192;
     /** The Discord / Support line (approved words, tools/check_links.py), shown in the layout's "links" pane under the list. */
     static final String LINKS_KEY = "com.colony_seasons.gui.info.links";
+    /** The line under "Now:" while the tree has no room at the festival marker (S10i, the owner's answer of 21 Nov 2026). */
+    static final String SQUARE_PROBLEM_KEY = "com.colony_seasons.gui.info.square_no_room";
 
     private List<Component> rows;
     private DecoratorInfoModule.Info shown;
@@ -174,6 +176,9 @@ public class DecoratorInfoWindow extends AbstractModuleWindow<DecoratorInfoModul
         out.add(Component.translatable("com.colony_seasons.gui.info.now", status(info)));
         if (!info.decorateOn()) {
             out.add(Component.translatable("com.colony_seasons.gui.info.decorate_off").withStyle(ChatFormatting.DARK_RED));
+        }
+        if (info.squareProblem()) {
+            out.add(Component.translatable(SQUARE_PROBLEM_KEY).withStyle(ChatFormatting.DARK_RED));
         }
         out.add(Component.translatable("com.colony_seasons.gui.info.progress", info.decorationsUp(), info.buildingsDone()));
         out.add(Component.translatable("com.colony_seasons.gui.info.today_quota", info.usedToday(), info.quota()));

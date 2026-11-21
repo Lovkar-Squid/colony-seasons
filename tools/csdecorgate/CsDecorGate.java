@@ -1,5 +1,6 @@
 package me.lovkar.seasons.csdecorgate;
 
+import io.netty.buffer.Unpooled;
 import com.ldtteam.structurize.api.RotationMirror;
 import com.ldtteam.structurize.blueprints.v1.Blueprint;
 import com.ldtteam.structurize.placement.AbstractBlueprintIterator;
@@ -11,6 +12,7 @@ import com.minecolonies.api.colony.ICitizenData;
 import com.minecolonies.api.colony.IColony;
 import com.minecolonies.api.colony.IColonyManager;
 import com.minecolonies.api.colony.buildings.IBuilding;
+import com.minecolonies.api.colony.buildings.modules.ITickingModule;
 import com.minecolonies.api.colony.workorders.WorkOrderType;
 import com.minecolonies.api.tileentities.AbstractTileEntityColonyBuilding;
 import com.minecolonies.core.colony.buildings.modules.WorkerBuildingModule;
@@ -26,6 +28,8 @@ import me.lovkar.seasons.block.WallDecorationBlock;
 import me.lovkar.seasons.calendar.CalendarManager;
 import me.lovkar.seasons.calendar.DateSource;
 import me.lovkar.seasons.colony.BuildingDecorator;
+import me.lovkar.seasons.colony.DecoratorInfoModule;
+import me.lovkar.seasons.colony.DecoratorInfoModuleView;
 import me.lovkar.seasons.colony.DecoratorModules;
 import me.lovkar.seasons.colony.DecoratorSetup;
 import me.lovkar.seasons.colony.JobDecorator;
@@ -48,6 +52,7 @@ import net.minecraft.nbt.NbtAccounter;
 import net.minecraft.nbt.NbtIo;
 import net.minecraft.nbt.NbtUtils;
 import net.minecraft.nbt.Tag;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.resources.ResourceLocation;
@@ -107,7 +112,8 @@ import java.util.function.Predicate;
  *       handler, decorated at hut level 5 and taken down again, each in one tick against a snapshot of its box), EDGES
  *       (hand-built houses: a door under an overhang, a double door, no door, the player's own wreath, a torch in the
  *       garland row, a house across the claim edge), SQUARE (the probe's own test piece in its own pack, see
- *       make_piece.py: the [V] position formula in four facings, level skips, the 10 % rule, a missing piece, the
+ *       make_piece.py: the [V] position formula in four facings, level skips, the 10 % rule and the Workshop's
+ *       Calendar page saying that the tree has no room (S10i), a missing piece, the
  *       large star switched on, a festival marker broken), LIFECYCLE (a real colony: a swapped block, a light switched,
  *       a work order, the Builder's CLEAR_NON_SOLIDS, a hut level up, BuildingRemovedModEvent, decor list and remove,
  *       the Decorator's AI decorating, tending and taking down by himself, the hut destroyed in the window and the
@@ -1002,6 +1008,27 @@ public class CsDecorGate {
         return new DoorFinder.Box(marker.offset(-5, -1, -5), marker.offset(5, 8, 5), marker);
     }
 
+    /**
+     * A Decorator's Workshop of the probe colony, level 1, only its hut block, on a bare cell away from every square and
+     * house of the probe (S10i: its Calendar page reads the square's note); the caller destroys it afterwards.
+     */
+    private BuildingDecorator pageWorkshop() {
+        final BlockPos cell = new BlockPos(30, ground + 1, 30);
+        final IBuilding building = register(BuiltInRegistries.BLOCK.getKey(DecoratorSetup.HUT.get()).toString(),
+                new DoorFinder.Box(cell, cell, cell), 1, null, null);
+        return building instanceof BuildingDecorator workshop ? workshop : null;
+    }
+
+    /** The Calendar page as a client gets it: the module's own packet read back by its view, to the last byte (S10i). */
+    private DecoratorInfoModule.Info viaPacket(final DecoratorInfoModule module) {
+        final RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), level.registryAccess());
+        module.serializeToView(buf);
+        final DecoratorInfoModuleView view = new DecoratorInfoModuleView();
+        view.deserialize(buf);
+        check("S10i: the Calendar page's packet reads back to its last byte", buf.readableBytes() == 0, buf.readableBytes() + " bytes left");
+        return view.info();
+    }
+
     private void planSquare() {
         final Map<Direction, PieceLoader.Piece> pieces = new HashMap<>();
         step(new Step("square: load the test piece in four facings", 400, true) {
@@ -1136,6 +1163,14 @@ public class CsDecorGate {
                 }
                 leaves.sort(BlockPos::compareTo);
                 final BlockState stone = Blocks.COBBLESTONE.defaultBlockState();
+                // S10i: the Calendar page of a Workshop of this colony (on a bare cell, away from every square) says it too
+                final BuildingDecorator workshop = pageWorkshop();
+                final DecoratorInfoModule page = workshop == null ? null : workshop.getModule(DecoratorModules.INFO);
+                check("S10i: a Workshop of the colony with its Calendar page", page != null, "");
+                if (page != null) {
+                    final DecoratorInfoModule.Info clear = viaPacket(page);
+                    check("S10i: the Calendar page has no room line while nothing is in the way", !clear.squareProblem(), "");
+                }
                 // 2 of 24 cells (8 %), no trunk: the rest goes up, the two are left alone
                 final Map<BlockPos, BlockState> snap = snapshot(squareBox(m));
                 set(leaves.get(0), stone);
@@ -1157,6 +1192,27 @@ public class CsDecorGate {
                 final DecorLedger.GroupView g15 = ledger.group(colonyId, target.owner());
                 check("more than 10 % blocked: nothing is placed", (g15 == null || g15.size() == 0) && changed(blocked4).isEmpty(), o.status());
                 check("the square's problem is noted for the hut window", ledger.squareProblem(colonyId), "");
+                if (page != null) {
+                    // what MineColonies sends: a colony tick marks the page when the note alone changes, off and on again
+                    final ITickingModule ticking = (ITickingModule) page;
+                    ticking.onColonyTick(colony);
+                    page.clearDirty();
+                    ledger.setSquareProblem(colonyId, false);
+                    ticking.onColonyTick(colony);
+                    final boolean sentOff = page.isDirty;
+                    page.clearDirty();
+                    ledger.setSquareProblem(colonyId, true);
+                    ticking.onColonyTick(colony);
+                    check("S10i: the note alone, off and on, makes the next colony tick send the Calendar page again", sentOff && page.isDirty,
+                            "off " + sentOff + ", on " + page.isDirty);
+                    final DecoratorInfoModule.Info shown = viaPacket(page);
+                    check("S10i: the Calendar page's packet says the tree has no room", shown.squareProblem(), "");
+                    setDate(AFTER);
+                    final DecoratorInfoModule.Info later = viaPacket(page);
+                    setDate(DECOR_DAY);
+                    check("S10i: outside a decoration window the page leaves the line out (the ledger keeps the note)",
+                            !later.squareProblem() && ledger.squareProblem(colonyId), "");
+                }
                 checkEq("the managers are told once on this day, not twice", DecorWork.notices() - notices0, 1);
                 level.setDayTime(level.getDayTime() + 24000L);
                 DecorWork.decorate(level, colonyId, target, 5, DecorPlacer.Stock.FREE, day(), ledger);
@@ -1173,6 +1229,22 @@ public class CsDecorGate {
                 check("a trunk cell blocked: nothing is placed", (gt == null || gt.size() == 0) && changed(trunkSnap).isEmpty(), "");
                 ledger.dropGroup(colonyId, target.owner());
                 set(trunk, Blocks.AIR.defaultBlockState());
+                if (page != null) {
+                    // room again: his next look puts the tree up, the note goes, and the page's line with it
+                    final boolean noted = ledger.squareProblem(colonyId);
+                    ((ITickingModule) page).onColonyTick(colony);
+                    page.clearDirty();
+                    DecorWork.decorate(level, colonyId, target, 5, DecorPlacer.Stock.FREE, day(), ledger);
+                    final DecorLedger.GroupView up = ledger.group(colonyId, target.owner());
+                    ((ITickingModule) page).onColonyTick(colony);
+                    final DecoratorInfoModule.Info cleared = viaPacket(page);
+                    check("S10i: room again: the tree goes up, the note goes, the page is sent again without the line",
+                            noted && up != null && up.size() == want.size() && !ledger.squareProblem(colonyId) && page.isDirty
+                                    && !cleared.squareProblem(), (up == null ? 0 : up.size()) + " placed of " + want.size());
+                    DecorPlacer.remove(level, ledger, colonyId, target.owner(), DecorPlacer.Stock.FREE);
+                    workshop.destroy();
+                    set(workshop.getPosition(), Blocks.AIR.defaultBlockState());
+                }
                 check("the 10 % area is back as it was", changed(snap).isEmpty(), changed(snap).size() + " cells differ");
                 ledger.setSquareProblem(colonyId, false);
                 // a missing piece through the whole path: no tree, no throwable
