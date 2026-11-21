@@ -1,0 +1,20 @@
+modLoader="javafml"
+loaderVersion="[4,)"
+license="GPL-3.0-or-later"
+[[mods]]
+modId="colonyseasonsspots"
+version="1.0.0"
+displayName="Colony Seasons rig storeroom spots check"
+description="Headless test: the storeroom pieces (no item, no drop, no collision, standing on a barrel) and the Workshop's storeroom spot tags as MineColonies hands them out, turned and mirrored with the building and replaced at every upgrade."
+[[dependencies.colonyseasonsspots]]
+modId="colony_seasons"
+type="required"
+versionRange="*"
+ordering="AFTER"
+side="SERVER"
+[[dependencies.colonyseasonsspots]]
+modId="minecolonies"
+type="required"
+versionRange="*"
+ordering="AFTER"
+side="SERVER"

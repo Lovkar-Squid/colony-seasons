@@ -161,6 +161,20 @@ bash tools/restart.sh csstorage  # two steps (the first in creative, free) and t
                                  # at 45 slots and the stock are back, no request, a third step works
 ```
 
+The storeroom's pieces and spots (S10g1). `csspots` reads the spot tags the way the Decorator will (`decor/StoreroomSpots.java`
+over `IBuilding.getLocationsFromTag`) against `tools/csspots/res/csspots/spots.json`, which `build_pack.py` writes.
+
+```bash
+bash tools/probe.sh csspots      # storage_box and storage_coil: no item, the empty loot table and no drops (broken or popped off),
+                                 # no collision, an outline, nothing on pick-block, standing on a barrel and going with it, every
+                                 # state's blockstate variant and models; the Workshop pasted at level 1 turned (R90) with the
+                                 # command a player types: every spot tag turned with the building, nothing else of ours in the
+                                 # cached tag map, the helper lists the same, packed spots air on a barrel and hung spots air beside
+                                 # a wall in the world; upgrade work orders 1 to 5 finished as the Builder finishes them (the tags
+                                 # are the old level's until the order completes, then exactly the new level's); a second Workshop
+                                 # pasted at level 5 mirrored and turned (MIR_R270), its tags and world as above
+```
+
 Each finding that goes to the owner instead of a fix is a `NOTE FINDING H<n> owner:ask|fyi` line. `tools/restart.sh` runs the phases a
 probe lists in its `phases.txt` instead of `restart-save,restart-load`.
 
