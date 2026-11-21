@@ -31,9 +31,10 @@ import java.util.Optional;
 /**
  * The Decorator's page of the hut window (chunk S8): a scrolling list of short lines that the server's packet fills
  * ({@link DecoratorInfoModule}): the calendar, the festival, what he is doing, the decorations up, the stock against the
- * cap, what the next kit lacks, what the effect switches do and, last, the Discord / Support line with the two links
- * (S10d; text only: a row of the page cannot be clicked). All text goes through lang keys, so it follows the
- * player's language; the server sends keys, ids and numbers only.
+ * cap, what the next kit lacks and what the effect switches do. Below the list, outside it and always in view, the
+ * Discord / Support line with the two links (S10d; text only, it cannot be clicked; S10h moved it out of the list,
+ * where at the default GUI scale it sat half cut on the list's bottom edge until the player scrolled). All text goes
+ * through lang keys, so it follows the player's language; the server sends keys, ids and numbers only.
  *
  * <p>The page follows the server while it is open: when the view's info changes (a new packet), the rows are made
  * again (S9, the S8 hand-off). Each row of the layout holds one visual line: a line wider than a row is cut by the
@@ -51,6 +52,8 @@ public class DecoratorInfoWindow extends AbstractModuleWindow<DecoratorInfoModul
      * three in step). The pane does not wrap: these rows are already one visual line each.
      */
     static final int ROW_WIDTH = 192;
+    /** The Discord / Support line (approved words, tools/check_links.py), shown in the layout's "links" pane under the list. */
+    static final String LINKS_KEY = "com.colony_seasons.gui.info.links";
 
     private List<Component> rows;
     private DecoratorInfoModule.Info shown;
@@ -72,6 +75,12 @@ public class DecoratorInfoWindow extends AbstractModuleWindow<DecoratorInfoModul
             help.setHandler(clicked -> new WindowInfo(moduleView.getBuildingView()).open());
         }
 
+        // the owner's decision of 20 Nov 2026: a Discord / Support line with both links; its own pane under the list (S10h)
+        final Text links = findPaneOfTypeByID("links", Text.class);
+        if (links != null) {
+            links.setText(Component.translatable(LINKS_KEY));
+        }
+
         list = findPaneOfTypeByID("lines", ScrollingList.class);
         if (list != null) {
             list.setDataProvider(new ScrollingList.DataProvider() {
@@ -91,7 +100,7 @@ public class DecoratorInfoWindow extends AbstractModuleWindow<DecoratorInfoModul
         }
     }
 
-    /** Every frame: when the server sent a new state while the page is open, the rows are made again. */
+    /** Every client tick: when the server sent a new state while the page is open, the rows are made again. */
     @Override
     public void onUpdate() {
         super.onUpdate();
@@ -206,8 +215,6 @@ public class DecoratorInfoWindow extends AbstractModuleWindow<DecoratorInfoModul
         out.add(info.foodOn()
                 ? Component.translatable("com.colony_seasons.gui.info.effects.food.on", String.format(Locale.ROOT, "%.2f", info.foodFactor()))
                 : Component.translatable("com.colony_seasons.gui.info.effects.food.off"));
-        // the owner's decision of 20 Nov 2026: a Discord / Support line with both links, last on the page
-        out.add(Component.translatable("com.colony_seasons.gui.info.links"));
         return out;
     }
 

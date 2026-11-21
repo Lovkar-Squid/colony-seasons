@@ -10,10 +10,13 @@
             source="minecolonies:textures/gui/red_wax_information.png"
             tooltip="$(com.minecolonies.core.building.help)"/>
 
-    <list id="lines" size="168 205" pos="11 31"
+    <!-- 19 rows of 9 px, so no row is ever half cut at the list's bottom edge (S10h) -->
+    <list id="lines" size="168 171" pos="11 31"
           emptytext="$(com.colony_seasons.gui.info.no_calendar)" emptycolor="black">
         <box size="100% 9" linewidth="0">
             <text id="line" size="156 9" pos="2 1" color="black" textscale="0.8" wrap="false"/>
         </box>
     </list>
+    <!-- the Discord / Support line, below the list and always in view (S10h): three lines at the rows' scale and width -->
+    <text id="links" size="156 27" pos="13 205" color="black" textscale="0.8" wrap="true" linespace="2"/>
 </window>
