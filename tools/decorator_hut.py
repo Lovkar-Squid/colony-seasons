@@ -284,7 +284,7 @@ BARREL_WEST = "minecraft:barrel[facing=west]"
 # the east side at level 5. Level 2: its third rack takes level 1's barrel cell at (3, 1, -3), and a barrel in front
 # of that rack would wall it in, so the standing pair moves west along the back wall, next to the racks (0 and -1);
 # the lying one stays. Levels 3 and 4: the attic of level 5 one barrel lower (single barrels where level 5 stacks
-# two), with level 5's barrels at (-4, 6, -2) and (2, 6, -3) from level 3 on, so every level carries the same six
+# two), with level 5's barrels at (-4, 6, -2) and (2, 6, -3) from level 3 on, so levels 3 and 4 carry the same six
 # pieces as level 5.
 STOREROOM_BARRELS = {
     1: {(3, 1, -3): BARREL_UP, (3, 1, -2): BARREL_UP, (4, 1, 0): BARREL_WEST},
