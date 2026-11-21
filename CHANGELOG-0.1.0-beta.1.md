@@ -10,9 +10,9 @@ Ornamentum. Serene Seasons is optional. Install it on the server and on every cl
 - Festivals on real dates: the Winter Festival (decorations from 1 December to 6 January, festival days 24 to
   26 December) and New Year (31 December and 1 January). All dates can be changed in the config.
 - The Decorator, a new MineColonies worker with his own building, the Decorator's Workshop (levels 1 to 5).
-  He keeps a stock of decorations all year, decorates the colony's buildings when a festival window opens, looks
-  after the decorations while it lasts and takes them down afterwards. A higher level gives more decorations and
-  a bigger tree.
+  He keeps a stock of the decorations he makes (all year, unless the Workshop's "Prepare all year" is off),
+  decorates the colony's buildings when a festival window opens, looks after the decorations while it lasts and
+  takes them down afterwards. A higher level gives more decorations and a bigger tree.
 - His supply order: a decoration comes first from his own storage (last year's, taken down), then as finished
   decorations the colony's warehouses already hold (a courier brings them), and only for the rest does he order
   the materials and make it.
@@ -30,9 +30,10 @@ Ornamentum. Serene Seasons is optional. Install it on the server and on every cl
 - The festival marker: place it on the square and the Decorator builds the tree there. Only a marker a player
   places by hand counts. A second marker in a colony tells the colony's managers that only the first one counts.
 - The tree's trunk is the mod's own block, in no log tag, so a Forester never cuts the festival tree.
-- Festival days: a gift a day from the pile at the tree (from Workshop level 2), a gathering of the colonists at
-  the tree on 24 to 26 December (the guards stay at their posts), fireworks on New Year, and a midnight show if
-  the server runs through midnight.
+- Gifts: from 1 December to 6 January each player takes a gift a day from the pile at the tree (from Workshop
+  level 2), a better one on 24 to 26 December.
+- Festival days: a gathering of the colonists at the tree on 24 to 26 December (the guards stay at their posts),
+  fireworks on New Year, and a midnight show if the server runs through midnight.
 - What the Decorator put up for free, and the tree's gift pile and firework crate, drop nothing when broken; what
   he paid for drops its item.
 - Winter clothes: in the game's winter a knitted scarf in five colours and a wool hat on models without
@@ -40,8 +41,8 @@ Ornamentum. Serene Seasons is optional. Install it on the server and on every cl
 - Three effects on the game (festival happiness, slower crops in winter, more food in winter), all off by
   default.
 - One chat line with the Discord and Patreon links the first time a player joins a world with the mod, once per
-  player in that world and shared with the author's other mods; `links.showWelcome = false` turns it off. The
-  links are also at the foot of the Workshop's Calendar page.
+  player in that world; `links.showWelcome = false` turns it off. The links are also at the foot of the
+  Workshop's Calendar page.
 - Commands: `/colonyseasons status`, `season set`, `festival force`, `festival clear`, `decor list` and
   `decor remove`.
 

@@ -21,18 +21,18 @@ probes run headless on the rig and see no picture).
 
 ## The CurseForge page, claim by claim (S11b)
 
-`release/curseforge-description.md`: about 7,800 characters, no images (CurseForge needs absolute image links, and
+`release/curseforge-description.md`: about 8,200 characters, no images (CurseForge needs absolute image links, and
 the screenshots go into the project's gallery, see the end of this file).
 
 | # | Claim on the page | Proof | Look |
 | --- | --- | --- | --- |
 | P1 | Seasons run in the game, festivals on real dates | `calendar/CalendarManager.java:96-113` (the season from the bridge or `SeasonCalendar.state`, the festivals from `DateSource.today()`); cscalendar dates | |
 | P2 | In December he hangs wreaths, garlands and lights and builds a tree on the square | `decor/DecorPlanner.java:84-93` (amounts by level), `decor/PieceLoader.java:107-114` (the tree per level); csdecorgate styles, csfullcycle base | yes: a real colony decorated (item 1) |
-| P3 | Striped scarves, the gathering on festival days, a small gift a day, New Year fireworks | `client/ClothesRules.java` (`outfit`), `festival/Gathering.java`, `festival/Gifts.java:141-158`, `festival/Fireworks.java:77-80`; csfullcycle base, csfestival | scarves: yes (csclient proves the layer, not the picture) |
+| P3 | Striped scarves, the gathering on the Winter Festival days (24 to 26 December), a small gift a day, New Year fireworks | `client/ClothesRules.java` (`outfit`), `festival/Gathering.java:82,140-151` (`FESTIVALS` is `winter_festival` only, `gatheringDay`), `festival/Gifts.java:141-158`, `festival/Fireworks.java:77-80`; csfullcycle base, csfestival | scarves: yes (csclient proves the layer, not the picture) |
 | P4 | After 6 January he takes it all down, and again next year | `SeasonsConfig.java:44` (decorUntil 01-06), `decor/DecorWork.java:48-50` (the take-down); csfullcycle base (on 10 Jan the world equals the first snapshot) | |
 | P5 | Requires NeoForge 1.21.1, MineColonies 1.1.1420 or newer in 1.1, Structurize and Domum Ornamentum; Serene Seasons optional; server and every client | `resources/META-INF/neoforge.mods.toml:15-51` (every dependency `side="BOTH"`, Serene Seasons not listed); csboot, `tools/packboot.sh` (item 25) | the client side: yes |
 | P6 | A new job, the Decorator's Workshop, levels 1 to 5 | `colony/BuildingDecorator.java:38,130`, `colony/DecoratorModules.java:25-28`; csdecorator, cspaste | |
-| P7 | Supply order: his own storage, then finished pieces from the warehouse, then materials | `decor/Supply.java:44-52` (`plan`), `ai/EntityAIWorkDecorator.java:311-377` (`prepare`); csstorage (a warehouse and a real courier), `restart.sh csstorage` | |
+| P7 | All year (with "Prepare all year" on) a stock of the decorations he makes; supply order: his own storage, then finished pieces from the warehouse, then materials; with materials off he needs no stock | `ai/EntityAIWorkDecorator.java:248-258` (free: nothing to prepare; "Prepare all year" off: only in a window), `colony/DecoratorModules.java:37` (the setting on by default), `decor/Supply.java:44-52` (`plan`), `ai/EntityAIWorkDecorator.java:311-377` (`prepare`); csstorage (a warehouse and a real courier), `restart.sh csstorage` | |
 | P8 | Materials such as leaves, string, dye, paper, torches and glowstone dust | `resources/data/colony_seasons/decorator_kits/*.json` (glass panes and gold nuggets too, hence "such as") | |
 | P9 | `decorator.needsMaterials = false` makes his work free | `SeasonsConfig.java:164-167`, `ai/EntityAIWorkDecorator.java:248-252`; csdecorator mode free, csfullcycle hostile-free | |
 | P10 | Town hall first | `decor/DecorWork.java:181` (`nextToDecorate`: the town hall, then the square, then the nearest building); csfullcycle base | |
@@ -40,7 +40,7 @@ the screenshots go into the project's gallery, see the end of this file).
 | P12 | A building with no outside door gets one wreath on the wall nearest its hut block | `decor/DecorPlanner.java:160` (`planDoorless`), `decor/DoorFinder.java:33` (`MIN_OUTSIDE_SKY`); csanswers | |
 | P13 | Only into empty air, inside his claim, every block written down; takes down exactly those, only if unchanged; your own builds left alone | `decor/DecorPlacer.java:44-60` (the cell rule and the removal rule), `decor/DecorLedger.java`; csfullcycle every mode (I1 to I4), csdecorgate lifecycle, hostile-items H5 | |
 | P14 | The trunk is the mod's own block, so a Forester never cuts the tree | `block/FestivalTrunkBlock.java`, `decor/PieceLoader.java:42-44`; csforester, `tools/build_pack.py` (no log block in a piece) | |
-| P15 | Racks in a storage room, 2 at level 1 and 12 at level 5 | `tools/decorator_hut.py:18-20,228,240-243` (2, 3, 6, 9 and 12); `tools/build_pack.py` (the room's rules), cspaste | yes: renders only so far (`docs/renders/s10e/`) |
+| P15 | His stock in the Workshop's racks, 2 at level 1 and 12 in the hut at level 5 | `tools/decorator_hut.py:18-20,228,240-255` (2, 3, 6, 9 and 12 in the whole hut; the attic room holds 2, 4 and 6 of them from level 3); `tools/build_pack.py` (the room's rules), cspaste | yes: renders only so far (`docs/renders/s10e/`) |
 | P16 | Upgrade Storage at level 5: one emerald block a step, three steps, every rack one row larger, like the Warehouse's | `colony/BuildingDecorator.java:60-66,228-251`, `network/UpgradeStoragePayload.java:88-130`; csstorage (c, e2), `restart.sh csstorage` | yes: the tab after a click (S10h fixed its redraw, which the fourth in-game test saw stale) |
 | P17 | He dresses the storeroom: packed outside the festival; from the first day of the window until his take-down is done, nearly empty boxes and garland, a wreath and fairy lights | `decor/StoreroomWork.java:94-104` (`target`), `decor/StoreroomSpots.java:21-25` (the pieces); csstoreroom, csspots, `restart.sh csstoreroom` | yes: only renders of the rig's rooms so far (`docs/renders/s10g/*-s10g2-*.png`) |
 | P18 | `decorator.storeroomDressing = false` leaves the room bare | `SeasonsConfig.java:177-181`, `decor/DecorEvents.java:318-327` (`roomGoes`: the switch off removes the room); csstoreroom | |
@@ -48,23 +48,23 @@ the screenshots go into the project's gallery, see the end of this file).
 | P20 | Only a marker a player places by hand counts | `block/FestivalMarkerBlock.java:78` (`placer instanceof Player`); csanswers (a paste through Structurize's own placement call) | |
 | P21 | When the tree is finished you are told; a right-click lights the ornaments, the star and the lights on the buildings; after two game days the Decorator lights it | `festival/TreeLighting.java:24-31,40,108,121,165`; csfestival, csfullcycle base | yes: the lights at night |
 | P22 | From Workshop level 2 a gift pile; from 1 December one gift a day for each player of the colony | `decor/PieceLoader.java:60,289` (no pile below level 2), `festival/Gifts.java:141-158`; csfullcycle base, csdecorgate square, csfestival (a visitor's click is refused by MineColonies' protection) | |
-| P23 | 24 to 26 December: colonists walk to the tree in the afternoon, the Decorator hands them gifts, a better gift | `festival/Gathering.java:40-60`, `festival/Gifts.java:50-52`, `SeasonsConfig.java:45-46,62-63`; csfullcycle base, csfestival | yes: the colonists walking (two probe runs saw slow paths, S9) |
+| P23 | 24 to 26 December: colonists walk to the tree in the afternoon, not when it rains; the Decorator hands them gifts; a better gift | `festival/Gathering.java:40-60,275` (no gathering in rain), `ai/EntityAIWorkDecorator.java:785` (he hosts only when it does not rain), `festival/Gifts.java:50-52,92-102`, `SeasonsConfig.java:45-46,62-63`; csfullcycle base, csfestival | yes: the colonists walking (two probe runs saw slow paths, S9) |
 | P24 | 31 December and 1 January: fireworks at dusk; a countdown and a big show at midnight if the server runs through it | `festival/Fireworks.java:52-80,404`, `SeasonsConfig.java:198-200`; csfullcycle base, csfestival newyear | yes: the rockets in the sky |
 | P25 | The gifts come from loot tables | `festival/Gifts.java:50-52`, `resources/data/colony_seasons/loot_table/gifts/` | |
 | P26 | A winter scarf in five colours, a wool hat without headgear of its own, the striped scarf 1 Dec to 6 Jan, client only, nothing saved | `client/ClothesRules.java` (`COLOURS`, `outfit`), `client/ClothesLayer.java`; `tools/clothescheck.sh`, csclient | yes |
 | P27 | 48 game days, twelve a season, changeable; a new world starts in the season of the real date; follows Serene Seasons | `SeasonsConfig.java:31-34,132-140`, `calendar/SeasonCalendar.java:25-27`, `calendar/CalendarData.java:36-48`, `calendar/SereneBridge.java`; csconfig, cscalendar | the real Serene Seasons: yes (item 26) |
-| P28 | Three effect switches, all off; with them off only looks, sounds, materials and gifts change | `SeasonsConfig.java:68-77,206-228`; cseffects off and on, csfullcycle effects | |
+| P28 | Three effect switches, all off; with them off the mod changes looks, sounds, the Decorator's materials, the gifts and the gathering; by default working colonists (not the guards) leave work for the gathering hours of one game day on each real day of 24 to 26 December, `events.whoComes = off_duty` keeps them at work; on New Year evenings the Decorator stays up for the dusk show | `SeasonsConfig.java:64,68-77,206-228`; `festival/Gathering.java:252-263` (`everyoneNow`), `:394-425` (`bringWorker`: never a guard, the Decorator or a baby, not in rain), `mixin/CitizenAIFestivalMixin.java:46-50` (the working colonist made idle); `festival/Fireworks.java:372-401` (`keepUp`), `:516-545` (rockets from his stock); cseffects off and on, csfullcycle effects, csfestival default and nomixin | |
 | P29 | The commands table; operators for all but `status` | `command/SeasonsCommands.java:29,48-60`, `command/DecorCommands.java:32-42`; cscalendar, csdecorgate lifecycle | |
 | P30 | The config switches table, keys and defaults | `SeasonsConfig.java:54-81` (defaults), `:164-234` (keys); csconfig defaults | |
 | P31 | The Workshop window's switches: Prepare all year, Decorate, wreaths, garlands, lights, the tree | `colony/DecoratorModules.java:34-43`, `colony/BuildingDecorator.java:48-58`; cseffects (the planner honours them) | |
-| P32 | Only two festivals, the others later | `SeasonsConfig.java:40` (`FESTIVAL_IDS`) | |
-| P33 | Without a Workshop: no tree, gifts or fireworks; the colonists dress and gather at the marker or the town hall | `festival/Gathering.java:157-165` (`site`); csfullcycle nodecorator and nomarker | |
+| P32 | Only two festivals, others later (no dates, no names promised) | `SeasonsConfig.java:40` (`FESTIVAL_IDS`) | |
+| P33 | Without a Workshop: no tree, gifts or fireworks; the colonists dress and gather at the marker or the town hall on the Winter Festival days | `festival/Gathering.java:157-165` (`site`), `:140-151` (`gatheringDay`), `festival/Fireworks.java:501-521` (no show without a staffed hut); csfullcycle nodecorator and nomarker | |
 | P34 | Streets are not decorated | no road code; design 3.4 | |
-| P35 | The happiness bonus is not in the citizen window, only in the hut window | `effects/HappinessEffect.java:18-24`; cseffects on | |
+| P35 | The happiness bonus is in the citizen window's happiness number but not in its list of reasons; the hut window shows it | `effects/HappinessEffect.java:18-28`; cseffects on (the client's total equals the server's; our id not in the window's list) | |
 | P36 | MineColonies' own crops are not slowed in winter | `effects/CropEffect.java:14,54` (`CropGrowEvent.Pre` only); cseffects on ("[V] MineColonies' own crop block grows, and does not fire CropGrowEvent.Pre") | |
 | P37 | English only | `resources/assets/colony_seasons/lang/` holds only `en_us.json` | |
 | P38 | Uninstalling: `decor remove` first; the trunk goes with the mod, the spruce leaves stay, at level 5 also the planter's stone bricks, podzol and lanterns | `tools/tree_pieces.py:141-155`; hostile-world H18 | |
-| P39 | The GitHub link | must exist and be public before the upload (item 29): a private repository is a dead link for visitors | |
+| P39 | Bug reports in the comments here (the GitHub sentence is off the page) | `gh repo view` on 21 Nov 2026: `isPrivate: true`, so a GitHub link is dead for visitors; see item 29 | |
 | P40 | The Discord and Patreon links; one chat line the first time a player joins a world, once in that world; `links.showWelcome = false` turns it off | `links/Welcome.java:29-39,66-77,90-99`, `SeasonsConfig.java:230-235`; `tools/check_links.py`, csanswers | |
 
 Found by S11b in the code and not changed (only the page texts and one tooltip were in scope; for the owner):
@@ -77,6 +77,59 @@ Found by S11b in the code and not changed (only the page texts and one tooltip w
   (`decor/DecorWork.java:645`) and csdecorgate checks that it is "noted for the hut window", but
   `colony/DecoratorInfoModule.java` never reads it, and the status line then reads "Decorated Festival square: 0
   placed, 0 still open." What the player gets is the managers' chat line once a game day; the pages now say that.
+- The tree switch (found by the S11b review): only `nextToDecorate` reads it (`decor/DecorWork.java:192`). With the
+  tree off, a tree he is still building stays half built (`nextToTend`, `:450-471`, takes only a group whose
+  `decoratedDay` is set, which a tree gets when it is finished or found no room, `:644,698`); a finished or no-room
+  tree is still tended every day; after a Workshop upgrade tending takes the old tree down (`:607-613`), the emptied
+  group is dropped (`decor/DecorPlacer.java:471`), and no new tree goes up. The README now says exactly that.
+- `resources/META-INF/neoforge.mods.toml:4,12` (`issueTrackerURL`, `displayURL`) point at the GitHub repository, which
+  is private (21 Nov 2026), so the mod list's links are dead for players until it is public. Left as they are: whether
+  the repository goes public is the owner's call (item 29).
+
+## The S11b review round (21 Nov 2026)
+
+An independent checker read the pages against the code after the S11b pass. What it found and what changed (only page
+text; no code):
+
+- Effects off: "with them all off the mod changes only looks, sounds, the Decorator's materials and the gifts" left out
+  the gathering, which by default takes the working colonists (not the guards) off work for the gathering hours of one
+  game day on each real day of 24 to 26 December (`SeasonsConfig.java:64`, `festival/Gathering.java:252-263,394-425`,
+  `mixin/CitizenAIFestivalMixin.java:46-50`), and the Decorator's late New Year evening (`festival/Fireworks.java:372`).
+  CurseForge page and README now name both and `events.whoComes = off_duty` (P28).
+- The GitHub link: the repository is private, so the CurseForge page's "Source and changelog on GitHub ... Bug reports
+  there or in the comments here" became "Bug reports in the comments here, with your `logs/latest.log`." (P39). When
+  the repository is public, the sentence can come back word for word: "Source and changelog on GitHub:
+  https://github.com/Lovkar-Squid/colony-seasons. Bug reports there or in the comments here, with your
+  `logs/latest.log`."
+- README "he never builds round a player or an animal" became "he never puts a block into a cell where a player or an
+  animal stands; that cell waits for a later visit" (`decor/DecorPlacer.java:178-207`, the "entity" refusal; `place`,
+  `:342-347`, still fills the other cells; `DecorWork.evict` moves colonists only).
+- README "Switching the tree off stops a new tree from going up" became the rule as the code has it (see the tree switch
+  above).
+- "They gather at the tree on the festival days" (CurseForge page twice, README twice) became "on the Winter Festival
+  days (24 to 26 December)": the gathering is for `winter_festival` only (`festival/Gathering.java:82,140-151`), and
+  "not when it rains" was added where the gathering is described (`:275`, `ai/EntityAIWorkDecorator.java:785`) (P3,
+  P23, P33).
+- README "the gift pile and the firework crate go up last, once the tree's own trunk, leaves, ornaments and star are in
+  place" became: with materials on, the parts that cost nothing (the pile, the crate, and at level 5 the large star and
+  the tinsel leaves) wait until every part of the tree and its planter that needs materials is up; with decorations
+  free everything goes up together, trunk first, then bottom up (`decor/DecorWork.java:403-421,670-689`,
+  `decor/PieceLoader.java:285-287,323-338`). Item 30 below is the record.
+- The welcome marker "shared with Lovkar's other mods" (README, changelog) is not proven: only `links/Welcome.java` uses
+  `lovkar_mods` / `welcome_shown`. The README now says the marker has a neutral name so the author's later mods can
+  share it; the changelog drops the clause.
+- Minor: the racks are "2 at level 1 and 12 in the hut at level 5" (CurseForge page; the README now says which racks
+  stand in the storage room, `tools/decorator_hut.py:228,239-255`) (P15); the happiness bonus is in the citizen
+  window's number but not in its list of reasons (CurseForge page, P35); the wool hat keeps the plain colour while the
+  scarf is striped (`client/ClothesRules.java:93-95`); the stock is of the six decorations he makes, kept all year only
+  with materials needed and "Prepare all year" on (README, CurseForge page and changelog;
+  `ai/EntityAIWorkDecorator.java:248-258`, `decorator_kits/*.json`) (P7); the later festivals are only "later", with no
+  names and no "each before its real date" (CurseForge page, README) (P32); the changelog's gift a day runs from 1
+  December to 6 January and is no longer listed under the festival days (`festival/Gifts.java:104-108`). The checker's
+  report was cut off inside this last item, so its exact wording was not seen; the fix follows the code.
+- `release/curseforge-page-coming.md` (the text while no file is up, replaced by the description at the upload) still
+  says "on the festival days" and "each before its real date"; it was left as it is, as before. If it is live on
+  CurseForge until the upload, the owner may want those two phrases changed there too.
 
 ## What S11b changed in the pages
 
@@ -314,6 +367,10 @@ Notes from S7 (19 Nov 2026, probe `csfestival`, all modes and `tools/restart.sh 
    S11b: the CurseForge project exists (`release/curseforge.md`). Before the upload, open
    https://github.com/Lovkar-Squid/colony-seasons logged out: a private repository is a dead link for every visitor,
    and then the GitHub line of the page and the mods.toml URLs wait until it is public.
+   S11b review: `gh repo view` says `isPrivate: true` (21 Nov 2026). The GitHub sentence is off the CurseForge page
+   (the sentence to put back is in "The S11b review round"); `neoforge.mods.toml:4,12` still name the repository and
+   are dead links in the mod list until it is public. Open for the owner: make the repository public before the
+   upload, or have the two URLs changed.
 
 ## Added by S9
 
@@ -324,6 +381,11 @@ Notes from S7 (19 Nov 2026, probe `csfestival`, all modes and `tools/restart.sh 
    Changed (S10c): README "once the tree's own trunk, leaves, ornaments and star are in place"; a paid cell the cell
    rule refuses for good (a lantern whose planter brick cell holds grass) no longer holds the free ones back.
    Proof: csdecorgate square ("the grand tree with short grass on a planter cell").
+   Changed (S11b review): "go up last" held only with materials on at levels 1 to 4. README now: with
+   `decorator.needsMaterials` on, the parts that cost nothing (the gift pile, the firework crate, and at level 5 the
+   large star and the tinsel leaves) wait until every part of the tree and its planter that needs materials is up; with
+   decorations free everything goes up together, trunk first, then bottom up (`decor/DecorWork.java:403-421`,
+   `decor/PieceLoader.java:285-287`).
 31. With no rockets in his stock the New Year dusk waits for them and no show is counted; see item 16. Proof:
    csfullcycle emptywarehouse.
 32. The Decorator takes a big tree down over a few visits, at most 256 blocks a visit. Not in the pages (a detail).

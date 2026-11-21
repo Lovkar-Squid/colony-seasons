@@ -5,8 +5,8 @@
 Colony Seasons gives a MineColonies colony a calendar. The game has seasons, and the festivals come on
 real dates. In December a new worker, the **Decorator**, hangs wreaths and garlands on the colony's
 buildings and builds a decorated tree on the square. Colonists put on striped scarves, they gather
-at the tree on the festival days, the player picks up a small gift every day, and New Year ends with
-fireworks. After 6 January the Decorator takes everything down again.
+at the tree on the Winter Festival days (24 to 26 December), the player picks up a small gift every day, and
+New Year ends with fireworks. After 6 January the Decorator takes everything down again.
 
 Made by **Lovkar & Claude** for NeoForge 1.21.1.
 
@@ -52,8 +52,11 @@ A new Workshop gets its worker in MineColonies' usual order: a colonist with no 
 with a free place first. While other huts have free places, hire the Decorator in the Workshop's window. There
 you can also hire a colonist who works at another hut, however far away that hut is; he leaves his old job.
 
-All year he keeps a stock of every decoration ready at his Workshop, up to a cap of 8 plus 8 for each Workshop
-level (16 of each at level 1, 48 at level 5). For a decoration below the cap he looks in this order:
+While decorations need materials and the Workshop's "Prepare all year" setting is on (both are the default), he
+keeps a stock of each of the six decorations he makes (wreath, garland, lantern string, fairy lights, ornament
+leaves and tree star) ready at his Workshop all year, up to a cap of 8 plus 8 for each Workshop level (16 of each at
+level 1, 48 at level 5). The tinsel leaves, the large star, the gift pile and the firework crate cost nothing and are
+never stocked. For a decoration below the cap he looks in this order:
 
 1. his own storage: the Workshop's racks, the hut block and his pack, where last year's decorations went after
    the take-down;
@@ -81,24 +84,28 @@ building nearest his Workshop, and puts up what his hut level allows. He starts 
 | 4 | garland and lights four on each side | full-size spruce with more ornaments |
 | 5 | up to six on each side, the second door too | the grand tiered tree with the large star |
 
-The gift pile and the firework crate go up last, once the tree's own trunk, leaves, ornaments and star are in place.
-The trunk looks like spruce logs but is the mod's own block, so a Forester never takes the festival tree for a tree
-to cut. Colonists standing where the tree goes are moved aside first, and he never builds round a player or an
-animal. A cell of the square that cannot be filled for now (someone standing in it, a lantern with grass where its
-planter brick should be) does not hold him up: after a few tries he goes on to the other buildings and tries again the
-next day, and the tree is ready to light as soon as the tree itself stands.
+With `decorator.needsMaterials` on, the parts of the square that cost nothing (the gift pile, the firework crate,
+and at level 5 the large star and the tinsel leaves) wait until every part of the tree and its planter that needs
+materials is up. With decorations free everything goes up together, the trunk first and then from the bottom up. The
+trunk looks like spruce logs but is the mod's own block, so a Forester never takes the festival tree for a tree to
+cut. Colonists standing where the tree goes are moved aside first, and he never puts a block into a cell where a
+player or an animal stands; that cell waits for a later visit. A cell of the square that cannot be filled for now
+(someone standing in it, a lantern with grass where its planter brick should be) does not hold him up: after a few
+tries he goes on to the other buildings and tries again the next day, and the tree is ready to light as soon as the
+tree itself stands.
 
-While the window lasts he looks over his work once a game day and puts back what went missing, the gift pile too.
-On the Winter Festival days he stands at the tree in the afternoon and hands the colonists gifts. On the New Year
-evenings he stays up past his bedtime to launch the dusk show at the square with his rockets; when he cannot (it
-rains, he is ill, the colony is raided, or the mixin below is not applied), the server launches it with his rockets
-instead, and the midnight show always comes from the server. After the window
-he visits every building he decorated, takes his decorations down and keeps them in his Workshop for next year.
+While the window lasts he looks over his work once a game day and puts back what went missing, the gift pile too. On
+the Winter Festival days he stands at the tree in the afternoon, when it does not rain, and hands the colonists
+gifts. On the New Year evenings he stays up past his bedtime to launch the dusk show at the square with his rockets;
+when he cannot (it rains, he is ill, the colony is raided, or the mixin below is not applied), the server launches
+it with his rockets instead, and the midnight show always comes from the server. After the window he visits every
+building he decorated, takes his decorations down and keeps them in his Workshop for next year.
 
 ### The Workshop's storage
 
-The Workshop keeps his stock in MineColonies racks in a storage room: at levels 1 and 2 in the back corner of the
-ground floor, from level 3 in the attic, with 2, 3, 6, 9 and 12 racks in the hut at levels 1 to 5. At level 5 the
+The Workshop keeps his stock in MineColonies racks, 2, 3, 6, 9 and 12 of them in the hut at levels 1 to 5. At levels
+1 and 2 they stand in the storage room in the back corner of the ground floor; from level 3 the storage room is the
+attic, with 2, 4 and 6 of the racks, and the others stay on the ground floor's back wall. At level 5 the
 window's Storage tab offers **Upgrade Storage**, as the Warehouse does at its last level: each step costs one
 emerald block (nothing in creative) and makes every rack of the Workshop one row of nine slots larger, three steps
 in all (27, 36, 45 and then 54 slots). You need the right to manage the colony's huts and must stand within 15
@@ -147,11 +154,14 @@ still lacks, and what the three effect switches do on this server. Under the lis
 Support line with the two links as text (see Links below). Everything is translated for each player; the server
 only sends numbers, ids and lang keys.
 
-The **Settings** page has five more switches besides "Prepare all year": "Decorate" (off: he puts nothing up
-and tends nothing, but still makes stock and still takes everything down afterwards), and one each for
-wreaths, garlands, lights and the tree. A switched-off kind is left out of his plan; what is already standing
-is not touched until the take-down. Switching the tree off stops a new tree from going up. The **Storage** page
-holds Upgrade Storage (see above).
+The **Settings** page has five more switches besides "Prepare all year": "Decorate" (off: he puts nothing up and
+tends nothing, but still makes stock and still takes everything down afterwards), and one each for wreaths,
+garlands, lights and the tree. A switched-off kind of wreaths, garlands or lights is left out of his plan: he puts
+up none of it, and what is already standing stays until the take-down. Switching the tree off stops him starting a
+tree, and a tree he is still building stays as it is. A finished tree, or one he planned and found no room for, is
+still looked after every day until the take-down: missing parts are put back, a planned tree goes up once there is
+room, and after a Workshop upgrade the old tree comes down and no new one goes up. The **Storage** page holds
+Upgrade Storage (see above).
 
 ## The festival marker
 
@@ -176,8 +186,9 @@ festival marker.
   0 turns the gifts off). MineColonies' colony protection decides who may click the pile, so a visitor gets none. A
   gift opens into a roll of a loot table (`colony_seasons:gifts/winter_daily`, `gifts/winter_festival` and
   `gifts/new_year`), so a pack maker can change what is in it.
-- On 24 to 26 December, come to the gathering. In the afternoon of the game day the colonists walk to the
-  tree, the Decorator hands them gifts, and a short tune plays. The gift of these days is better.
+- On 24 to 26 December, come to the gathering. In the afternoon of the game day, when it does not rain, the
+  colonists walk to the tree, the Decorator hands them gifts, and a short tune plays. The gift of these days is
+  better.
 - On New Year, watch the fireworks from the square at dusk. If the Decorator has no rockets yet, the show
   waits through the dusk for them. The gift of the day holds a few rockets.
 
@@ -189,12 +200,12 @@ only off-duty colonists come.
 
 ## Clothes
 
-Colonists and visitors wear a knitted scarf in in-game winter, in red, green, blue, mustard or plum. The
-colour is picked from the colonist's id, so he keeps it. From 1 December to 6 January, the Winter Festival's
-decoration window, the scarf is a striped festive one instead, whatever the season in the game. In in-game
-winter, colonists whose model has no headgear of its own also get a wool hat in the colour of the scarf. It
-is never drawn over a helmet, or when MineColonies shows its own December hat; the scarf still is. A
-colonist in a chestplate, such as a guard, gets no scarf.
+Colonists and visitors wear a knitted scarf in in-game winter, in red, green, blue, mustard or plum. The colour is
+picked from the colonist's id, so he keeps it. From 1 December to 6 January, the Winter Festival's decoration
+window, the scarf is a striped festive one instead, whatever the season in the game. In in-game winter, colonists
+whose model has no headgear of its own also get a wool hat in their own colour, the one of their plain scarf; while
+the scarf is the striped one, the hat keeps that plain colour. It is never drawn over a helmet, or when MineColonies
+shows its own December hat; the scarf still is. A colonist in a chestplate, such as a guard, gets no scarf.
 
 This is drawn on the client only, as one extra layer on MineColonies' colonist renderer. Nothing is put in
 an inventory slot and nothing is saved on the colonist. To turn it off, set `showClothes` to false in the client
@@ -202,8 +213,11 @@ config `colony_seasons-client.toml`. The same file has a `showParticles` switch,
 
 ## Effects on the game
 
-There are three switches in the server config, all off by default. With all three off the mod changes
-looks, sounds, the materials the Decorator uses and the gifts, and nothing else.
+There are three switches in the server config, all off by default. With all three off the mod changes looks, sounds,
+the materials the Decorator uses, the gifts and the festival gathering, and nothing else. By default, on each real
+day of 24 to 26 December, working colonists (not the guards) leave work for the gathering hours of one game day (see
+the gathering above); `events.whoComes = off_duty` keeps them at work. On the New Year evenings the Decorator stays
+up past his bedtime for the dusk show.
 
 | Switch | When on |
 | --- | --- |
@@ -255,11 +269,11 @@ Colony Seasons is made by Lovkar & Claude. News, help and test builds are on Dis
 https://discord.gg/BVztrTtXFu, and you can support the mods on Patreon at https://www.patreon.com/cw/Lovkar. Both
 links are in the mod's description, under the list of the Decorator's Workshop Calendar page, and in one chat line
 the server sends a player the first time he joins a world with the mod. That line comes once per player in each
-world and never again there, also not from Lovkar's other mods: they share one marker in the player's saved data (in
-the persistent data, the compound `PlayerPersisted`, then `lovkar_mods`, the boolean `welcome_shown`), which the
-game keeps through death and the return from the End. A mod that sends the line sets the marker, and every mod
-skips the line once it is set. A server owner turns the line off with `links.showWelcome = false` in
-`colony_seasons-server.toml` (default true); with it off no marker is written.
+world and never again there. The mod remembers it with a marker in the player's saved data (in the persistent data,
+the compound `PlayerPersisted`, then `lovkar_mods`, the boolean `welcome_shown`), which the game keeps through death
+and the return from the End. The marker has a neutral name so the author's later mods can share it. A server owner
+turns the line off with `links.showWelcome = false` in `colony_seasons-server.toml` (default true); with it off no
+marker is written.
 
 ## Commands
 
@@ -277,10 +291,9 @@ the game alone and says so; use Serene Seasons' own command.
 
 ## What it does not do
 
-- Only the Winter Festival and New Year are in 0.1.0. Spring Bloom, Harvest Fair and Night of Lanterns come
-  later, each before its real date.
+- Only the Winter Festival and New Year are in 0.1.0; other festivals come later.
 - No Decorator, no decorations. Without his hut the colonists still dress for the season, players still get
-  the season line, and on the festival days the colonists still gather at the festival marker (at the town
+  the season line, and on the Winter Festival days the colonists still gather at the festival marker (at the town
   hall without one), but there is no tree, no gift pile and no fireworks.
 - Streets are not decorated. MineColonies has no road network to hang things on, and solid blocks on a
   street can block colonists.
