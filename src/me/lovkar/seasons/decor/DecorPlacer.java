@@ -36,6 +36,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.function.Predicate;
 
 /**
  * The only code that sets or clears decoration blocks (design 3.2, 3.3; the cell rule and the removal rule of the
@@ -397,11 +398,27 @@ public final class DecorPlacer {
      */
     public static Removed remove(final ServerLevel level, final DecorLedger ledger, final int colony, final DecorLedger.Owner owner,
                                  final Stock sink, final int budget) {
+        return remove(level, ledger, colony, owner, sink, budget, pos -> true);
+    }
+
+    /**
+     * {@link #remove(ServerLevel, DecorLedger, int, DecorLedger.Owner, Stock, int)} restricted to the entries whose
+     * position {@code only} accepts (the storeroom's check takes off the pieces that are not in its target, S10g2): the
+     * other entries are not touched and not counted. Same rule, same flags, the same neighbour updates, and the group is
+     * dropped at the end only if it lists nothing any more.
+     */
+    public static Removed remove(final ServerLevel level, final DecorLedger ledger, final int colony, final DecorLedger.Owner owner,
+                                 final Stock sink, final int budget, final Predicate<BlockPos> only) {
         final DecorLedger.GroupView group = ledger.group(colony, owner);
         if (group == null) {
             return Removed.NONE;
         }
-        final List<Map.Entry<BlockPos, DecorLedger.Entry>> work = new ArrayList<>(group.entries().entrySet());
+        final List<Map.Entry<BlockPos, DecorLedger.Entry>> work = new ArrayList<>();
+        for (final Map.Entry<BlockPos, DecorLedger.Entry> e : group.entries().entrySet()) {
+            if (only.test(e.getKey())) {
+                work.add(e);
+            }
+        }
         work.sort(Comparator.comparingInt((Map.Entry<BlockPos, DecorLedger.Entry> e) -> -e.getKey().getY())
                 .thenComparing(Map.Entry::getKey));
         int removed = 0;

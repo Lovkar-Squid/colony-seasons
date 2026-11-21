@@ -175,6 +175,30 @@ bash tools/probe.sh csspots      # storage_box and storage_coil: no item, the em
                                  # pasted at level 5 mirrored and turned (MIR_R270), its tags and world as above
 ```
 
+The storeroom's dressing (S10g2). `csstoreroom` compares every room it sees, block state for block state and turned with
+the building, with `tools/csstoreroom/res/csstoreroom/sets.json` (the packed and festival set of each level, written by
+`build_pack.py` from `decorator_hut.storeroom_set`). It writes the rooms it placed at levels 1 and 5 to
+`csstoreroom-dump.json` in the rig's server folder (never committed); `bash tools/render_s10g.sh --from-dump <that file>`
+draws them and says whether they equal `storeroom_set`.
+
+```bash
+bash tools/probe.sh csstoreroom    # the ledger's files (version 1, no version, version 2 with a storeroom round trip); the Workshop
+                                   # pasted at level 1 turned (R90): packed, dressed, packed by the check, a second check the same
+                                   # day changes nothing (no block, no write, no budget, no status), free pieces drop nothing;
+                                   # upgrade work orders 1 to 5 with the new level built as the Builder builds it (the sweep takes
+                                   # the room off within its interval, nothing goes up while the order is open, then the new level's
+                                   # set; one upgrade in a forced window); level 5 pasted MIR_R270; a Workshop with no tags (an empty
+                                   # read changes nothing) and its removal; then the real Decorator: off season, a window's start and
+                                   # end (festive until the outside is down, then packed; the outside ledger empty, the room still
+                                   # listed), festival force and clear both ways, no calendar state yet (the room is left as it is),
+                                   # a hire in the middle of a window, decor list and decor remove, no Decorator after a window (a
+                                   # festive room goes, a packed one stays, also in an unstaffed second Workshop; with only packed
+                                   # rooms listed the sweep says the decorations are down), the switch off and on, the Builder
+                                   # clearing the cells
+bash tools/restart.sh csstoreroom  # a check stopped half done in a forced window (5 off, 2 of 13 up) with nobody hired; after the
+                                   # restart the ledger equals the world and the next check ends at the festival set
+```
+
 Each finding that goes to the owner instead of a fix is a `NOTE FINDING H<n> owner:ask|fyi` line. `tools/restart.sh` runs the phases a
 probe lists in its `phases.txt` instead of `restart-save,restart-load`.
 

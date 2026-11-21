@@ -27,8 +27,10 @@ import me.lovkar.seasons.decor.DecorLedger;
 import me.lovkar.seasons.decor.DecorPhase;
 import me.lovkar.seasons.decor.DecorPlacer;
 import me.lovkar.seasons.decor.DecorWork;
+import me.lovkar.seasons.decor.DoorFinder;
 import me.lovkar.seasons.decor.Kits;
 import me.lovkar.seasons.decor.PieceLoader;
+import me.lovkar.seasons.decor.StoreroomWork;
 import me.lovkar.seasons.decor.Supply;
 import me.lovkar.seasons.festival.Fireworks;
 import me.lovkar.seasons.festival.Gathering;
@@ -74,6 +76,11 @@ import java.util.Map;
  *       when it is off: for every kit below the stock cap he asks the colony for one batch of what is missing (async
  *       requests, MineColonies drops duplicates), and when his pack holds a whole batch he walks to the hut and
  *       assembles it.</li>
+ *   <li>The storeroom in his Workshop (S10g2, {@link StoreroomWork}): whenever he is at his hut, in every phase, he
+ *       checks the room against its target (the festival set in a festival phase, the packed set otherwise) once a game
+ *       day, or at once when the target or the Workshop's level changed, and swaps what differs; a check that changed
+ *       something says so on his status line. It costs no walk of its own (he comes back to the hut between jobs), no
+ *       visit and no budget.</li>
  * </ul>
  *
  * <p>Nothing that must survive is kept here: MineColonies resets this AI for sleep, rain and raids. The fields are
@@ -151,8 +158,19 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
     /** Colonists within this distance of the tree can be handed a gift. */
     public static final int GIFT_RADIUS = 8;
 
+    /** Ticks after a complete storeroom check before he looks at the room again (S10g2). */
+    public static final int ROOM_RECHECK_TICKS = 600;
+    /** Ticks after a check that could not finish (a chunk, the hut's data not there yet) before he tries again. */
+    public static final int ROOM_RETRY_TICKS = 100;
+    /** "At his hut" for the storeroom: inside the Workshop's box grown by this, or this close to the hut block. */
+    public static final int AT_HUT_MARGIN = 2;
+    public static final int AT_HUT_RADIUS = 6;
+
     // scratch only: a reset of the AI loses these and nothing else (progress is the ledger and the building's NBT)
     private long nextPhaseVisit = Long.MIN_VALUE;
+    // scratch: the storeroom's own progress is its ledger group (a reset only makes him look at the room once more)
+    private long nextRoomCheck = Long.MIN_VALUE;
+    private String lastRoomTarget;
     private int walkAttempts;
     private Kits.Kit kitToAssemble;
     private DecorWork.Target target;
@@ -201,12 +219,17 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
         dropPlayerFinished();
         final CalendarManager.Snapshot snapshot = CalendarManager.current();
         final DecorLedger ledger = ledger();
-        final boolean up = building.decorationsUp() || ledger != null && ledger.hasEntries(building.getColony().getID());
+        // the outside decorations (the storeroom stays listed all year, so it never makes the phase Taking down)
+        final boolean up = building.decorationsUp() || ledger != null && ledger.hasOutdoorEntries(building.getColony().getID());
         final DecorPhase phase = DecorPhase.of(snapshot, up);
         final boolean window = DecorPhase.windowOpen(snapshot);
         job.setPhase(phase);
 
         final long now = world.getGameTime();
+        // ahead of the phase visits and of the free and window-only returns: in every phase, whenever he is at his hut
+        if (storeroom(snapshot, phase, ledger, now)) {
+            return AIWorkerState.START_WORKING;
+        }
         if (phase != DecorPhase.OFF_SEASON && now >= nextPhaseVisit) {
             nextPhaseVisit = now + PHASE_VISIT_TICKS;
             target = null;
@@ -234,6 +257,50 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
             return AIWorkerState.START_WORKING;
         }
         return prepare();
+    }
+
+    /**
+     * The storeroom check (S10g2, storage-look 3.2): when he is at his hut and the room is due ({@link StoreroomWork#due}:
+     * not checked today for this target and this Workshop level), the room is brought to its target in this tick. True
+     * when the check changed a block (his status line says so, and this decision ends there); false otherwise, so the
+     * decision goes on as before. Runs at most every {@link #ROOM_RECHECK_TICKS} after a complete check (every
+     * {@link #ROOM_RETRY_TICKS} after one that could not finish), and at once when the target turned since. Before the
+     * calendar's first poll of a session there is no target yet (the phase reads Off season then), so the room is left as
+     * it is, as the sweep does.
+     */
+    private boolean storeroom(final CalendarManager.Snapshot snapshot, final DecorPhase phase, final DecorLedger ledger, final long now) {
+        if (snapshot == null || ledger == null || !(world instanceof ServerLevel level) || !atHut()) {
+            return false;
+        }
+        final int colony = building.getColony().getID();
+        final BlockPos hut = building.getPosition();
+        final long day = DecorWork.day(level);
+        final DecorLedger.GroupView room = phase == DecorPhase.TAKING_DOWN ? ledger.group(colony, DecorLedger.Owner.storeroom(hut)) : null;
+        final String target = StoreroomWork.target(phase, building.decorateEnabled(), DecorWork.festival(), room);
+        // a target that turned (a window opened or ended, a festival forced or cleared) is looked at on this decision
+        if (now < nextRoomCheck && target.equals(lastRoomTarget)) {
+            return false;
+        }
+        if (!StoreroomWork.due(ledger, colony, hut, target, building.getBuildingLevel(), day)) {
+            return false;
+        }
+        final StoreroomWork.Result result = StoreroomWork.check(level, building.getColony(), building, target, ledger, day, Integer.MAX_VALUE);
+        lastRoomTarget = target;
+        nextRoomCheck = now + (result.complete() ? ROOM_RECHECK_TICKS : ROOM_RETRY_TICKS);
+        job.countRoomCheck();
+        if (result.status() == null) {
+            return false;
+        }
+        job.setStatus(result.status());
+        incrementActionsDoneAndDecSaturation();
+        return true;
+    }
+
+    /** He stands in his Workshop (its box, a little grown) or near its hut block. */
+    private boolean atHut() {
+        final BlockPos at = worker.blockPosition();
+        final BlockPos hut = building.getPosition();
+        return at.distSqr(hut) <= (double) AT_HUT_RADIUS * AT_HUT_RADIUS || DoorFinder.Box.of(building).grown(AT_HUT_MARGIN).contains(at);
     }
 
     /**
@@ -673,7 +740,7 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
         final int colony = building.getColony().getID();
         final long day = DecorWork.day(level);
         if (target == null) {
-            if (!ledger.hasEntries(colony)) {
+            if (!ledger.hasOutdoorEntries(colony)) {
                 ledger.dropEmptyGroups(colony);
                 building.setDecorationsUp(false);
                 job.setStatus(DecoratorTexts.DOWN_DONE);
@@ -700,7 +767,7 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
         if (removed.touched() > 0) {
             afterWork();
         }
-        if (!ledger.hasEntries(colony)) {
+        if (!ledger.hasOutdoorEntries(colony)) {
             ledger.dropEmptyGroups(colony);
             building.setDecorationsUp(false);
         }
@@ -735,7 +802,7 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
             return DecoratorState.DECORATING;
         }
         final DecorLedger ledger = ledger();
-        if (ledger != null && ledger.hasEntries(building.getColony().getID())) {
+        if (ledger != null && ledger.hasOutdoorEntries(building.getColony().getID())) {
             return DecoratorState.TAKING_DOWN;
         }
         return AIWorkerState.START_WORKING;

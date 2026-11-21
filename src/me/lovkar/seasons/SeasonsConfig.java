@@ -55,6 +55,8 @@ public final class SeasonsConfig {
     public static final int DEFAULT_BUILDINGS_PER_DAY_BASE = 2;
     public static final int DEFAULT_BUILDINGS_PER_DAY_PER_LEVEL = 2;
     public static final int DEFAULT_MAX_PER_SIDE = 6;
+    /** S10g2: the Decorator dresses the storeroom in his Workshop (packed boxes all year, the festival set in the window). */
+    public static final boolean DEFAULT_STOREROOM_DRESSING = true;
 
     // events
     public static final int DEFAULT_GATHER_FROM_TICK = 8500;
@@ -106,6 +108,7 @@ public final class SeasonsConfig {
     private static final ModConfigSpec.IntValue BUILDINGS_PER_DAY_BASE;
     private static final ModConfigSpec.IntValue BUILDINGS_PER_DAY_PER_LEVEL;
     private static final ModConfigSpec.IntValue MAX_PER_SIDE;
+    private static final ModConfigSpec.BooleanValue STOREROOM_DRESSING;
 
     private static final ModConfigSpec.IntValue GATHER_FROM_TICK;
     private static final ModConfigSpec.IntValue GATHER_UNTIL_TICK;
@@ -171,6 +174,11 @@ public final class SeasonsConfig {
         MAX_PER_SIDE = builder
                 .comment("The most decorations on one side of one building.")
                 .defineInRange("maxPerSide", DEFAULT_MAX_PER_SIDE, 1, 64);
+        STOREROOM_DRESSING = builder
+                .comment("true: the Decorator dresses the storeroom in his Workshop: boxes and coils of decorations packed on its",
+                        "barrels all year, the boxes nearly empty and garlands, a wreath and lights hung in the decoration window.",
+                        "It is his own room dressing and costs nothing. false: the room stays bare, and what is there comes off.")
+                .define("storeroomDressing", DEFAULT_STOREROOM_DRESSING);
         builder.pop();
 
         builder.comment("Festival events: the gathering at the tree, gifts and fireworks.").push("events");
@@ -385,6 +393,11 @@ public final class SeasonsConfig {
 
     public static int maxPerSide() {
         return read(MAX_PER_SIDE);
+    }
+
+    /** S10g2: whether the Decorator dresses his Workshop's storeroom (docs/storage-look-design.md 3.3, point 6). */
+    public static boolean storeroomDressing() {
+        return read(STOREROOM_DRESSING);
     }
 
     // events

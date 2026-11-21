@@ -11,6 +11,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 
 /**
  * The spots of the Decorator's storeroom in his Workshop (S10g, docs/storage-look-design.md 3.5): Structurize position
@@ -30,7 +31,8 @@ import java.util.List;
  *
  * <p>The piece's facing is not stored; the placing code works it out (tools/decorator_hut.spot_facing: away from the
  * first whole wall block beside the spot, looking north, east, west, south in the building's own frame; a standing
- * piece with none faces south). Nothing here places a block: that is S10g2's, through {@link DecorPlacer}.</p>
+ * piece with none faces south). Nothing here places a block: {@link StoreroomWork} (S10g2) works the facing out and
+ * places through {@link DecorPlacer}.</p>
  */
 public final class StoreroomSpots {
     public static final String PACK_PREFIX = "cs_pack_";
@@ -38,6 +40,13 @@ public final class StoreroomSpots {
     /** The set of 0.1.0: the Winter Festival and New Year share the winter decorations, inside as outside. */
     public static final String WINTER = "winter";
     public static final List<String> SETS = List.of(WINTER);
+    /**
+     * Festival id to set id (storage-look 3.6), next to the festival list of {@link me.lovkar.seasons.SeasonsConfig}:
+     * a later festival with its own room dressing adds its line here and its set to {@link #SETS}.
+     */
+    private static final Map<String, String> SET_OF = Map.of(
+            me.lovkar.seasons.SeasonsConfig.WINTER_FESTIVAL, WINTER,
+            me.lovkar.seasons.SeasonsConfig.NEW_YEAR, WINTER);
     /** The packed pieces a tag may name, in the order {@link #read} lists them (tools/decorator_hut.PACKED_PIECES). */
     public static final List<String> PACKED_PIECES = List.of("box_wreath", "box_garland", "box_lights", "box_lanterns",
             "box_gifts", "coil_garland", "coil_lights");
@@ -57,6 +66,14 @@ public final class StoreroomSpots {
     }
 
     private StoreroomSpots() {
+    }
+
+    /**
+     * The set the room shows for a festival (storage-look 3.6): both festivals of 0.1.0 share the winter set, and so do
+     * {@code ""} and any id the map does not know (the room of 0.1.0 has no other set to show).
+     */
+    public static String setOf(final String festivalId) {
+        return festivalId == null ? WINTER : SET_OF.getOrDefault(festivalId, WINTER);
     }
 
     public static String tag(final Kind kind, final String set, final String piece) {

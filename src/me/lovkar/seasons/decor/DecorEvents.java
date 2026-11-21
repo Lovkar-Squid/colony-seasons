@@ -37,7 +37,10 @@ import java.util.concurrent.atomic.AtomicInteger;
  *       loaded chunks and never before MineColonies' colony manager has loaded: groups marked for removal; a
  *       building's group while the building is under construction (an upgrade or repair would clear our blocks in
  *       its CLEAR_NON_SOLIDS stage) or once the building is gone; and after the window, everything of a colony with
- *       no staffed Decorator hut (or no colony at all). Empty groups are dropped once the window is over;</li>
+ *       no staffed Decorator hut (or no colony at all). Empty groups are dropped once the window is over. The storeroom
+ *       of a Workshop (S10g2, storage-look 3.3 point 4) has rules of its own ({@link #roomGoes}): it stays packed all
+ *       year with nobody's help, so only a festival set is cleared after the window, and only when that Workshop has
+ *       no worker;</li>
  *   <li>a colony MineColonies no longer has (deleted): its marker is taken off at once, and its record here and its
  *       festival state are dropped once it lists no entry (S9, H12: a new colony may get its id).</li>
  * </ul>
@@ -117,6 +120,8 @@ public final class DecorEvents {
         final IColony colony = building == null ? null : building.getColony();
         if (colony != null) {
             QUEUE.add(new Pending(colony.getDimension(), colony.getID(), DecorLedger.Owner.building(building.getPosition()), true));
+            // a Workshop's storeroom goes with it (storage-look 3.3 point 5); any other building has no such group
+            QUEUE.add(new Pending(colony.getDimension(), colony.getID(), DecorLedger.Owner.storeroom(building.getPosition()), true));
         }
     }
 
@@ -221,6 +226,8 @@ public final class DecorEvents {
         final boolean windowOver = snapshot != null && !DecorPhase.windowOpen(snapshot);
         int budget = SWEEP_BUDGET;
         final int before = budget;
+        // a Workshop has two groups at one position now (outside and storeroom): its work orders are read once a pass
+        final java.util.Map<BlockPos, Boolean> busy = new java.util.HashMap<>();
         for (final int id : ledger.colonies()) {
             if (budget <= 0) {
                 break;
@@ -240,11 +247,18 @@ public final class DecorEvents {
                     }
                     continue;
                 }
-                if (group.removing() || windowOver && noDecorator || ownerGoneOrBusy(level, colony, ledger, id, group)) {
+                if (group.owner().kind() == DecorLedger.Kind.STOREROOM) {
+                    if (roomGoes(level, colony, ledger, id, group, windowOver, busy)) {
+                        budget -= removeGroup(level, ledger, colony, id, group.owner(), budget);
+                    }
+                    continue;
+                }
+                if (group.removing() || windowOver && noDecorator || ownerGoneOrBusy(level, colony, ledger, id, group, busy)) {
                     budget -= removeGroup(level, ledger, colony, id, group.owner(), budget);
                 }
             }
-            if (colony != null && windowOver && !ledger.hasEntries(id)) {
+            // the outside decorations are down (the storeroom stays listed, packed, all year)
+            if (colony != null && windowOver && !ledger.hasOutdoorEntries(id)) {
                 for (final IBuilding b : colony.getServerBuildingManager().getBuildings().values()) {
                     if (b instanceof BuildingDecorator hut && hut.decorationsUp() && hut.getAllAssignedCitizen().isEmpty()) {
                         hut.setDecorationsUp(false);
@@ -276,9 +290,12 @@ public final class DecorEvents {
         return true;
     }
 
-    /** A building's group whose building is gone or under construction, or a square whose marker is gone. */
+    /**
+     * A building's group whose building is gone or under construction (a storeroom's Workshop included), or a square
+     * whose marker is gone. {@code busy} keeps the work-order test of each position for this pass.
+     */
     private static boolean ownerGoneOrBusy(final ServerLevel level, final IColony colony, final DecorLedger ledger, final int id,
-                                           final DecorLedger.GroupView group) {
+                                           final DecorLedger.GroupView group, final java.util.Map<BlockPos, Boolean> busy) {
         if (colony == null) {
             return false;                             // no colony: only the window's end clears it (windowOver && noDecorator)
         }
@@ -287,7 +304,26 @@ public final class DecorEvents {
             return !pos.equals(ledger.marker(id));
         }
         final IBuilding building = colony.getServerBuildingManager().getBuilding(pos);
-        return building == null || DecorWork.busy(colony, building);
+        return building == null || busy.computeIfAbsent(pos, p -> DecorWork.busy(colony, building));
+    }
+
+    /**
+     * The sweep's rules for a Workshop's storeroom (storage-look 3.3 point 4 and 6): it goes when it is marked for
+     * removal, when the colony is gone, when the Workshop is gone or under construction (an upgrade or repair: the next
+     * check puts the new level's set up), when the room's switch is off, and when the window is over while that
+     * Workshop has no worker and the room still shows a festival set. Never otherwise: the packed set is right outside
+     * the windows and needs nobody. The per-Workshop worker rule covers "the colony has no Decorator" and also a second,
+     * unstaffed Workshop in a colony whose other Workshop has one (its festive room would stay all year).
+     */
+    private static boolean roomGoes(final ServerLevel level, final IColony colony, final DecorLedger ledger, final int id,
+                                    final DecorLedger.GroupView group, final boolean windowOver, final java.util.Map<BlockPos, Boolean> busy) {
+        if (group.removing() || colony == null || !me.lovkar.seasons.SeasonsConfig.storeroomDressing()) {
+            return true;
+        }
+        if (ownerGoneOrBusy(level, colony, ledger, id, group, busy)) {
+            return true;
+        }
+        return windowOver && !StoreroomWork.staffed(colony, group.owner().pos()) && StoreroomWork.holdsFestival(group);
     }
 
     /** Removes one group by the rule, items to the colony's Decorator hut (or lost when there is none); returns cells touched. */

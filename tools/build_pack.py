@@ -13,6 +13,9 @@ the rig's basemods/); the Minecraft client assets jar comes from tools/paths.py.
   tools/cspaste/res/cspaste/manifest.json                               what the paste probe expects to read back
   tools/csspots/res/csspots/spots.json                                  the storeroom's spot tags per level (S10g1),
                                                                         for the csspots probe
+  tools/csstoreroom/res/csstoreroom/sets.json                           the storeroom's two sets per level with their
+                                                                        facings (S10g2, decorator_hut.storeroom_set),
+                                                                        what the csstoreroom probe's placed room must be
 
 The icon (colony_seasons.png next to pack.json) is drawn by tools/render_s5.py; this script only checks it is there.
 Checks, each printed, then ALL OK or PROBLEMS: every block id exists (client jar, our blockstates, the mod jars) with
@@ -321,6 +324,7 @@ def check_storage():
 RACK_COUNTS = (2, 3, 6, 9, 12)
 LADDER_WAY = {(-4, y, 0) for y in range(1, 9)} | {(-4, 6, -1), (-4, 6, 1), (-3, 6, 0)}
 SPOTS = os.path.join(TOOLS, "csspots", "res", "csspots", "spots.json")
+SETS = os.path.join(TOOLS, "csstoreroom", "res", "csstoreroom", "sets.json")
 
 
 def spot_problems(level, s):
@@ -492,6 +496,40 @@ def spots_text():
     text = "\n".join(lines) + "\n"
     if json.loads(text) != d:
         raise ValueError("spots_text does not read back as spots_json")
+    return text
+
+
+def sets_json():
+    """The storeroom's dressing as the Decorator must place it (S10g2): per level the packed set and the festival set,
+    each a sorted list of [dx, dy, dz, block state] relative to the hut block, unturned, with the facings
+    decorator_hut.storeroom_set works out (the probe turns offsets and facings with the building)."""
+    levels = {}
+    for lv in range(1, 6):
+        s = dh.workshop(lv)
+        ax, ay, az = s.anchor
+        one = {}
+        for name, festival in (("packed", False), ("festival", True)):
+            one[name] = sorted([[x - ax, y - ay, z - az, state]
+                                for (x, y, z), state in dh.storeroom_set(lv, s, festival).items()])
+        levels[str(lv)] = one
+    return {"sets": list(dh.SETS), "levels": levels}
+
+
+def sets_text():
+    """sets_json() as written: one piece to a line."""
+    d = sets_json()
+    lines = ["{", f' "sets": {json.dumps(d["sets"])},', ' "levels": {']
+    for i, (lv, one) in enumerate(d["levels"].items()):
+        lines.append(f"  {json.dumps(lv)}: {{")
+        for k, (name, pieces) in enumerate(one.items()):
+            lines.append(f"   {json.dumps(name)}: [")
+            lines += [f"    {json.dumps(p)}" + ("," if j < len(pieces) - 1 else "") for j, p in enumerate(pieces)]
+            lines.append("   ]" + ("," if k < len(one) - 1 else ""))
+        lines.append("  }" + ("," if i < len(d["levels"]) - 1 else ""))
+    lines += [" }", "}"]
+    text = "\n".join(lines) + "\n"
+    if json.loads(text) != d:
+        raise ValueError("sets_text does not read back as sets_json")
     return text
 
 
@@ -685,7 +723,8 @@ def main(argv):
     manifest_text = json.dumps(manifest, indent=1, sort_keys=False) + "\n"
     targets = {os.path.join(PACK_DIR, "pack.json"): pack_json().encode("utf-8"),
                MANIFEST: manifest_text.encode("utf-8"),
-               SPOTS: spots_text().encode("utf-8")}
+               SPOTS: spots_text().encode("utf-8"),
+               SETS: sets_text().encode("utf-8")}
     for path, root in written.items():
         buf = io.BytesIO()
         with gzip.GzipFile(filename="", mode="wb", fileobj=buf, mtime=0) as g:

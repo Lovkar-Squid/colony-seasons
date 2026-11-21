@@ -1,0 +1,149 @@
+{
+ "sets": ["winter"],
+ "levels": {
+  "1": {
+   "packed": [
+    [3, 1, -3, "colony_seasons:storage_box[content=lights,facing=south,fill=full]"],
+    [3, 1, -2, "colony_seasons:storage_coil[facing=south,kind=garland]"],
+    [4, 1, -2, "colony_seasons:storage_box[content=gifts,facing=west,fill=full]"],
+    [4, 1, 0, "colony_seasons:storage_box[content=wreath,facing=west,fill=full]"],
+    [4, 2, -3, "colony_seasons:storage_coil[facing=south,kind=lights]"]
+   ],
+   "festival": [
+    [1, 3, -3, "colony_seasons:garland[facing=south]"],
+    [2, 2, -3, "colony_seasons:wreath[facing=south]"],
+    [2, 3, -3, "colony_seasons:garland[facing=south]"],
+    [3, 1, -3, "colony_seasons:storage_box[content=lights,facing=south,fill=low]"],
+    [3, 3, -3, "colony_seasons:garland[facing=south]"],
+    [4, 1, -2, "colony_seasons:storage_box[content=gifts,facing=west,fill=low]"],
+    [4, 1, 0, "colony_seasons:storage_box[content=wreath,facing=west,fill=low]"],
+    [4, 3, -3, "colony_seasons:garland[facing=south]"],
+    [4, 3, -2, "colony_seasons:fairy_lights[facing=west,lit=false]"],
+    [4, 3, -1, "colony_seasons:fairy_lights[facing=west,lit=false]"],
+    [4, 3, 0, "colony_seasons:fairy_lights[facing=west,lit=false]"],
+    [4, 3, 1, "colony_seasons:fairy_lights[facing=west,lit=false]"],
+    [4, 3, 2, "colony_seasons:fairy_lights[facing=west,lit=false]"]
+   ]
+  },
+  "2": {
+   "packed": [
+    [-1, 1, -3, "colony_seasons:storage_coil[facing=south,kind=garland]"],
+    [0, 1, -3, "colony_seasons:storage_box[content=lights,facing=south,fill=full]"],
+    [4, 1, -2, "colony_seasons:storage_box[content=gifts,facing=west,fill=full]"],
+    [4, 1, 0, "colony_seasons:storage_box[content=wreath,facing=west,fill=full]"],
+    [4, 2, -3, "colony_seasons:storage_coil[facing=south,kind=lights]"]
+   ],
+   "festival": [
+    [0, 1, -3, "colony_seasons:storage_box[content=lights,facing=south,fill=low]"],
+    [1, 3, -3, "colony_seasons:garland[facing=south]"],
+    [2, 2, -3, "colony_seasons:wreath[facing=south]"],
+    [2, 3, -3, "colony_seasons:garland[facing=south]"],
+    [3, 3, -3, "colony_seasons:garland[facing=south]"],
+    [4, 1, -2, "colony_seasons:storage_box[content=gifts,facing=west,fill=low]"],
+    [4, 1, 0, "colony_seasons:storage_box[content=wreath,facing=west,fill=low]"],
+    [4, 3, -3, "colony_seasons:garland[facing=south]"],
+    [4, 3, -2, "colony_seasons:fairy_lights[facing=west,lit=false]"],
+    [4, 3, -1, "colony_seasons:fairy_lights[facing=west,lit=false]"],
+    [4, 3, 0, "colony_seasons:fairy_lights[facing=west,lit=false]"],
+    [4, 3, 1, "colony_seasons:fairy_lights[facing=west,lit=false]"],
+    [4, 3, 2, "colony_seasons:fairy_lights[facing=west,lit=false]"]
+   ]
+  },
+  "3": {
+   "packed": [
+    [-4, 6, -3, "colony_seasons:storage_box[content=wreath,facing=south,fill=full]"],
+    [-4, 6, -2, "colony_seasons:storage_box[content=lights,facing=east,fill=full]"],
+    [-3, 6, -3, "colony_seasons:storage_box[content=gifts,facing=south,fill=full]"],
+    [2, 6, -3, "colony_seasons:storage_box[content=lanterns,facing=south,fill=full]"],
+    [4, 6, -3, "colony_seasons:storage_box[content=garland,facing=south,fill=full]"],
+    [4, 6, -1, "colony_seasons:storage_coil[facing=west,kind=lights]"]
+   ],
+   "festival": [
+    [-4, 6, -3, "colony_seasons:storage_box[content=wreath,facing=south,fill=low]"],
+    [-4, 6, -2, "colony_seasons:storage_box[content=lights,facing=east,fill=low]"],
+    [-4, 7, -1, "colony_seasons:fairy_lights[facing=east,lit=false]"],
+    [-4, 7, 1, "colony_seasons:fairy_lights[facing=east,lit=false]"],
+    [-4, 7, 2, "colony_seasons:fairy_lights[facing=east,lit=false]"],
+    [-4, 7, 3, "colony_seasons:fairy_lights[facing=east,lit=false]"],
+    [-3, 6, -3, "colony_seasons:storage_box[content=gifts,facing=south,fill=low]"],
+    [0, 7, -3, "colony_seasons:garland[facing=south]"],
+    [1, 7, -3, "colony_seasons:garland[facing=south]"],
+    [2, 6, -3, "colony_seasons:storage_box[content=lanterns,facing=south,fill=low]"],
+    [2, 7, -3, "colony_seasons:garland[facing=south]"],
+    [3, 6, -3, "colony_seasons:wreath[facing=south]"],
+    [3, 7, -3, "colony_seasons:garland[facing=south]"],
+    [4, 6, -3, "colony_seasons:storage_box[content=garland,facing=south,fill=low]"],
+    [4, 7, -2, "colony_seasons:fairy_lights[facing=west,lit=false]"],
+    [4, 7, -1, "colony_seasons:fairy_lights[facing=west,lit=false]"],
+    [4, 7, 0, "colony_seasons:fairy_lights[facing=west,lit=false]"],
+    [4, 7, 1, "colony_seasons:fairy_lights[facing=west,lit=false]"],
+    [4, 7, 2, "colony_seasons:fairy_lights[facing=west,lit=false]"],
+    [4, 7, 3, "colony_seasons:fairy_lights[facing=west,lit=false]"]
+   ]
+  },
+  "4": {
+   "packed": [
+    [-4, 6, -3, "colony_seasons:storage_box[content=wreath,facing=south,fill=full]"],
+    [-4, 6, -2, "colony_seasons:storage_box[content=lights,facing=east,fill=full]"],
+    [-3, 6, -3, "colony_seasons:storage_box[content=gifts,facing=south,fill=full]"],
+    [2, 6, -3, "colony_seasons:storage_box[content=lanterns,facing=south,fill=full]"],
+    [4, 6, -3, "colony_seasons:storage_box[content=garland,facing=south,fill=full]"],
+    [4, 6, -1, "colony_seasons:storage_coil[facing=west,kind=lights]"]
+   ],
+   "festival": [
+    [-4, 6, -3, "colony_seasons:storage_box[content=wreath,facing=south,fill=low]"],
+    [-4, 6, -2, "colony_seasons:storage_box[content=lights,facing=east,fill=low]"],
+    [-4, 7, -1, "colony_seasons:fairy_lights[facing=east,lit=false]"],
+    [-4, 7, 1, "colony_seasons:fairy_lights[facing=east,lit=false]"],
+    [-4, 7, 2, "colony_seasons:fairy_lights[facing=east,lit=false]"],
+    [-4, 7, 3, "colony_seasons:fairy_lights[facing=east,lit=false]"],
+    [-3, 6, -3, "colony_seasons:storage_box[content=gifts,facing=south,fill=low]"],
+    [0, 7, -3, "colony_seasons:garland[facing=south]"],
+    [1, 7, -3, "colony_seasons:garland[facing=south]"],
+    [2, 6, -3, "colony_seasons:storage_box[content=lanterns,facing=south,fill=low]"],
+    [2, 7, -3, "colony_seasons:garland[facing=south]"],
+    [3, 6, -3, "colony_seasons:wreath[facing=south]"],
+    [3, 7, -3, "colony_seasons:garland[facing=south]"],
+    [4, 6, -3, "colony_seasons:storage_box[content=garland,facing=south,fill=low]"],
+    [4, 7, -2, "colony_seasons:fairy_lights[facing=west,lit=false]"],
+    [4, 7, -1, "colony_seasons:fairy_lights[facing=west,lit=false]"],
+    [4, 7, 0, "colony_seasons:fairy_lights[facing=west,lit=false]"],
+    [4, 7, 1, "colony_seasons:fairy_lights[facing=west,lit=false]"],
+    [4, 7, 2, "colony_seasons:fairy_lights[facing=west,lit=false]"],
+    [4, 7, 3, "colony_seasons:fairy_lights[facing=west,lit=false]"]
+   ]
+  },
+  "5": {
+   "packed": [
+    [-4, 6, -3, "colony_seasons:storage_box[content=wreath,facing=south,fill=full]"],
+    [-4, 7, -2, "colony_seasons:storage_box[content=lights,facing=east,fill=full]"],
+    [-3, 7, -3, "colony_seasons:storage_box[content=gifts,facing=south,fill=full]"],
+    [2, 6, -3, "colony_seasons:storage_box[content=lanterns,facing=south,fill=full]"],
+    [4, 6, -1, "colony_seasons:storage_coil[facing=west,kind=lights]"],
+    [4, 7, -3, "colony_seasons:storage_box[content=garland,facing=south,fill=full]"]
+   ],
+   "festival": [
+    [-4, 6, -3, "colony_seasons:storage_box[content=wreath,facing=south,fill=low]"],
+    [-4, 7, -2, "colony_seasons:storage_box[content=lights,facing=east,fill=low]"],
+    [-4, 7, -1, "colony_seasons:fairy_lights[facing=east,lit=false]"],
+    [-4, 7, 1, "colony_seasons:fairy_lights[facing=east,lit=false]"],
+    [-4, 7, 2, "colony_seasons:fairy_lights[facing=east,lit=false]"],
+    [-4, 7, 3, "colony_seasons:fairy_lights[facing=east,lit=false]"],
+    [-3, 7, -3, "colony_seasons:storage_box[content=gifts,facing=south,fill=low]"],
+    [0, 7, -3, "colony_seasons:garland[facing=south]"],
+    [1, 7, -3, "colony_seasons:garland[facing=south]"],
+    [2, 6, -3, "colony_seasons:storage_box[content=lanterns,facing=south,fill=low]"],
+    [2, 7, -3, "colony_seasons:garland[facing=south]"],
+    [3, 6, -3, "colony_seasons:wreath[facing=south]"],
+    [3, 7, -3, "colony_seasons:garland[facing=south]"],
+    [4, 7, -3, "colony_seasons:storage_box[content=garland,facing=south,fill=low]"],
+    [4, 7, -2, "colony_seasons:fairy_lights[facing=west,lit=false]"],
+    [4, 7, -1, "colony_seasons:fairy_lights[facing=west,lit=false]"],
+    [4, 7, 0, "colony_seasons:fairy_lights[facing=west,lit=false]"],
+    [4, 7, 1, "colony_seasons:fairy_lights[facing=west,lit=false]"],
+    [4, 7, 2, "colony_seasons:fairy_lights[facing=west,lit=false]"],
+    [4, 7, 3, "colony_seasons:fairy_lights[facing=west,lit=false]"]
+   ]
+  }
+ }
+}
