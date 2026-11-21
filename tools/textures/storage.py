@@ -155,7 +155,7 @@ def contents(kind, fill, floor, top):
             out += ring(8, 8, 11.6, 3, floor, top - 1.5, GARLAND, G_TOP, G_SIDE)
             out += ring(8, 8, 7.5, 2.4, top - 1.5, top + 0.6, GARLAND, G_TOP, G_SIDE)
         elif kind == "lights":
-            out += light_coil(8, 8, 11.4, top - 3.0, 7)
+            out += light_coil(8, 8, 9.0, top - 3.0, 7)    # the draft's 11.4 put bulbs through the box's walls
             out += light_coil(8.4, 7.6, 7.6, top - 1.8, 5, 1)
         elif kind == "lanterns":
             for i, (x, z) in enumerate([(2.6, 2.6), (6.5, 2.6), (10.4, 2.6), (2.6, 6.6), (6.5, 6.6), (10.4, 6.6),
@@ -197,7 +197,8 @@ def coil_elements(kind):
     if kind == "garland":
         els = ring(8, 8, 13, 3, 0, 2, GARLAND, G_TOP, G_SIDE) + ring(8, 8, 8.5, 2.5, 2, 3.6, GARLAND, G_TOP, G_SIDE)
         return els + ring(8, 8, 4.4, 1.6, 0, 1.6, GARLAND, G_TOP, G_SIDE)
-    return light_coil(8, 8, 13, 0, 8) + light_coil(8.4, 7.6, 8.6, 1.0, 4, 1) + light_coil(7.8, 8.2, 4.6, 2.0, 2, 3)
+    # the outer ring is 11.8 across, not the draft's 13: its bulbs then end at the cell's edge instead of 0.6 px past it
+    return light_coil(8, 8, 11.8, 0, 8) + light_coil(8.4, 7.6, 8.6, 1.0, 4, 1) + light_coil(7.8, 8.2, 4.6, 2.0, 2, 3)
 
 
 def used_textures(elements, particle):
