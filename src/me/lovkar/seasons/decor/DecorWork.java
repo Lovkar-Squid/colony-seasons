@@ -451,6 +451,9 @@ public final class DecorWork {
         final int id = colony.getID();
         final List<Target> found = new ArrayList<>();
         for (final DecorLedger.GroupView group : ledger.groups(id)) {
+            if (group.owner().kind() == DecorLedger.Kind.STOREROOM) {
+                continue;                             // the storeroom follows its target at the hut (StoreroomWork), not tending
+            }
             if (group.decoratedDay() < 0 || group.decoratedDay() >= day || group.tendedDay() >= day || group.removing()) {
                 continue;
             }
@@ -468,11 +471,14 @@ public final class DecorWork {
         return next.owner().kind() == DecorLedger.Kind.SQUARE ? withStand(level, ledger, id, next, 0, from) : next;
     }
 
-    /** The next group with entries to take down (nearest first, loaded ones only), or {@code null}. */
+    /**
+     * The next group with entries to take down (nearest first, loaded ones only), or {@code null}. The storeroom is never
+     * one (storage-look 3.3, point 3): it changes by its target at the hut ({@link StoreroomWork}), packed after the window.
+     */
     public static Target nextToTakeDown(final ServerLevel level, final IColony colony, final BlockPos from, final DecorLedger ledger) {
         final List<Target> found = new ArrayList<>();
         for (final DecorLedger.GroupView group : ledger.groups(colony.getID())) {
-            if (group.entries().isEmpty()) {
+            if (group.entries().isEmpty() || group.owner().kind() == DecorLedger.Kind.STOREROOM) {
                 continue;
             }
             boolean anyLoaded = false;
@@ -492,8 +498,14 @@ public final class DecorWork {
         return found.isEmpty() ? null : found.get(0);
     }
 
-    /** The target for a group's owner as it is now, or {@code null} when the building or the marker is gone. */
+    /**
+     * The target for a group's owner as it is now, or {@code null} when the building or the marker is gone, and for the
+     * storeroom (it is no place he walks to: {@link StoreroomWork} checks it at the hut).
+     */
     public static Target targetOf(final ServerLevel level, final IColony colony, final DecorLedger ledger, final DecorLedger.Owner owner) {
+        if (owner.kind() == DecorLedger.Kind.STOREROOM) {
+            return null;
+        }
         if (owner.kind() == DecorLedger.Kind.SQUARE) {
             final Target square = squareTarget(level, ledger, colony.getID());
             return square != null && square.owner().equals(owner) ? square : null;

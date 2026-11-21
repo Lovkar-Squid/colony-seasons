@@ -1414,8 +1414,9 @@ public class CsStorage {
                     firstAt = t;
                     atFirst = "requests at the first wreath: " + openRequests().size();
                 }
-                // done once nothing new went up for 2000 ticks and four decorating visits
-                final int count = DecorLedger.get(level).count(colony.getID());
+                // done once nothing new went up outside for 2000 ticks and four decorating visits (the storeroom of the
+                // pasted Workshop is dressed too, S10g2: it is no decoration that goes up)
+                final int count = DecorLedger.get(level).countOutdoor(colony.getID());
                 if (count != lastCount) {
                     lastCount = count;
                     lastChange = t;
@@ -1474,12 +1475,13 @@ public class CsStorage {
 
             @Override
             boolean tick() {
-                return t % 20 == 0 && !DecorLedger.get(level).hasEntries(colony.getID()) && job().phase() == DecorPhase.OFF_SEASON;
+                // the outside decorations (the Workshop's storeroom stays listed all year, packed: S10g2)
+                return t % 20 == 0 && !DecorLedger.get(level).hasOutdoorEntries(colony.getID()) && job().phase() == DecorPhase.OFF_SEASON;
             }
 
             @Override
             void end(final boolean done) {
-                check("(d) everything was taken down", done, DecorLedger.get(level).count(colony.getID()) + " entries left after " + t + " ticks");
+                check("(d) everything was taken down", done, DecorLedger.get(level).countOutdoor(colony.getID()) + " entries left after " + t + " ticks");
                 countAll(true);
                 checkEq("(d) nothing was assembled through the cycle", hut.assembled(), made0[0]);
                 for (final Item item : outputs()) {

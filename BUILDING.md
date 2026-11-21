@@ -168,6 +168,44 @@ bash tools/restart.sh csstorage  # two steps (the first in creative, free) and t
                                  # at 45 slots and the stock are back, no request, a third step works
 ```
 
+The storeroom's pieces and spots (S10g1). `csspots` reads the spot tags the way the Decorator will (`decor/StoreroomSpots.java`
+over `IBuilding.getLocationsFromTag`) against `tools/csspots/res/csspots/spots.json`, which `build_pack.py` writes.
+
+```bash
+bash tools/probe.sh csspots      # storage_box and storage_coil: no item, the empty loot table and no drops (broken or popped off),
+                                 # no collision, an outline, nothing on pick-block, standing on a barrel and going with it, every
+                                 # state's blockstate variant and models; the Workshop pasted at level 1 turned (R90) with the
+                                 # command a player types: every spot tag turned with the building, nothing else of ours in the
+                                 # cached tag map, the helper lists the same, packed spots air on a barrel and hung spots air beside
+                                 # a wall in the world; upgrade work orders 1 to 5 finished as the Builder finishes them (the tags
+                                 # are the old level's until the order completes, then exactly the new level's); a second Workshop
+                                 # pasted at level 5 mirrored and turned (MIR_R270), its tags and world as above
+```
+
+The storeroom's dressing (S10g2). `csstoreroom` compares every room it sees, block state for block state and turned with
+the building, with `tools/csstoreroom/res/csstoreroom/sets.json` (the packed and festival set of each level, written by
+`build_pack.py` from `decorator_hut.storeroom_set`). It writes the rooms it placed at levels 1 and 5 to
+`csstoreroom-dump.json` in the rig's server folder (never committed); `bash tools/render_s10g.sh --from-dump <that file>`
+draws them and says whether they equal `storeroom_set`.
+
+```bash
+bash tools/probe.sh csstoreroom    # the ledger's files (version 1, no version, version 2 with a storeroom round trip); the Workshop
+                                   # pasted at level 1 turned (R90): packed, dressed, packed by the check, a second check the same
+                                   # day changes nothing (no block, no write, no budget, no status), free pieces drop nothing;
+                                   # upgrade work orders 1 to 5 with the new level built as the Builder builds it (the sweep takes
+                                   # the room off within its interval, nothing goes up while the order is open, then the new level's
+                                   # set; one upgrade in a forced window); level 5 pasted MIR_R270; a Workshop with no tags (an empty
+                                   # read changes nothing) and its removal; then the real Decorator: off season, a window's start and
+                                   # end (festive until the outside is down, then packed; the outside ledger empty, the room still
+                                   # listed), festival force and clear both ways, no calendar state yet (the room is left as it is),
+                                   # a hire in the middle of a window, decor list and decor remove, no Decorator after a window (a
+                                   # festive room goes, a packed one stays, also in an unstaffed second Workshop; with only packed
+                                   # rooms listed the sweep says the decorations are down), the switch off and on, the Builder
+                                   # clearing the cells
+bash tools/restart.sh csstoreroom  # a check stopped half done in a forced window (5 off, 2 of 13 up) with nobody hired; after the
+                                   # restart the ledger equals the world and the next check ends at the festival set
+```
+
 Each finding that goes to the owner instead of a fix is a `NOTE FINDING H<n> owner:ask|fyi` line. `tools/restart.sh` runs the phases a
 probe lists in its `phases.txt` instead of `restart-save,restart-load`.
 
@@ -238,7 +276,10 @@ fight the leaves. A light that shines at night has its own model element with Ne
 checks that every block has its blockstate, models, item model, lang line, loot table and recipe, and that lit models
 glow and unlit ones do not. One named exception: the festival tree's trunk (`festival_trunk`, S10c) has no item of its
 own, so no item model and no recipe, and its loot table drops a spruce log (`gen_blockdata.py` writes it, `tree.py` its
-blockstate on vanilla's spruce log models). `tools/render_decor.py` uses the design's renderer (`design/tools`): `mcmodel.py` reads the
+blockstate on vanilla's spruce log models). The storeroom pieces (`storage_box`, `storage_coil`, S10g1, drawn by
+`tools/textures/storage.py` from the S10g design round's drafts) are block only: `check_blocks.py` NO_DROP wants no item
+model, no item registered, no recipe, no loot table file and `noLootTable()` in their registration, and no other block
+may have `noLootTable()`. `tools/render_decor.py` uses the design's renderer (`design/tools`): `mcmodel.py` reads the
 mod's assets and, for a night scene, lights it with block and sky light and vanilla's lightmap; Blender is found at
 its default path or through `BLENDER`.
 
@@ -270,7 +311,14 @@ run (`tools/nbt.py` is a small NBT writer, so the scripts need no packages and r
   confused with `tools/gen_decorator_hut.py` (S3), which writes the hut block's model. `storage_room(level)` (S10e) is
   the one source of the storage room: the ground floor's back-east corner at levels 1 and 2, the attic from level 3,
   racks and barrels only (2, 3, 6, 9, 12 racks in the hut); `build_pack.py` checks it (racks and vanilla blocks, inside
-  the walls on a floor, off the ladder's way up, a rack stays a rack upwards, more racks every level).
+  the walls on a floor, off the ladder's way up, a rack stays a rack upwards, more racks every level, the shipped counts).
+  S10g1 dresses it (variant A of `docs/storage-look-design.md`): its barrels (`STOREROOM_BARRELS`) and the storeroom's
+  spot tags in every level (`STOREROOM`: `cs_pack_winter_<piece>` for a box or coil on a barrel, `cs_hang_winter_<piece>`
+  for a festival piece on a wall face; `spot_facing` is the facing rule). `build_pack.py` checks them on every level
+  (in air inside the walls on the room's floor, off the ladder, nothing above a rack or behind a window, packed pieces on
+  a barrel and never hung, hung pieces beside a whole wall block, both sets, the walk with either set placed; the
+  barrels into the blueprint's air and none above a rack or behind a window, `workshop(level, barrels=False)`) after a
+  self-test that plants each fault once, and writes `tools/csspots/res/csspots/spots.json` for the `csspots` probe.
 - `tools/tree_pieces.py`: the tree pieces the Decorator places at the festival marker, `pieces/village_spruce_small`,
   `village_spruce_full`, `village_spruce_rich` (tree A) and `grand_tree` (tree B) of `design/src/trees.py`. A piece is
   drawn facing north; its anchor is the marker's cell and stays air; tags `gift_pile`, `firework_crate`, `star`
@@ -290,6 +338,10 @@ run (`tools/nbt.py` is a small NBT writer, so the scripts need no packages and r
   design's ground and camera; MineColonies' jar (`$MINECOLONIES_JAR`) gives the racks' model. The S10e cutaways of the
   storage room are rendered only when named: `bash tools/render_s5.sh attic-l3 attic-l5 corner-l1` writes
   `docs/renders/s10e/<date>-s10e-*.png` (front wall and roof left out) and leaves the S5 renders and the pack icon alone.
+- `bash tools/render_s10g.sh [blocks l1 .. l5 levels]` (`tools/render_s10g.py`, S10g1): the contact sheet of the
+  storeroom pieces on a barrel next to their textures, and the storeroom cutaways of the shipped blueprints with the
+  pieces drawn at their tags, packed and in the festival, to `docs/renders/s10g/` (levels 1 and 5 on their own, all five
+  levels on one sheet).
 ### Placing (S4)
 
 - `python -I tools/csdecorgate/make_piece.py` writes the `csdecorgate` probe's own square piece (a small asymmetric test tree

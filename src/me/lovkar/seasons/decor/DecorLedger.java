@@ -60,10 +60,21 @@ import java.util.TreeMap;
  */
 public final class DecorLedger extends SavedData {
     public static final String FILE = "colony_seasons_decor";
-    static final int VERSION = 1;
+    /**
+     * The file format: 1 (S4 to S10g1), 2 (S10g2: the {@link Kind#STOREROOM} kind). The layout is the same; a file with
+     * no version, or with version 1, has no storeroom groups and loads exactly as before. A build that knows only
+     * version 1 reads a version 2 file with its one warning and skips the storeroom groups (their blocks do not exist
+     * in that build either).
+     */
+    static final int VERSION = 2;
 
-    /** What a group belongs to: a building (its hut position) or the square (its festival marker's position). */
-    public enum Kind { BUILDING, SQUARE }
+    /**
+     * What a group belongs to: a building (its hut position), the square (its festival marker's position), or the
+     * Decorator's storeroom inside his Workshop (the Workshop's hut position; S10g2, storage-look 3.3). The storeroom is
+     * a group of its own next to the Workshop's outside group at the same position: it is never taken down, never
+     * counted against the day's budget, and its {@code festival} is the set that is up ({@code ""} packed).
+     */
+    public enum Kind { BUILDING, SQUARE, STOREROOM }
 
     public record Owner(Kind kind, BlockPos pos) {
         public Owner {
@@ -76,6 +87,16 @@ public final class DecorLedger extends SavedData {
 
         public static Owner square(final BlockPos marker) {
             return new Owner(Kind.SQUARE, marker);
+        }
+
+        /** The storeroom of the Decorator's Workshop whose hut block stands at {@code hut} (S10g2). */
+        public static Owner storeroom(final BlockPos hut) {
+            return new Owner(Kind.STOREROOM, hut);
+        }
+
+        /** A building's or the square's: the festival decorations outside (not the storeroom). */
+        public boolean outdoor() {
+            return kind != Kind.STOREROOM;
         }
 
         @Override
@@ -351,6 +372,46 @@ public final class DecorLedger extends SavedData {
         fruitless.remove(new Fruit(colony, owner));
     }
 
+    /**
+     * A storeroom group's state after a complete check (S10g2, storage-look 3.2): the set that is up ({@code ""} packed),
+     * the Workshop level it was laid out for and the game day of the check, written as they are (unlike
+     * {@link #record} and {@link #plan}, which set the festival only on an empty group). Only an existing group; the
+     * file is marked to be written only when a value changes, so a check that changes nothing writes nothing.
+     */
+    public void setRoom(final int colony, final Owner owner, final String festival, final int level, final long day) {
+        final Group group = group(colony, owner, false);
+        if (group == null) {
+            return;
+        }
+        final String newFestival = festival == null ? "" : festival;
+        boolean changed = false;
+        if (!group.festival.equals(newFestival)) {
+            group.festival = newFestival;
+            changed = true;
+        }
+        if (group.level != level) {
+            group.level = level;
+            changed = true;
+        }
+        if (group.tendedDay != day) {
+            group.tendedDay = day;
+            changed = true;
+        }
+        if (changed) {
+            setDirty();
+        }
+    }
+
+    /** What a storeroom check needs to know of a group, read in place without copying its entries (S10g2). */
+    public record RoomMark(String festival, int level, long tendedDay, boolean removing, int size) {
+    }
+
+    /** The group's {@link RoomMark}, or {@code null} when there is no such group. */
+    public RoomMark roomMark(final int colony, final Owner owner) {
+        final Group group = group(colony, owner, false);
+        return group == null ? null : new RoomMark(group.festival, group.level, group.tendedDay, group.removing, group.entries.size());
+    }
+
     public void setTended(final int colony, final Owner owner, final long day) {
         final Group group = group(colony, owner, false);
         if (group != null && group.tendedDay != day) {
@@ -409,26 +470,51 @@ public final class DecorLedger extends SavedData {
         return dropped;
     }
 
+    /** True when any group of the colony lists an entry, the storeroom included ("anything listed at all"). */
     public boolean hasEntries(final int colony) {
+        return has(colony, false);
+    }
+
+    /**
+     * True when a building's or the square's group lists an entry: the festival decorations are up (storage-look 3.3,
+     * point 2). The storeroom stays listed all year (packed outside the windows), so the Decorator's phase, his
+     * take-down and the sweep's reset of "decorations up" read this one.
+     */
+    public boolean hasOutdoorEntries(final int colony) {
+        return has(colony, true);
+    }
+
+    private boolean has(final int colony, final boolean outdoorOnly) {
         final ColonyRecord record = colonies.get(colony);
         if (record == null) {
             return false;
         }
         for (final Group group : record.groups.values()) {
-            if (!group.entries.isEmpty()) {
+            if (!group.entries.isEmpty() && (!outdoorOnly || group.owner.outdoor())) {
                 return true;
             }
         }
         return false;
     }
 
-    /** Entries listed for one colony. */
+    /** Entries listed for one colony, all kinds. */
     public int count(final int colony) {
+        return count(colony, false);
+    }
+
+    /** Entries of the colony's buildings and square (the storeroom left out): the decorations that are up outside. */
+    public int countOutdoor(final int colony) {
+        return count(colony, true);
+    }
+
+    private int count(final int colony, final boolean outdoorOnly) {
         final ColonyRecord record = colonies.get(colony);
         int total = 0;
         if (record != null) {
             for (final Group group : record.groups.values()) {
-                total += group.entries.size();
+                if (!outdoorOnly || group.owner.outdoor()) {
+                    total += group.entries.size();
+                }
             }
         }
         return total;
@@ -785,7 +871,8 @@ public final class DecorLedger extends SavedData {
     }
 
     /**
-     * Reads a ledger. The file's {@code version} is read first (a file without one is version 1): a newer one than
+     * Reads a ledger. The file's {@code version} is read first (a file without one is version 1; versions 1 and 2 share
+     * one layout, so both read the same way): a newer one than
      * {@link #VERSION} is read for what this version knows, with one warning naming both versions; group kinds this
      * version does not know are skipped and counted in that warning.
      */

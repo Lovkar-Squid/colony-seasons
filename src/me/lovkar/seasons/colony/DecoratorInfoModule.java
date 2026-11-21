@@ -188,7 +188,7 @@ public class DecoratorInfoModule extends AbstractBuildingModule implements ITick
         if (colony != null && colony.getWorld() instanceof ServerLevel serverLevel) {
             final DecorLedger ledger = DecorLedger.peek(serverLevel);
             if (ledger != null) {
-                up = ledger.count(colony.getID());
+                up = ledger.countOutdoor(colony.getID());     // the storeroom is no decoration that is "up"
                 done = ledger.buildingsDone(colony.getID());
                 used = ledger.budgetUsed(colony.getID(), DecorWork.day(serverLevel));
             }

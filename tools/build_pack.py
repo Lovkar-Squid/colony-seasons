@@ -11,6 +11,11 @@ the rig's basemods/); the Minecraft client assets jar comes from tools/paths.py.
   .../decorator/workshop1..5.blueprint                                  the Decorator's hut (tools/decorator_hut.py)
   .../pieces/village_spruce_small|full|rich.blueprint, grand_tree.blueprint   the tree pieces (tools/tree_pieces.py)
   tools/cspaste/res/cspaste/manifest.json                               what the paste probe expects to read back
+  tools/csspots/res/csspots/spots.json                                  the storeroom's spot tags per level (S10g1),
+                                                                        for the csspots probe
+  tools/csstoreroom/res/csstoreroom/sets.json                           the storeroom's two sets per level with their
+                                                                        facings (S10g2, decorator_hut.storeroom_set),
+                                                                        what the csstoreroom probe's placed room must be
 
 The icon (colony_seasons.png next to pack.json) is drawn by tools/render_s5.py; this script only checks it is there.
 Checks, each printed, then ALL OK or PROBLEMS: every block id exists (client jar, our blockstates, the mod jars) with
@@ -18,7 +23,11 @@ real properties and values; our decorations are drawn unlit; no floating blocks;
 lanterns, wall decorations, doors, carpets); no bed; the hut block is reachable from the door and every floor cell from
 the hut block; the levels share one box and one anchor; level 5 and the full and grand trees differ from the owner's
 picked designs only where decorator_hut.DESIGN_CHANGES / tree_pieces.DESIGN_CHANGES say; the Workshop's storage room
-(S10e: racks and vanilla blocks inside the walls, off the ladder, racks kept and more at every level); the piece contract (air
+(S10e: racks and vanilla blocks inside the walls, off the ladder, racks kept and more at every level, 2, 3, 6, 9 and
+12 of them); the storeroom's spot tags (S10g1, docs/storage-look-design.md 3.1 and 3.5: in air inside the walls, nothing
+above a rack, nothing behind a window, packed pieces standing on a barrel and never hung, hung pieces on a wall face,
+the walk and the ladder clear with either set placed; the storeroom barrels into air, none above a rack or behind a
+window; after a self-test of each rule); the piece contract (air
 anchor, tags, the trunk a column of colony_seasons:festival_trunk and no log block in a piece, open sky over the
 crate); and a read-back of every written file.
 """
@@ -305,7 +314,223 @@ def check_storage():
             problem(f"storage room: level {lv + 1} has {len(racks_at[lv + 1])} racks, not more than level {lv}'s {len(racks_at[lv])}")
             ok = False
     counts = [len(racks_at[lv]) for lv in range(1, 6)]
+    if tuple(counts) != RACK_COUNTS:
+        problem(f"storage room: racks at levels 1 to 5 are {counts}, not the shipped {list(RACK_COUNTS)} (S10e)")
+        ok = False
     return ok, counts
+
+
+# the racks in the hut at levels 1 to 5 as S10e shipped them; the storeroom's dressing (S10g1) never moves one
+RACK_COUNTS = (2, 3, 6, 9, 12)
+LADDER_WAY = {(-4, y, 0) for y in range(1, 9)} | {(-4, 6, -1), (-4, 6, 1), (-3, 6, 0)}
+SPOTS = os.path.join(TOOLS, "csspots", "res", "csspots", "spots.json")
+SETS = os.path.join(TOOLS, "csstoreroom", "res", "csstoreroom", "sets.json")
+
+
+def spot_problems(level, s):
+    """The rules of docs/storage-look-design.md 3.1 and 3.5 on the storeroom's position tags of one level's Workshop
+    `s` (decorator_hut's frame, the hut block at (0, 1, 0)). Returns a list of problems (empty when all hold):
+    every tag is one of ours by name (prefix, set id, piece) and alone on its cell; the cell is air, strictly inside
+    the walls, on the room's floor (the ground floor at levels 1 and 2, the attic from 3: its corner below stays
+    bare), off the ladder's way, not directly above a rack (a full rack draws boxes 6 px up into that cell), and not
+    right behind a window; a packed piece stands on furniture (never hung, never on the floor); a hung piece has a
+    whole wall block beside it to hang on; both sets are there; and a colonist still reaches the hut block and every
+    floor cell from the door with either set placed (the pieces counted as obstacles, as the design round did)."""
+    out = []
+    ours = {}
+    for pos, names in s.tags.items():
+        for name in names:
+            if name.startswith((dh.PACK_PREFIX, dh.HANG_PREFIX)):
+                if dh.parse_tag(name) is None:
+                    out.append(f"{pos}: tag {name} names no known set and piece")
+                elif pos in ours:
+                    out.append(f"{pos}: two spot tags on one cell ({ours[pos]}, {name})")
+                else:
+                    ours[pos] = name
+            elif not name.startswith("name="):
+                out.append(f"{pos}: unknown tag {name}")
+    glass = {q for q, b in s.blocks.items() if "glass" in b}
+    floor_ys = (1, 2, 3, 4) if level <= 2 else (6, 7, 8)
+    kinds = set()
+    for pos, name in sorted(ours.items()):
+        kind, _, piece = dh.parse_tag(name)
+        kinds.add(kind)
+        x, y, z = pos
+        if s.get(x, y, z) is not None:
+            out.append(f"{name} {pos}: not air ({s.get(x, y, z)})")
+        if not (dh.X0 < x < dh.X1 and dh.Z0 < z < dh.Z1 and y in floor_ys):
+            out.append(f"{name} {pos}: not inside the walls on the room's floor (y {floor_ys[0]} to {floor_ys[-1]})")
+        if pos in LADDER_WAY:
+            out.append(f"{name} {pos}: on the ladder's way")
+        below = s.get(x, y - 1, z)
+        if below is not None and voxel.parse_state(below)[0] == dh.RACK:
+            out.append(f"{name} {pos}: directly above a rack (its boxes stand 6 px up into this cell)")
+        if any((x + dx, y, z + dz) in glass for dx, dz in ((1, 0), (-1, 0), (0, 1), (0, -1))):
+            out.append(f"{name} {pos}: right behind a window")
+        if kind == "pack":
+            if below is None or voxel.parse_state(below)[0] not in dh.FURNITURE:
+                out.append(f"{name} {pos}: a packed piece that does not stand on furniture ({below}): never hung, "
+                           f"never on the floor")
+        elif dh.spot_facing(s.get, pos, kind) is None:
+            out.append(f"{name} {pos}: a hung piece with no whole wall block beside it")
+    if kinds != {"pack", "hang"}:
+        out.append(f"the spots hold {sorted(kinds)}, not both sets (pack and hang)")
+    for festival in (False, True):
+        dressed = voxel.Structure("dressed")
+        dressed.blocks = dict(s.blocks)
+        dressed.blocks.update(dh.storeroom_set(level, s, festival))
+        what = "festival" if festival else "packed"
+        seen = walk(dressed, [(dh.DOOR_X, 1, dh.Z1 + 1)])
+        if not next_to(seen, dh.HUT_SPOT):
+            out.append(f"{what}: the hut block cannot be reached from the door")
+        for fy in ((1,) if level < 3 else (1, 6)):
+            cells = [(x, fy, z) for x in range(dh.X0 + 1, dh.X1) for z in range(dh.Z0 + 1, dh.Z1)
+                     if standable(dressed, x, fy, z)]
+            missed = [c for c in cells if c not in seen]
+            if missed:
+                out.append(f"{what}: floor y={fy}: {len(missed)} cells cannot be reached, e.g. {missed[:3]}")
+    return out
+
+
+def barrel_problems(bare, barrels):
+    """The blueprint layer of docs/storage-look-design.md 3.1 for S10g1's storeroom barrels `barrels` ({position:
+    block}) on one level's Workshop without them (`bare`): each goes into a cell `bare` leaves as air, none stands
+    directly above a rack (3.1: nothing at all in that cell, blueprint furniture included) and none right behind a
+    window (the outside stays look A). Inside the walls and off the ladder's way: check_storage."""
+    out = []
+    glass = {q for q, b in bare.blocks.items() if "glass" in b}
+    for (x, y, z), b in sorted(barrels.items()):
+        if bare.get(x, y, z) is not None:
+            out.append(f"barrel {(x, y, z)}: the blueprint has {bare.get(x, y, z)} there (only air cells)")
+        below = bare.get(x, y - 1, z)
+        if below is not None and voxel.parse_state(below)[0] == dh.RACK:
+            out.append(f"barrel {(x, y, z)}: directly above a rack (its boxes stand 6 px up into this cell)")
+        if any((x + dx, y, z + dz) in glass for dx, dz in ((1, 0), (-1, 0), (0, 1), (0, -1))):
+            out.append(f"barrel {(x, y, z)}: right behind a window")
+    return out
+
+
+def check_spots():
+    """The storeroom's spots (S10g1) of every level: spot_problems, and barrel_problems for the level's storeroom
+    barrels (which add nothing else to the blueprint), after a self-test that the rules catch the faults the design
+    round's review found (a festival piece above a rack, a packed piece hung on a wall) and the others.
+    Returns (ok, per level (packed, hung))."""
+    ok = selftest_spots()
+    counts = []
+    for lv in range(1, 6):
+        s = dh.workshop(lv)
+        bare = dh.workshop(lv, barrels=False)
+        barrels = dh.storeroom_barrels(lv)
+        found = spot_problems(lv, s) + barrel_problems(bare, barrels)
+        if s.blocks != {**bare.blocks, **barrels}:
+            found.append("the blueprint differs from the one without the storeroom barrels in more than those barrels")
+        for p in found:
+            problem(f"storeroom spots, level {lv}: {p}")
+            ok = False
+        names = [dh.parse_tag(n) for ns in s.tags.values() for n in ns if dh.parse_tag(n)]
+        counts.append((sum(1 for k, _, _ in names if k == "pack"), sum(1 for k, _, _ in names if k == "hang")))
+    return ok, counts
+
+
+def selftest_spots():
+    """Each fault planted once into a copy of level 5 (and level 1) must be found."""
+    faults = [
+        (5, (-2, 8, -3), "cs_hang_winter_garland", "directly above a rack"),
+        (5, (1, 7, 3), "cs_pack_winter_box_wreath", "does not stand on furniture"),     # on a wall face: hung
+        (1, (0, 1, -1), "cs_pack_winter_box_gifts", "does not stand on furniture"),
+        (5, (-4, 6, -3), "cs_pack_winter_box_wreath", "not air"),
+        (5, (4, 7, 2), "cs_hang_winter_lights", "right behind a window"),
+        (5, (-4, 6, 1), "cs_hang_winter_lights", "on the ladder's way"),
+        (5, (0, 7, 0), "cs_hang_winter_wreath", "no whole wall block"),
+        (5, (0, 2, -3), "cs_hang_winter_wreath", "not inside the walls on the room's floor"),
+        (5, (0, 7, -3), "cs_hang_winter_tinsel", "names no known set and piece"),
+        (5, (4, 7, -2), "cs_pack_summer_box_wreath", "names no known set and piece"),
+    ]
+    ok = True
+    for level, pos, name, want in faults:
+        s = dh.workshop(level)
+        s.tags = {p: list(n) for p, n in s.tags.items()}
+        s.tags.setdefault(pos, []).append(name)
+        found = spot_problems(level, s)
+        if not any(str(pos) in f and want in f for f in found):
+            problem(f"storeroom spots self-test: {name} at {pos} on level {level} was not reported as '{want}': {found[:3]}")
+            ok = False
+    for level, pos, want in [(5, (-2, 8, -3), "directly above a rack"), (5, (4, 7, 2), "right behind a window"),
+                             (5, (-4, 6, -3), "only air cells")]:
+        found = barrel_problems(dh.workshop(level, barrels=False), {**dh.storeroom_barrels(level), pos: dh.BARREL_UP})
+        if not any(str(pos) in f and want in f for f in found):
+            problem(f"storeroom spots self-test: a barrel at {pos} on level {level} was not reported as '{want}': {found[:3]}")
+            ok = False
+    s = dh.workshop(1)
+    for z in range(-3, 4):                                    # a wall across the room, between the door and the hut block
+        s.blocks[(2, 1, z)] = "minecraft:stone_bricks"
+        s.blocks[(2, 2, z)] = "minecraft:stone_bricks"
+    if not any("cannot be reached" in f for f in spot_problems(1, s)):
+        problem("storeroom spots self-test: a wall across the room was not reported by the walk check")
+        ok = False
+    return ok
+
+
+def spots_json():
+    """What the csspots probe expects to read back from a pasted or upgraded Workshop: per level the spot tags,
+    relative to the hut block, unturned (the probe turns them with the building)."""
+    levels = {}
+    for lv in range(1, 6):
+        s = dh.workshop(lv)
+        ax, ay, az = s.anchor
+        levels[str(lv)] = sorted([[x - ax, y - ay, z - az, n] for (x, y, z), ns in s.tags.items() for n in ns
+                                  if dh.parse_tag(n)])
+    return {"sets": list(dh.SETS), "packedPieces": list(dh.PACKED_PIECES), "hungPieces": list(dh.HUNG_PIECES),
+            "furniture": list(dh.FURNITURE), "levels": levels}
+
+
+def spots_text():
+    """spots_json() as written: one spot to a line."""
+    d = spots_json()
+    lines = ["{"] + [f" {json.dumps(k)}: {json.dumps(v)}," for k, v in d.items() if k != "levels"] + [' "levels": {']
+    for i, (lv, spots) in enumerate(d["levels"].items()):
+        lines.append(f"  {json.dumps(lv)}: [")
+        lines += [f"   {json.dumps(sp)}" + ("," if j < len(spots) - 1 else "") for j, sp in enumerate(spots)]
+        lines.append("  ]" + ("," if i < len(d["levels"]) - 1 else ""))
+    lines += [" }", "}"]
+    text = "\n".join(lines) + "\n"
+    if json.loads(text) != d:
+        raise ValueError("spots_text does not read back as spots_json")
+    return text
+
+
+def sets_json():
+    """The storeroom's dressing as the Decorator must place it (S10g2): per level the packed set and the festival set,
+    each a sorted list of [dx, dy, dz, block state] relative to the hut block, unturned, with the facings
+    decorator_hut.storeroom_set works out (the probe turns offsets and facings with the building)."""
+    levels = {}
+    for lv in range(1, 6):
+        s = dh.workshop(lv)
+        ax, ay, az = s.anchor
+        one = {}
+        for name, festival in (("packed", False), ("festival", True)):
+            one[name] = sorted([[x - ax, y - ay, z - az, state]
+                                for (x, y, z), state in dh.storeroom_set(lv, s, festival).items()])
+        levels[str(lv)] = one
+    return {"sets": list(dh.SETS), "levels": levels}
+
+
+def sets_text():
+    """sets_json() as written: one piece to a line."""
+    d = sets_json()
+    lines = ["{", f' "sets": {json.dumps(d["sets"])},', ' "levels": {']
+    for i, (lv, one) in enumerate(d["levels"].items()):
+        lines.append(f"  {json.dumps(lv)}: {{")
+        for k, (name, pieces) in enumerate(one.items()):
+            lines.append(f"   {json.dumps(name)}: [")
+            lines += [f"    {json.dumps(p)}" + ("," if j < len(pieces) - 1 else "") for j, p in enumerate(pieces)]
+            lines.append("   ]" + ("," if k < len(one) - 1 else ""))
+        lines.append("  }" + ("," if i < len(d["levels"]) - 1 else ""))
+    lines += [" }", "}"]
+    text = "\n".join(lines) + "\n"
+    if json.loads(text) != d:
+        raise ValueError("sets_text does not read back as sets_json")
+    return text
 
 
 def check_piece(label, s):
@@ -490,11 +715,16 @@ def main(argv):
         print(f"{label:38s} {r if r else 'PROBLEMS'}")
     storage_ok, rack_counts = check_storage()
     print(f"{'storage room (S10e)':38s} racks at levels 1 to 5: {rack_counts}  {'ok' if storage_ok else 'PROBLEMS'}")
+    spots_ok, spot_counts = check_spots()
+    print(f"{'storeroom spots (S10g1)':38s} packed / hung at levels 1 to 5: "
+          f"{' '.join(f'{p}/{h}' for p, h in spot_counts)}  {'ok' if spots_ok else 'PROBLEMS'}")
 
     # the files on disk
     manifest_text = json.dumps(manifest, indent=1, sort_keys=False) + "\n"
     targets = {os.path.join(PACK_DIR, "pack.json"): pack_json().encode("utf-8"),
-               MANIFEST: manifest_text.encode("utf-8")}
+               MANIFEST: manifest_text.encode("utf-8"),
+               SPOTS: spots_text().encode("utf-8"),
+               SETS: sets_text().encode("utf-8")}
     for path, root in written.items():
         buf = io.BytesIO()
         with gzip.GzipFile(filename="", mode="wb", fileobj=buf, mtime=0) as g:

@@ -19,6 +19,8 @@ import java.util.List;
  * {@code /colonyseasons decor list [colony]} and {@code decor remove <colony>}, both permission 2, both on the level
  * the command is run in (design 3.3). {@code remove} takes everything the ledger lists for a colony down by the
  * removal rule at once; what lies in unloaded chunks is marked and the server sweep finishes it as the chunks load.
+ * The storeroom of a Workshop (S10g2) is one more group: {@code list} shows it on its own line, {@code remove} takes it
+ * off with the rest, and the Decorator dresses it again at his next check.
  * The README tells admins to run it before they take the mod out.
  */
 public final class DecorCommands {
@@ -54,8 +56,11 @@ public final class DecorCommands {
             source.sendSuccess(() -> Component.translatable("com.colony_seasons.command.decor.list.colony", id, groups.size(), entries), false);
             if (only >= 0) {
                 for (final DecorLedger.GroupView group : groups) {
-                    final Component kind = Component.translatable(group.owner().kind() == DecorLedger.Kind.SQUARE
-                            ? "com.colony_seasons.command.decor.kind.square" : "com.colony_seasons.command.decor.kind.building");
+                    final Component kind = Component.translatable(switch (group.owner().kind()) {
+                        case SQUARE -> "com.colony_seasons.command.decor.kind.square";
+                        case STOREROOM -> "com.colony_seasons.command.decor.kind.storeroom";
+                        case BUILDING -> "com.colony_seasons.command.decor.kind.building";
+                    });
                     source.sendSuccess(() -> Component.translatable("com.colony_seasons.command.decor.list.group", kind,
                             group.owner().pos().toShortString(), group.size(), group.festival().isEmpty() ? "-" : group.festival()), false);
                 }

@@ -1862,7 +1862,8 @@ public class CsDecorGate {
                 if (t % 4000 == 3999) {
                     nextMorning();
                 }
-                return t % 20 == 0 && !ledger.hasEntries(colonyId) && !hut.decorationsUp();
+                // the outside decorations: a Workshop's storeroom stays listed, packed, after the take-down (S10g2)
+                return t % 20 == 0 && !ledger.hasOutdoorEntries(colonyId) && !hut.decorationsUp();
             }
 
             @Override

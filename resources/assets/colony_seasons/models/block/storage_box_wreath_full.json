@@ -1,0 +1,304 @@
+{
+  "parent": "minecraft:block/block",
+  "ambientocclusion": false,
+  "render_type": "minecraft:cutout",
+  "textures": {
+    "box": "minecraft:block/stripped_spruce_log",
+    "label": "colony_seasons:block/storage_label",
+    "post": "minecraft:block/dark_oak_planks",
+    "straw": "minecraft:block/hay_block_top",
+    "wreath": "colony_seasons:block/wreath",
+    "particle": "minecraft:block/stripped_spruce_log"
+  },
+  "elements": [
+    {
+      "from": [
+        1,
+        0,
+        1
+      ],
+      "to": [
+        15,
+        1,
+        15
+      ],
+      "faces": {
+        "north": {
+          "texture": "#box"
+        },
+        "south": {
+          "texture": "#box"
+        },
+        "east": {
+          "texture": "#box"
+        },
+        "west": {
+          "texture": "#box"
+        },
+        "up": {
+          "texture": "#box"
+        },
+        "down": {
+          "texture": "#box"
+        }
+      }
+    },
+    {
+      "from": [
+        1,
+        1,
+        1
+      ],
+      "to": [
+        15,
+        10,
+        2
+      ],
+      "faces": {
+        "north": {
+          "texture": "#box"
+        },
+        "south": {
+          "texture": "#box"
+        },
+        "east": {
+          "texture": "#box"
+        },
+        "west": {
+          "texture": "#box"
+        },
+        "up": {
+          "texture": "#box"
+        },
+        "down": {
+          "texture": "#box"
+        }
+      }
+    },
+    {
+      "from": [
+        1,
+        1,
+        14
+      ],
+      "to": [
+        15,
+        10,
+        15
+      ],
+      "faces": {
+        "north": {
+          "texture": "#box"
+        },
+        "south": {
+          "texture": "#box"
+        },
+        "east": {
+          "texture": "#box"
+        },
+        "west": {
+          "texture": "#box"
+        },
+        "up": {
+          "texture": "#box"
+        },
+        "down": {
+          "texture": "#box"
+        }
+      }
+    },
+    {
+      "from": [
+        1,
+        1,
+        2
+      ],
+      "to": [
+        2,
+        10,
+        14
+      ],
+      "faces": {
+        "north": {
+          "texture": "#box"
+        },
+        "south": {
+          "texture": "#box"
+        },
+        "east": {
+          "texture": "#box"
+        },
+        "west": {
+          "texture": "#box"
+        },
+        "up": {
+          "texture": "#box"
+        },
+        "down": {
+          "texture": "#box"
+        }
+      }
+    },
+    {
+      "from": [
+        14,
+        1,
+        2
+      ],
+      "to": [
+        15,
+        10,
+        14
+      ],
+      "faces": {
+        "north": {
+          "texture": "#box"
+        },
+        "south": {
+          "texture": "#box"
+        },
+        "east": {
+          "texture": "#box"
+        },
+        "west": {
+          "texture": "#box"
+        },
+        "up": {
+          "texture": "#box"
+        },
+        "down": {
+          "texture": "#box"
+        }
+      }
+    },
+    {
+      "from": [
+        1,
+        9.4,
+        0.9
+      ],
+      "to": [
+        15,
+        10.2,
+        2.1
+      ],
+      "faces": {
+        "north": {
+          "texture": "#post"
+        },
+        "up": {
+          "texture": "#post"
+        }
+      }
+    },
+    {
+      "from": [
+        3,
+        5.5,
+        0.75
+      ],
+      "to": [
+        11,
+        8.5,
+        1
+      ],
+      "faces": {
+        "north": {
+          "texture": "#label",
+          "uv": [
+            0,
+            0,
+            8,
+            3
+          ]
+        }
+      }
+    },
+    {
+      "from": [
+        2.2,
+        1,
+        2.2
+      ],
+      "to": [
+        13.8,
+        7.8,
+        13.8
+      ],
+      "faces": {
+        "up": {
+          "texture": "#straw"
+        }
+      }
+    },
+    {
+      "from": [
+        3,
+        8,
+        3
+      ],
+      "to": [
+        12,
+        8.2,
+        12
+      ],
+      "faces": {
+        "up": {
+          "texture": "#wreath",
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ]
+        }
+      }
+    },
+    {
+      "from": [
+        4,
+        8.6,
+        3.6
+      ],
+      "to": [
+        13,
+        8.8,
+        12.6
+      ],
+      "faces": {
+        "up": {
+          "texture": "#wreath",
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ]
+        }
+      }
+    },
+    {
+      "from": [
+        3.4,
+        9.2,
+        4
+      ],
+      "to": [
+        12.4,
+        9.4,
+        13
+      ],
+      "faces": {
+        "up": {
+          "texture": "#wreath",
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ]
+        }
+      }
+    }
+  ]
+}

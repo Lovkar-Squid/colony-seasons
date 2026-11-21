@@ -1,0 +1,34 @@
+{
+  "variants": {
+    "facing=north,kind=garland": {
+      "model": "colony_seasons:block/storage_coil_garland"
+    },
+    "facing=east,kind=garland": {
+      "model": "colony_seasons:block/storage_coil_garland",
+      "y": 90
+    },
+    "facing=south,kind=garland": {
+      "model": "colony_seasons:block/storage_coil_garland",
+      "y": 180
+    },
+    "facing=west,kind=garland": {
+      "model": "colony_seasons:block/storage_coil_garland",
+      "y": 270
+    },
+    "facing=north,kind=lights": {
+      "model": "colony_seasons:block/storage_coil_lights"
+    },
+    "facing=east,kind=lights": {
+      "model": "colony_seasons:block/storage_coil_lights",
+      "y": 90
+    },
+    "facing=south,kind=lights": {
+      "model": "colony_seasons:block/storage_coil_lights",
+      "y": 180
+    },
+    "facing=west,kind=lights": {
+      "model": "colony_seasons:block/storage_coil_lights",
+      "y": 270
+    }
+  }
+}

@@ -70,6 +70,14 @@ public final class SeasonsBlocks {
             () -> new FestivalMarkerBlock(BlockBehaviour.Properties.of().mapColor(MapColor.WOOD).strength(0.5F)
                     .sound(SoundType.WOOD).noCollission().noOcclusion().pushReaction(PushReaction.DESTROY)));
 
+    // ---- the storeroom's dressing (S10g, docs/storage-look-design.md, variant A): placed only by the Decorator, for free.
+    // Block only: no item, no recipe, no loot table (noLootTable: they drop nothing) and not in ALL; no collision, break
+    // at once, stand on the barrel below them like a carpet (StoragePieceBlock).
+    public static final DeferredBlock<StorageBoxBlock> STORAGE_BOX = ColonySeasons.BLOCKS.register("storage_box",
+            () -> new StorageBoxBlock(storagePiece(SoundType.WOOD, MapColor.WOOD).noLootTable()));
+    public static final DeferredBlock<StorageCoilBlock> STORAGE_COIL = ColonySeasons.BLOCKS.register("storage_coil",
+            () -> new StorageCoilBlock(storagePiece(SoundType.GRASS, MapColor.PLANT).noLootTable()));
+
     /** Every decoration block, in creative-tab order. */
     public static final List<DeferredBlock<? extends Block>> ALL = List.of(WREATH, GARLAND, LANTERN_STRING, FAIRY_LIGHTS,
             ORNAMENT_LEAVES, TINSEL_LEAVES, TREE_STAR, LARGE_STAR, GIFT_PILE, FIREWORK_CRATE, FESTIVAL_MARKER);
@@ -118,6 +126,11 @@ public final class SeasonsBlocks {
     }
 
     private static BlockBehaviour.Properties wall(final SoundType sound, final MapColor color) {
+        return BlockBehaviour.Properties.of().mapColor(color).noCollission().instabreak().noOcclusion()
+                .sound(sound).pushReaction(PushReaction.DESTROY);
+    }
+
+    private static BlockBehaviour.Properties storagePiece(final SoundType sound, final MapColor color) {
         return BlockBehaviour.Properties.of().mapColor(color).noCollission().instabreak().noOcclusion()
                 .sound(sound).pushReaction(PushReaction.DESTROY);
     }

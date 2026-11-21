@@ -80,6 +80,17 @@ public class JobDecorator extends AbstractJob<EntityAIWorkDecorator, JobDecorato
         giftsHanded++;
     }
 
+    private int roomChecks;
+
+    /** Storeroom checks he ran at his hut since the server started (S10g2; the probe reads it). */
+    public int roomChecks() {
+        return roomChecks;
+    }
+
+    public void countRoomCheck() {
+        roomChecks++;
+    }
+
     private int finishedRequests;
     private int finishedCancelled;
 

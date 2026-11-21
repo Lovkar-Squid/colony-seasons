@@ -12,6 +12,9 @@ from what the design's tree and show ask for (spruce leaves, gold, glowstone, fi
 The festival tree's trunk (festival_trunk, S10c) is no decoration of its own: it has no item and no recipe, and it
 drops the spruce log it cost, so it is in TRUNK_DROPS instead of BLOCKS; it is mineable with an axe like a log, and in
 no log tag (MineColonies' Forester takes a #minecraft:logs block for a tree).
+
+The storeroom pieces (storage_box, storage_coil, S10g1) get no data file at all: no item, no recipe, no loot table
+(their registration gives them noLootTable(); tools/check_blocks.py NO_DROP) and no tool tag (they break at once).
 """
 import json
 import os
