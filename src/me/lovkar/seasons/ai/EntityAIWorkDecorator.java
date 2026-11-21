@@ -742,6 +742,7 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
         if (target == null) {
             if (!ledger.hasOutdoorEntries(colony)) {
                 ledger.dropEmptyGroups(colony);
+                ledger.setSquareProblem(colony, false);   // a new window looks at the square afresh (S10i review)
                 building.setDecorationsUp(false);
                 job.setStatus(DecoratorTexts.DOWN_DONE);
                 return AIWorkerState.START_WORKING;
@@ -769,6 +770,7 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
         }
         if (!ledger.hasOutdoorEntries(colony)) {
             ledger.dropEmptyGroups(colony);
+            ledger.setSquareProblem(colony, false);
             building.setDecorationsUp(false);
         }
         return AIWorkerState.START_WORKING;

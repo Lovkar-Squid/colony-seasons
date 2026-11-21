@@ -259,6 +259,8 @@ public final class DecorEvents {
             }
             // the outside decorations are down (the storeroom stays listed, packed, all year)
             if (colony != null && windowOver && !ledger.hasOutdoorEntries(id)) {
+                // the "no room for the tree" note belongs to the window that set it (S10i review)
+                ledger.setSquareProblem(id, false);
                 for (final IBuilding b : colony.getServerBuildingManager().getBuildings().values()) {
                     if (b instanceof BuildingDecorator hut && hut.decorationsUp() && hut.getAllAssignedCitizen().isEmpty()) {
                         hut.setDecorationsUp(false);
