@@ -93,7 +93,11 @@ bash tools/probe.sh csanswers                 # the owner's answers of 20 Nov 20
                                               # an outside wall; what a player breaking free and paid decorations, the tree's gift pile and
                                               # crate, trunks and spruce leaves gets, a pop-off, the explosion's order, a real explosion of a free and a paid vanilla block, the take-down refund;
                                               # leaves at take-down (only distance changed: removed); a second marker (one notice); on the
-                                              # everyone day the knight is never brought and the lumberjack comes (the mixin asked)
+                                              # everyone day the knight is never brought and the lumberjack comes (the mixin asked);
+                                              # S10h: a door under a jettied upper floor (a hand-built house and the Medieval Dark Oak
+                                              # level-3 town hall pasted with its doorways open, as in the fourth in-game test) gets the
+                                              # wreath on the jetty's front with garland and lights; a marker pasted through Structurize's
+                                              # placement call (no player) is no square and sends no notice
 bash tools/restart.sh csanswers               # a player welcomed and saved through the server's player storage, read back after a
                                               # restart: the marker is set and a login sends no line
 ```
@@ -156,7 +160,10 @@ bash tools/probe.sh csstorage    # S0 the pasted racks are the Workshop's contai
                                  # any ingredient request, part of the gap from the warehouse, a request the player would hold
                                  # cancelled within a pass (also while he does not prepare), ingredients as before with nothing anywhere; at the cap no request, his
                                  # storage loses exactly what he places; every output counted everywhere through decorating, a
-                                 # courier refill and the take-down
+                                 # courier refill and the take-down; (e2, S10h) the Storage tab's state and its module view, fed
+                                 # the module's own bytes, through every click: the new step at once, the count the server left,
+                                 # the wait ended by the server's step (a second click without reopening) or after 60 client
+                                 # ticks for a refused click
 bash tools/restart.sh csstorage  # two steps (the first in creative, free) and the stock at the cap, a restart: the step, the 12 racks
                                  # at 45 slots and the stock are back, no request, a third step works
 ```
