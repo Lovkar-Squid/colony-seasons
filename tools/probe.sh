@@ -62,7 +62,8 @@ elif [ "$mode" != "defaults" ] && [ -d "tools/$probe/rigconfig" ]; then
 fi
 # no config folder at all: the run seeds nothing (a mode is still passed to the probe)
 
-# a config file left in the rig by an earlier run (a seeded one) must not leak into a defaults run
-rm -f "$RUN_RIG_DIR/rig/config/colony_seasons-server.toml"
+# a config file left in the rig by an earlier run (a seeded one) must not leak into a defaults run; the client
+# file too, which csconfig opens itself (S10i), as a dedicated server never does
+rm -f "$RUN_RIG_DIR/rig/config/colony_seasons-server.toml" "$RUN_RIG_DIR/rig/config/colony_seasons-client.toml"
 
 powershell -NoProfile -ExecutionPolicy Bypass -File "$RUN_RIG_DIR/run-rig.ps1" "${args[@]}"

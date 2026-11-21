@@ -1,28 +1,49 @@
 package me.lovkar.seasons.csconfig;
 
 import me.lovkar.seasons.ColonySeasons;
+import me.lovkar.seasons.SeasonsClientConfig;
 import me.lovkar.seasons.SeasonsConfig;
 import net.minecraft.server.MinecraftServer;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.config.ConfigTracker;
+import net.neoforged.fml.config.ModConfig;
+import net.neoforged.fml.config.ModConfigs;
+import net.neoforged.fml.loading.FMLPaths;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.TreeMap;
 
 /**
- * Headless check of Colony Seasons' server config on the dedicated test server.
+ * Headless check of Colony Seasons' server config on the dedicated test server, and of the client file.
  *
  * <p>Two runs. {@code -Mode seeded}: the rig seeds this probe's {@code rigconfig/colony_seasons-server.toml}
  * (a non-default value for every key) and every getter must return that value. {@code -Mode defaults}:
  * nothing is seeded ({@code rigconfig-defaults/} holds no .toml), NeoForge writes the file from the mod's
  * defaults, and every getter must return the defaults of design section 9, written out here by hand so
  * a wrong default in the mod cannot agree with itself. Both modes also check the validators.</p>
+ *
+ * <p>The client file (S10i). A dedicated server never loads a CLIENT config, so the probe opens
+ * {@code colony_seasons-client.toml} itself with the call the physical client makes for each of its CLIENT configs
+ * ({@code ConfigTracker.openConfig(config, config/, no override folder)}, reached by reflection: it is package
+ * private). {@code defaults}: no file, NeoForge writes it, and its keys and the getter must equal the hand-written
+ * client list ({@code showClothes} only: the owner's answer of 21 Nov 2026 took {@code showParticles} out).
+ * {@code seeded}: {@code rigconfig/colony_seasons-client.toml} is the file 0.1.0-beta.1 wrote, {@code showParticles}
+ * still in it and {@code showClothes} false; the rig puts it in {@code defaultconfigs/}, the probe puts it where a
+ * player has it ({@code config/}), and it must load with nothing thrown, read back {@code showClothes = false}, and
+ * come out of NeoForge's correction with the old key gone.</p>
  *
  * <p>Prints "[csconfig] CHECK ..." lines and "[csconfig] RESULT csconfig: PASS|FAIL", then halts.</p>
  */
@@ -67,6 +88,12 @@ public class CsConfig {
             7000, 9000, "off_duty", false, 3,
             true, 2.5, true, 0.25, true, 1.5, false);
 
+    /** Design section 9, by hand: the client file's keys ("section.key") and values as NeoForge writes them (S10i). */
+    private static final Map<String, String> CLIENT_DEFAULTS = Map.of("display.showClothes", "true");
+
+    /** What rigconfig/colony_seasons-client.toml (the 0.1.0-beta.1 file, showParticles in it) must come out as. */
+    private static final Map<String, String> CLIENT_SEEDED = Map.of("display.showClothes", "false");
+
     public CsConfig() {
         NeoForge.EVENT_BUS.addListener(this::onTick);
     }
@@ -92,6 +119,7 @@ public class CsConfig {
                 checkDefaultConstants();
             }
             checkValidators();
+            checkClient(defaults);
         } catch (final Throwable t) {
             check("probe ran to the end", false, t.toString());
         }
@@ -219,6 +247,77 @@ public class CsConfig {
             unknownRefused = true;
         }
         check("unknown festival id is refused", unknownRefused, "spring_bloom is not in 0.1.0");
+    }
+
+    // ---------------------------------------------------------------- the client file (S10i)
+
+    private void checkClient(final boolean defaults) throws Exception {
+        final Path dir = FMLPaths.CONFIGDIR.get();
+        final Path file = dir.resolve(SeasonsClientConfig.FILE);
+        final String shown = "config/" + SeasonsClientConfig.FILE;
+        if (defaults) {
+            // tools/probe.sh takes a client file an earlier seeded run left in the rig away before every run
+            check("client: no client file before it is opened", !Files.exists(file), shown);
+        } else {
+            final Path seed = FMLPaths.GAMEDIR.get().resolve("defaultconfigs").resolve(SeasonsClientConfig.FILE);
+            check("client: the old client file is seeded", Files.exists(seed), "defaultconfigs/" + SeasonsClientConfig.FILE);
+            Files.copy(seed, file, StandardCopyOption.REPLACE_EXISTING);
+            final Map<String, String> old = tomlKeys(file);
+            check("client: the seeded file is the old one, showParticles still in it", old.containsKey("display.showParticles")
+                    && "false".equals(old.get("display.showClothes")), String.valueOf(old));
+        }
+        check("client: not loaded before the probe opens it", !SeasonsClientConfig.SPEC.isLoaded(), "a dedicated server never loads a CLIENT config");
+
+        ModConfig client = null;
+        for (final ModConfig config : ModConfigs.getModConfigs(ColonySeasons.MODID)) {
+            if (config.getType() == ModConfig.Type.CLIENT) {
+                client = config;
+            }
+        }
+        check("client: the CLIENT config is registered", client != null && SeasonsClientConfig.FILE.equals(client.getFileName()),
+                client == null ? "none" : client.getFileName());
+        if (client == null) {
+            return;
+        }
+        final Method open = ConfigTracker.class.getDeclaredMethod("openConfig", ModConfig.class, Path.class, Path.class);
+        open.setAccessible(true);
+        Throwable thrown = null;
+        try {
+            open.invoke(null, client, dir, null);
+        } catch (final InvocationTargetException wrapped) {
+            thrown = wrapped.getCause();
+        }
+        check(defaults ? "client: the file is written from the defaults and loaded" : "client: the old file loads, nothing thrown",
+                thrown == null && SeasonsClientConfig.SPEC.isLoaded() && Files.exists(file), thrown == null ? shown : thrown.toString());
+
+        final Map<String, String> want = defaults ? CLIENT_DEFAULTS : CLIENT_SEEDED;
+        checkEq(defaults ? "client: the file's keys are the hand-written list" : "client: NeoForge dropped showParticles and kept showClothes",
+                tomlKeys(file), want);
+        checkEq("client: showClothes", String.valueOf(SeasonsClientConfig.showClothes()), want.get("display.showClothes"));
+        if (defaults) {
+            checkEq("client: the documented default", String.valueOf(SeasonsClientConfig.DEFAULT_SHOW_CLOTHES), CLIENT_DEFAULTS.get("display.showClothes"));
+        }
+    }
+
+    /** The keys of a TOML file as "section.key" to the value's text, comments left out (as NeoForge writes the file). */
+    private static Map<String, String> tomlKeys(final Path file) throws IOException {
+        final Map<String, String> out = new TreeMap<>();
+        String section = "";
+        for (final String raw : Files.readAllLines(file, StandardCharsets.UTF_8)) {
+            final String line = raw.strip();
+            if (line.isEmpty() || line.startsWith("#")) {
+                continue;
+            }
+            if (line.startsWith("[") && line.indexOf(']') > 0) {
+                section = line.substring(1, line.indexOf(']')).strip() + ".";
+                continue;
+            }
+            final int eq = line.indexOf('=');
+            if (eq > 0) {
+                out.put(section + line.substring(0, eq).strip(), line.substring(eq + 1).strip());
+            }
+        }
+        return out;
     }
 
     // ---------------------------------------------------------------- helpers

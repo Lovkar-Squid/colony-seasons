@@ -55,8 +55,8 @@ public class CsClient {
             check("client config not loaded on a server", !SeasonsClientConfig.SPEC.isLoaded(), "a CLIENT config is read by the physical client only");
             // design section 9, by hand
             check("showClothes default", SeasonsClientConfig.showClothes(), String.valueOf(SeasonsClientConfig.showClothes()));
-            check("showParticles default", SeasonsClientConfig.showParticles(), String.valueOf(SeasonsClientConfig.showParticles()));
-            check("default constants", SeasonsClientConfig.DEFAULT_SHOW_CLOTHES && SeasonsClientConfig.DEFAULT_SHOW_PARTICLES, "both true");
+            // S10i: showParticles is gone; csconfig loads the client file itself and checks its keys
+            check("default constant", SeasonsClientConfig.DEFAULT_SHOW_CLOTHES, "true");
 
             final SeasonStatePayload sent = new SeasonStatePayload(Season.WINTER, 40, 48, List.of("winter_festival"));
             final SeasonStatePayload back = decode(encoded(server, sent));

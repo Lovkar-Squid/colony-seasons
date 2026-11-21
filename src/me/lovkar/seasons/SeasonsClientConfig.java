@@ -9,6 +9,10 @@ import net.neoforged.neoforge.common.ModConfigSpec;
  * <p>A CLIENT config is only loaded on the physical client. On a dedicated server, and on a client before the
  * file is read, the getters answer the defaults, like the server config's getters do. Nothing here names a
  * client class, so the mod class may register it on either side.</p>
+ *
+ * <p>S10i (the owner's answer of 21 Nov 2026): the {@code showParticles} key is gone; the mod has no particles of its
+ * own and nothing read it. A file 0.1.0-beta.1 wrote still loads: NeoForge drops the unknown key, keeps the others and
+ * writes the file back (csconfig seeded proves it with such a file).</p>
  */
 public final class SeasonsClientConfig {
 
@@ -16,11 +20,9 @@ public final class SeasonsClientConfig {
     public static final String FILE = ColonySeasons.MODID + "-client.toml";
 
     public static final boolean DEFAULT_SHOW_CLOTHES = true;
-    public static final boolean DEFAULT_SHOW_PARTICLES = true;
 
     public static final ModConfigSpec SPEC;
     private static final ModConfigSpec.BooleanValue SHOW_CLOTHES;
-    private static final ModConfigSpec.BooleanValue SHOW_PARTICLES;
 
     static {
         final ModConfigSpec.Builder builder = new ModConfigSpec.Builder();
@@ -30,11 +32,6 @@ public final class SeasonsClientConfig {
                         "Winter Festival. false: they look as MineColonies draws them.")
                 .translation("com.colony_seasons.config.show_clothes")
                 .define("showClothes", DEFAULT_SHOW_CLOTHES);
-        SHOW_PARTICLES = builder
-                .comment("true: festival particles (snow over the tree, the glow of lit decorations, fireworks sparks).",
-                        "false: none of this mod's particles.")
-                .translation("com.colony_seasons.config.show_particles")
-                .define("showParticles", DEFAULT_SHOW_PARTICLES);
         builder.pop();
         SPEC = builder.build();
     }
@@ -56,10 +53,5 @@ public final class SeasonsClientConfig {
     /** Draw the winter clothes. */
     public static boolean showClothes() {
         return read(SHOW_CLOTHES);
-    }
-
-    /** Spawn this mod's festival particles. */
-    public static boolean showParticles() {
-        return read(SHOW_PARTICLES);
     }
 }
