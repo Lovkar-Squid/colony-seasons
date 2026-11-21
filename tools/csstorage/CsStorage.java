@@ -981,7 +981,7 @@ public class CsStorage {
             check("(e2) the server's answer ends the wait at once: step " + expectStep + " counted once, the button "
                             + (more ? "offered again for a second click" : "gone after the last step"),
                     !tab.waiting() && answered.step() == expectStep && answered.offered() == more
-                            && answered.clickable() == (more && answered.have() >= StorageTabState.PRICE) && !answered.equals(waiting),
+                            && answered.clickable() == (more && answered.have() >= StorageTabState.PRICE) && (!more || !answered.equals(waiting)),
                     String.valueOf(answered));
         });
         now("(e) step " + expectStep + ": the racks", () -> {

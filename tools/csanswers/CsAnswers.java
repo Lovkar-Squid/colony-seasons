@@ -965,17 +965,22 @@ public class CsAnswers {
 
     // ================================================================ a door under a jetty (S10h)
 
-    /** The Medieval Dark Oak town hall of the fourth in-game test, at its level there; its door sits under the jettied upper floor. */
+    /**
+     * The Medieval Dark Oak town hall of the fourth in-game test: read from a copy of the test world, its blocks are those
+     * of the style's level-3 blueprint (281 of about 8800 cells differ: three doorways without doors, torches, a banner,
+     * ladders, stairs inside); its one door sits under the jettied upper floor. The level-2 blueprint has no jetty.
+     */
     private static final String JETTY_PACK = "Medieval Dark Oak";
-    private static final String JETTY_HALL = "fundamentals/townhall2.blueprint";
-    /** The blueprint's one door under the jetty (relative to the box, unrotated); its two other doorways stood open in the test world. */
+    private static final String JETTY_HALL = "fundamentals/townhall3.blueprint";
+    /** The blueprint's door under the jetty (relative to the box, unrotated); its three other doorways had no door in the test world. */
     private static final BlockPos JETTY_HALL_DOOR = new BlockPos(10, 7, 2);
+    private static final int JETTY_HALL_OPEN_DOORWAYS = 3;
 
     /**
      * S10h: the in-game test's town hall got one wreath beside its door and nothing else. Its door was found, but the
      * upper floor juts out one block over it: a row of stairs under the jetty fills the cell in front of door + 2, the
      * jetty's wall the cell in front of door + 3. A hand-built house of that shape (a stone house, its upper floor one
-     * block out over the door, stairs under it) and the real town hall pasted from MineColonies' own blueprint, its two
+     * block out over the door, stairs under it) and the real town hall pasted from MineColonies' own blueprint, its three
      * open doorways as in the test world, must get the door set: the wreath above the door on the front of the jetty,
      * the garland beside it and the lights above; then taking down gives the world back.
      */
@@ -1062,8 +1067,8 @@ public class CsAnswers {
                 snapshot(hall.grown(2), before);
                 final List<DoorFinder.Door> hallDoors = DoorFinder.find(level, hall);
                 final BlockPos door = hall.min().offset(JETTY_HALL_DOOR);
-                check("the pasted town hall: its two open doorways as in the test world, the one door under the jetty is found",
-                        doorsOut[0] == 2 && hallDoors != null && hallDoors.size() == 1 && hallDoors.get(0).lower().equals(door),
+                check("the pasted town hall: its three open doorways as in the test world, the one door under the jetty is found",
+                        doorsOut[0] == JETTY_HALL_OPEN_DOORWAYS && hallDoors != null && hallDoors.size() == 1 && hallDoors.get(0).lower().equals(door),
                         doorsOut[0] + " doors taken out, " + (hallDoors == null ? "unloaded" : hallDoors.toString()));
                 final DoorFinder.Door main = hallDoors == null || hallDoors.isEmpty() ? null : hallDoors.get(0);
                 if (main != null) {
