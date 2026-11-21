@@ -4,8 +4,8 @@ two variants and two states each, for docs/storage-look-design.md.
 The owner looked at the S10e cutaways (docs/renders/s10e) and asked for more decoration in the storage room and, by
 season or festival, things hung up inside or the pieces not in use packed away. This script draws:
 
-  variant A  tidy storeroom: ordered barrels, labelled boxes on the barrels, coils on wall pegs
-  variant B  busy loft: half-open crates, sacks, hay, lanterns on fence brackets, a ladder, coils with a loose end
+  variant A  tidy storeroom: ordered barrels, labelled boxes and coils lying on the barrels
+  variant B  busy loft: half-open crates, sacks, hay, a lantern on a fence bracket, a ladder, coils with a loose end
 
 each in two states, "packed" (outside the festival window) and "festival" (in the window), at level 1 (the storage
 corner) and level 5 (the attic), as cutaways like tools/render_s5.py's S10e ones (front wall and roof with the tie
@@ -16,17 +16,21 @@ What is drawn follows the mechanism in docs/storage-look-design.md, and the scri
   - the blueprint layer ("furniture") goes only into cells the shipped blueprint leaves as air, strictly inside the
     walls, off the ladder and its exit; it is vanilla blocks, except B's crate, our own block (on the Builder's bill);
   - the Decorator's layer goes only into air (ledger rule): a standing piece on a barrel, crate or hay bale, a hung
-    piece on a wall or beam face with a full block behind it; nothing of his stands on the floor or on a rack
-    (MineColonies' full rack model draws two boxes 6 px up into the cell above), nothing right behind a window;
+    piece (festival only) on a wall or beam face with a full block behind it; nothing of his stands on the floor,
+    nothing hangs in the packed state, nothing right behind a window;
+  - nothing at all (his pieces, hung or standing, and the furniture) in the cell directly above a rack: MineColonies'
+    full rack model draws boxes 6 px up into that cell, and the double rack's reach its edge;
   - a colonist still reaches the hut block and every floor cell from the door (tools/walkcheck.py), so no exterior
     cell changes and the walk path and the ladder stay clear.
-Racks are drawn as MineColonies draws them in the game: the full model while they hold anything (packed: all; in the
-festival the attic racks that held decorations are empty), single racks (the game joins neighbours into doubles,
-which look the same).
+Racks are drawn as single racks facing south with the full model while they hold anything (packed: all). In the game
+neighbouring racks can join into doubles, whose boxes sit elsewhere, and the blueprint's racks carry no facing; the
+rule above keeps either layout clear. The festival panels assume that the racks that held decorations are
+empty while those are out on the colony's buildings; that is an assumption about the stock, not something the mod
+sets.
 
 New blocks (namespace colonyseasons, names st_*) are look drafts written to the scratch folder at run time, with
-vanilla textures by reference, the mod's own decoration textures (resources/assets) and two small hand-drawn ones
-(a paper label and burlap). Nothing here is shipped.
+vanilla textures by reference, the mod's own decoration textures (resources/assets) and three small hand-drawn ones
+(colour-coded paper labels, burlap and rope). Nothing here is shipped.
 
     python storage_round.py [--sheets]      (needs MC_JAR or SEASONS_LIBS, MINECOLONIES_JAR or a minecolonies jar
                                              in SEASONS_LIBS, and BLENDER, as the other design scripts)
@@ -76,9 +80,10 @@ RACK = dh.RACK
 FACING_Y = {"north": 0, "east": 90, "south": 180, "west": 270}
 
 # ------------------------------------------------------------------ draft textures (hand-drawn, own pixels)
-CONTENT_COLOUR = {"wreath": (168, 50, 45), "garland": (63, 122, 55), "lights": (217, 169, 43),
-                  "lanterns": (200, 100, 42), "gifts": (58, 95, 160)}
-LABEL_SLOT = {"wreath": (0, 0), "garland": (8, 0), "lights": (0, 5), "lanterns": (8, 5), "gifts": (0, 10)}
+CONTENT_COLOUR = {"wreath": (176, 52, 46), "garland": (62, 126, 56), "lights": (220, 170, 40),
+                  "lanterns": (204, 104, 44), "gifts": (60, 98, 166)}         # the label's colour band
+LABEL_SLOT = {"wreath": (0, 0), "garland": (8, 0), "lights": (0, 4), "lanterns": (8, 4), "gifts": (0, 8)}
+LABEL_W, LABEL_H = 8, 3
 
 
 def h01(x, y, salt=0):
@@ -88,40 +93,39 @@ def h01(x, y, salt=0):
 
 
 def tex_label():
-    """Paper labels, 7 x 4 px each: a coloured band for the content, a few ink strokes, a darker edge."""
+    """Card labels, 8 x 3 px each, wider than tall: a band in the content's colour along the top (colour-coded
+    storage), one word of ink writing below it, a shaded lower edge. No frame and no centred mark."""
     im = Image.new("RGBA", (16, 16), (0, 0, 0, 0))
     px = im.load()
+    ink = (62, 50, 44, 255)
     for content, (x0, y0) in LABEL_SLOT.items():
         col = CONTENT_COLOUR[content]
-        for y in range(4):
-            for x in range(7):
-                paper = (222, 211, 176) if h01(x0 + x, y0 + y, 3) < 0.7 else (210, 198, 160)
-                if y == 3 or x == 6:
-                    paper = (182, 168, 128)
-                px[x0 + x, y0 + y] = paper + (255,)
-            for y in range(4):
-                px[x0, y0 + y] = col + (255,)
-                px[x0 + 1, y0 + y] = tuple(max(0, c - 25) for c in col) + (255,)
-            for x in (3, 4, 5):
-                if h01(x0 + x, y0, 7) < 0.8:
-                    px[x0 + x, y0 + 1] = (74, 64, 56, 255)
-            for x in (3, 4):
-                px[x0 + x, y0 + 2] = (96, 84, 72, 255)
+        for x in range(LABEL_W):
+            px[x0 + x, y0] = col + (255,)
+            px[x0 + x, y0 + 1] = ((226, 216, 184) if h01(x0 + x, y0, 3) < 0.8 else (216, 205, 172)) + (255,)
+            px[x0 + x, y0 + 2] = (190, 178, 144, 255)
+        for x in range(1, 6 + int(h01(x0, y0, 5) * 2)):  # one word, 5 or 6 letters, from the left (two short
+            px[x0 + x, y0 + 1] = ink                  # words read as a pair of eyes at this size)
     return im
 
 
 def tex_burlap():
-    """Coarse jute cloth: a fine two-tone weave with a few slubs, no stripes."""
+    """Coarse jute cloth: an open weave (light threads over darker gaps), a few slubs, no stripes."""
     im = Image.new("RGBA", (16, 16))
     px = im.load()
     for y in range(16):
         for x in range(16):
-            base = (186, 156, 108) if (x + y) % 2 == 0 else (170, 141, 96)
+            if x % 2 == 1 and y % 2 == 1:
+                base = (122, 98, 62)                       # the gap between threads
+            elif (x // 2 + y // 2) % 2 == 0:
+                base = (184, 158, 106) if x % 2 == 0 else (176, 150, 100)
+            else:
+                base = (168, 142, 94) if y % 2 == 0 else (160, 134, 88)
             k = h01(x, y, 11)
-            if k < 0.10:
-                base = (198, 170, 122)
-            elif k > 0.90:
-                base = (150, 122, 80)
+            if k < 0.07:
+                base = (198, 174, 124)
+            elif k > 0.94:
+                base = (140, 114, 74)
             px[x, y] = base + (255,)
     return im
 
@@ -172,7 +176,49 @@ def ring(cx, cz, outer, width, y0, y1, tex, top_uv, side_uv):
 GARLAND = "#garland"
 LIGHTS = "#lights"
 G_TOP, G_SIDE = [0, 6, 16, 8], [0, 5, 16, 8]          # the leafy band of garland.png (rows 6-7 fully opaque)
-L_TOP, L_SIDE = [0, 5, 16, 8], [0, 4, 16, 9]          # the bulbs (top) and wire and bulbs (sides) of fairy_lights.png
+WIRE = [0, 4, 1, 5]                                    # one dark wire pixel of fairy_lights.png
+BULBS = [[1, 6, 3, 8], [5, 6, 7, 8], [9, 6, 11, 8], [13, 6, 15, 8]]   # red, green, blue, yellow (2 x 2 px each)
+CAP = [1, 4, 3, 5]                                     # the grey bulb holder
+
+
+def light_coil(cx, cz, outer, y0, n_bulbs, phase=0):
+    """A coil of fairy lights lying flat: a thin dark wire ring with bulbs lying on it, each a little longer than
+    wide and pointing out from the coil, its grey holder on the wire (bulbs at the eight 45-degree points only,
+    the turns a model element may make)."""
+    els = ring(cx, cz, outer, 1.0, y0, y0 + 1.0, LIGHTS, WIRE, WIRE)
+    r = outer / 2.0 - 0.5
+    step = 8 // n_bulbs if n_bulbs <= 8 else 1
+    for i in range(n_bulbs):
+        k = (i * step + phase) % 8                    # the 45-degree point of this bulb
+        dx, dz = [(1, 0), (0.7071, 0.7071), (0, 1), (-0.7071, 0.7071), (-1, 0), (-0.7071, -0.7071), (0, -1),
+                  (0.7071, -0.7071)][k]
+        bx, bz = cx + r * dx, cz + r * dz
+        bulb = BULBS[(i + phase) % 4]
+        # laid out along x from the wire outwards, then turned about y to the bulb's direction
+        if k in (0, 4):
+            sgn = 1 if k == 0 else -1
+            hold = el([min(bx, bx + sgn * 0.9), y0 + 0.4, bz - 0.6], [max(bx, bx + sgn * 0.9), y0 + 1.6, bz + 0.6],
+                      LIGHTS, uv={"*": CAP})
+            body = el([min(bx + sgn * 0.9, bx + sgn * 2.6), y0 + 0.3, bz - 0.8],
+                      [max(bx + sgn * 0.9, bx + sgn * 2.6), y0 + 1.9, bz + 0.8], LIGHTS, uv={"*": bulb})
+        elif k in (2, 6):
+            sgn = 1 if k == 2 else -1
+            hold = el([bx - 0.6, y0 + 0.4, min(bz, bz + sgn * 0.9)], [bx + 0.6, y0 + 1.6, max(bz, bz + sgn * 0.9)],
+                      LIGHTS, uv={"*": CAP})
+            body = el([bx - 0.8, y0 + 0.3, min(bz + sgn * 0.9, bz + sgn * 2.6)],
+                      [bx + 0.8, y0 + 1.9, max(bz + sgn * 0.9, bz + sgn * 2.6)], LIGHTS, uv={"*": bulb})
+        else:
+            sgn = 1 if dx > 0 else -1
+            ang = -45 if dx * dz > 0 else 45
+            rot = {"angle": ang, "axis": "y", "origin": [bx, y0 + 1, bz]}
+            hold = el([min(bx, bx + sgn * 0.9), y0 + 0.4, bz - 0.6], [max(bx, bx + sgn * 0.9), y0 + 1.6, bz + 0.6],
+                      LIGHTS, uv={"*": CAP}, rot=rot)
+            body = el([min(bx + sgn * 0.9, bx + sgn * 2.6), y0 + 0.3, bz - 0.8],
+                      [max(bx + sgn * 0.9, bx + sgn * 2.6), y0 + 1.9, bz + 0.8], LIGHTS, uv={"*": bulb}, rot=rot)
+        els += [hold, body]
+    return els
+
+
 TEXTURES = {"garland": f"{NS}:block/garland", "lights": f"{NS}:block/fairy_lights", "wreath": f"{NS}:block/wreath",
             "lantern": f"{NS}:block/lantern_string_0", "lantern2": f"{NS}:block/lantern_string_1",
             "red": f"{NS}:block/gift_red", "green": f"{NS}:block/gift_green", "blue": f"{NS}:block/gift_blue",
@@ -206,8 +252,8 @@ def contents(kind, fill, floor, top):
             out += ring(8, 8, 11.6, 3, floor, top - 1.5, GARLAND, G_TOP, G_SIDE)
             out += ring(8, 8, 7.5, 2.4, top - 1.5, top + 0.6, GARLAND, G_TOP, G_SIDE)
         elif kind == "lights":
-            out += ring(8, 8, 11, 2.4, top - 2.2, top - 0.6, LIGHTS, L_TOP, L_SIDE)
-            out += ring(8, 8, 7, 2, top - 0.6, top + 0.6, LIGHTS, L_TOP, L_SIDE)
+            out += light_coil(8, 8, 11.4, top - 3.0, 7)
+            out += light_coil(8.4, 7.6, 7.6, top - 1.8, 5, 1)
         elif kind == "lanterns":
             for i, (x, z) in enumerate([(2.6, 2.6), (6.5, 2.6), (10.4, 2.6), (2.6, 6.6), (6.5, 6.6), (10.4, 6.6),
                                         (2.6, 10.4), (6.5, 10.4), (10.4, 10.4)]):
@@ -222,7 +268,7 @@ def contents(kind, fill, floor, top):
         elif kind == "garland":
             out += ring(7, 9, 6.5, 2.2, floor, floor + 1.6, GARLAND, G_TOP, G_SIDE)
         elif kind == "lights":
-            out += ring(9, 7, 6, 1.8, floor, floor + 1.2, LIGHTS, L_TOP, L_SIDE)
+            out += light_coil(9, 7, 6, floor, 3)
         elif kind == "lanterns":
             out.append(lantern(9, floor, 9, YELLOW_LANTERN))
         elif kind == "gifts":
@@ -231,66 +277,49 @@ def contents(kind, fill, floor, top):
 
 
 def model_box(content, fill):
-    """A: a labelled spruce box, open at the top, 14 x 10 x 14 px; the label faces north (the block's front)."""
+    """A: a labelled spruce box, open at the top, 14 x 10 x 14 px; the colour-coded card label sits high on the front
+    (north, the block's front), wider than tall."""
     w = "#box"
+    sx, sy = LABEL_SLOT[content]
     els = [el([1, 0, 1], [15, 1, 15], w), el([1, 1, 1], [15, 10, 2], w), el([1, 1, 14], [15, 10, 15], w),
            el([1, 1, 2], [2, 10, 14], w), el([14, 1, 2], [15, 10, 14], w),
            el([1, 9.4, 0.9], [15, 10.2, 2.1], "#post", faces=["north", "up"]),
-           el([4.5, 3.5, 0.75], [11.5, 7.5, 1], "#label", faces=["north"],
-              uv={"north": [LABEL_SLOT[content][0], LABEL_SLOT[content][1],
-                            LABEL_SLOT[content][0] + 7, LABEL_SLOT[content][1] + 4]})]
+           el([3, 5.5, 0.75], [11, 8.5, 1], "#label", faces=["north"],
+              uv={"north": [sx, sy, sx + LABEL_W, sy + LABEL_H]})]
     return els + contents(content, fill, 1, 9.2)
 
 
 def model_coil(kind, drape):
-    """A coil lying on a rack or barrel top; drape: one end hangs over the front edge (north)."""
-    tex, top, side = (GARLAND, G_TOP, G_SIDE) if kind == "garland" else (LIGHTS, L_TOP, L_SIDE)
-    els = ring(8, 8, 13, 3, 0, 2, tex, top, side) + ring(8, 8, 8.5, 2.5, 2, 3.6, tex, top, side)
-    els += ring(8, 8, 4.4, 1.6, 0, 1.6, tex, top, side)
+    """A coil lying on a barrel, crate or hay top; drape: one end hangs over the front edge (north). Garland: three
+    leafy rings; lights: two wire rings with their bulbs."""
+    if kind == "garland":
+        els = ring(8, 8, 13, 3, 0, 2, GARLAND, G_TOP, G_SIDE) + ring(8, 8, 8.5, 2.5, 2, 3.6, GARLAND, G_TOP, G_SIDE)
+        els += ring(8, 8, 4.4, 1.6, 0, 1.6, GARLAND, G_TOP, G_SIDE)
+    else:
+        els = light_coil(8, 8, 13, 0, 8) + light_coil(8.4, 7.6, 8.6, 1.0, 4, 1) + light_coil(7.8, 8.2, 4.6, 2.0, 2, 3)
     if drape:
-        els.append(el([4, -8, 0.15], [11, 1, 0.35], tex, faces=["north", "south"],
-                      uv={"*": [0, 4, 16, 10] if kind == "garland" else [0, 3, 16, 10]},
-                      frot={"north": 90, "south": 90}))
-    return els
-
-
-def model_hung_coil(kind, drape):
-    """A coil hung on a wooden peg on the wall (the wall is south, as for the shipped wall decorations): two rings
-    flat against the wall; drape: a loose end hangs down to the bottom of the cell."""
-    tex, side = (GARLAND, G_SIDE) if kind == "garland" else (LIGHTS, L_SIDE)
-    uv = {"*": side}
-
-    def vring(cx, cy, outer, width, z0, z1):
-        r, w = outer / 2.0, width
-        side = 2 * r * 0.4142
-        out = [el([cx - side / 2, cy + r - w, z0], [cx + side / 2, cy + r, z1], tex, uv=uv),
-               el([cx - side / 2, cy - r, z0], [cx + side / 2, cy - r + w, z1], tex, uv=uv),
-               el([cx - r, cy - side / 2, z0], [cx - r + w, cy + side / 2, z1], tex, uv=uv),
-               el([cx + r - w, cy - side / 2, z0], [cx + r, cy + side / 2, z1], tex, uv=uv)]
-        d = (r - w / 2) * 0.7071
-        for sx, sy in ((1, 1), (-1, -1), (1, -1), (-1, 1)):
-            mx, my = cx + sx * d, cy + sy * d
-            out.append(el([mx - side * 0.56, my - w / 2, z0], [mx + side * 0.56, my + w / 2, z1], tex, uv=uv,
-                          rot={"angle": -45 if sx * sy > 0 else 45, "axis": "z", "origin": [mx, my, (z0 + z1) / 2]}))
-        return out
-    els = [el([7, 12.5, 12], [9, 14, 16], "#post")]
-    els += vring(8, 7.5, 11, 2.6, 13.2, 15.8) + vring(8.6, 7.0, 8, 2.2, 11.4, 13.2)
-    if drape:
-        els.append(el([10, 0.2, 12.2], [13, 7, 12.4], tex, faces=["north", "south"],
-                      uv={"*": [0, 4, 16, 10] if kind == "garland" else [0, 3, 16, 10]},
-                      frot={"north": 90, "south": 90}))
+        if kind == "garland":
+            els.append(el([4, -8, 0.15], [11, 1, 0.35], GARLAND, faces=["north", "south"],
+                          uv={"*": [0, 4, 16, 10]}, frot={"north": 90, "south": 90}))
+        else:
+            els.append(el([7.5, -7, 0.4], [8.5, 1, 1.4], LIGHTS, uv={"*": WIRE}))
+            for i, y in enumerate((-2.5, -6)):
+                els.append(el([7.2, y, 0.2], [8.8, y + 1.6, 1.6], LIGHTS, uv={"*": BULBS[i + 1]}))
     return els
 
 
 def model_sack(fill):
-    """B: a burlap sack, tied at the neck, turned a little; empty: folded flat."""
+    """B: a jute sack, wider than deep, sagging at the bottom, its top gathered, tied with rope and flaring into two
+    floppy ears (no rim, no neck ring: it must not read as a pot); turned a little. Empty: folded flat."""
     b = "#burlap"
     turn = {"angle": 22.5, "axis": "y", "origin": [8, 0, 8]}
     if fill == "full":
-        parts = [el([3.4, 0, 3.4], [12.6, 1, 12.6], b), el([2.6, 1, 2.6], [13.4, 8, 13.4], b),
-                 el([3.6, 8, 3.6], [12.4, 9.6, 12.4], b), el([6, 9.6, 6], [10, 11.6, 10], b),
-                 el([5.6, 10, 5.6], [10.4, 11, 10.4], "#rope"), el([5, 11.6, 5.4], [11, 12.8, 10.6], b),
-                 el([4.6, 11.8, 7], [5.6, 12.6, 9], b)]
+        parts = [el([2.6, 0, 4.0], [13.4, 1, 12.0], b), el([1.8, 1, 3.4], [14.2, 5.5, 12.6], b),
+                 el([2.4, 5.5, 3.8], [13.6, 8.0, 12.2], b), el([3.8, 8.0, 4.8], [12.2, 9.2, 11.2], b),
+                 el([5.6, 9.2, 6.0], [10.4, 10.4, 10.0], b),
+                 el([6.4, 10.4, 6.6], [9.6, 11.4, 9.4], "#rope"),
+                 el([4.8, 11.0, 6.9], [7.8, 12.8, 9.1], b), el([8.2, 11.0, 6.7], [11.2, 12.1, 9.3], b),
+                 el([10.6, 11.4, 7.2], [12.0, 12.0, 8.8], b)]
         for e in parts:
             e["rotation"] = turn
         return parts
@@ -329,10 +358,10 @@ def model_heap(kind, fill):
                     el([4, -8.5, 6.2], [13, 0.5, 6.4], "#wreath", faces=["north", "south"], uv={"*": FULL},
                        rot={"angle": 22.5, "axis": "x", "origin": [8, -8.5, 6.2]})]
         elif kind == "lights":
-            els += ring(7, 6, 9, 2.4, -5.5, -3.8, LIGHTS, L_TOP, L_SIDE)
-            els += ring(8, 6.5, 5.5, 2, -3.8, -2.6, LIGHTS, L_TOP, L_SIDE)
-            els.append(el([5, -14, 1.0], [10, -3.6, 1.2], LIGHTS, faces=["north", "south"],
-                          uv={"*": [0, 3, 16, 10]}, frot={"north": 90, "south": 90}))
+            els += light_coil(7, 6, 9.5, -5.5, 7) + light_coil(8, 6.5, 6, -4.4, 4, 1)
+            els.append(el([7.5, -12, 0.6], [8.5, -4.5, 1.6], LIGHTS, uv={"*": WIRE}))
+            for i, y in enumerate((-7.5, -11)):
+                els.append(el([7.2, y, 0.4], [8.8, y + 1.6, 1.8], LIGHTS, uv={"*": BULBS[(i + 2) % 4]}))
         elif kind == "gifts":
             els += [gift([3, -9, 3], [8.5, -3, 8.5], "red"), gift([8, -10, 2.8], [13.2, -4, 8], "green"),
                     gift([5, -6, 4.5], [10.5, -0.5, 10], "blue")]
@@ -342,7 +371,7 @@ def model_heap(kind, fill):
         elif kind == "garland":
             els += ring(7, 6, 6.5, 2.2, floor, floor + 1.6, GARLAND, G_TOP, G_SIDE)
         elif kind == "lights":
-            els += ring(7, 6, 6, 1.8, floor, floor + 1.2, LIGHTS, L_TOP, L_SIDE)
+            els += light_coil(7, 6, 6, floor, 3)
         elif kind == "gifts":
             els.append(gift([5, floor, 3.5], [10, floor + 4.5, 8.5], "green"))
     return els
@@ -398,12 +427,6 @@ def write_drafts():
             v.update(facing_variants(f"drape={drape},kind={k}", f"st_coil_{k}_{drape}"))
     save_state("st_coil", v)
     v = {}
-    for k in ("garland", "lights"):
-        for drape in ("false", "true"):
-            save_model(f"st_hung_coil_{k}_{drape}", model_hung_coil(k, drape == "true"))
-            v.update(facing_variants(f"drape={drape},kind={k}", f"st_hung_coil_{k}_{drape}"))
-    save_state("st_hung_coil", v)
-    v = {}
     for fill in ("full", "empty"):
         save_model(f"st_sack_{fill}", model_sack(fill))
         v.update(facing_variants(f"fill={fill}", f"st_sack_{fill}"))
@@ -430,10 +453,6 @@ def box(content, fill, facing="south"):
 
 def coil(kind, drape=False, facing="south"):
     return f"{D}:st_coil[drape={'true' if drape else 'false'},facing={facing},kind={kind}]"
-
-
-def hung_coil(kind, drape=False, facing="south"):
-    return f"{D}:st_hung_coil[drape={'true' if drape else 'false'},facing={facing},kind={kind}]"
 
 
 def sack(fill, facing="south"):
@@ -476,27 +495,27 @@ LANTERN_HANGING = "minecraft:lantern[hanging=true]"
 # ------------------------------------------------------------------ the two variants
 def plan(variant, level):
     """{furniture, packed, festival, empty_in_festival}: the blueprint layer (into the shipped blueprint's air), the
-    Decorator's two sets (into air, on furniture or walls) and the racks that are empty in the window. Nothing stands
-    right behind a window, so the outside looks the same, and nothing of his sits on a rack: MineColonies' full rack
-    model draws two boxes standing 6 px up into the cell above the rack."""
+    Decorator's two sets (into air, on furniture or walls) and the racks drawn empty in the window. Nothing stands
+    right behind a window, so the outside looks the same; nothing hangs in the packed set (hung things are the
+    festival's signal); and nothing at all is in the cell directly above a rack: MineColonies' full rack model draws
+    boxes 6 px up into that cell (the double rack's reach its edge)."""
     if (variant, level) == ("A", 1):
-        furniture = {(3, 1, -3): BARREL_UP, (4, 1, 0): "minecraft:barrel[facing=west]"}
-        packed = {(3, 2, -3): box("lights", "full"), (4, 3, -3): coil("garland"),
-                  (4, 2, -2): box("gifts", "full", "west"), (4, 2, 0): box("wreath", "full", "west"),
-                  (1, 3, -3): hung_coil("garland"), (2, 3, -3): hung_coil("lights")}
+        furniture = {(3, 1, -3): BARREL_UP, (3, 1, -2): BARREL_UP, (4, 1, 0): "minecraft:barrel[facing=west]"}
+        packed = {(3, 2, -3): box("lights", "full"), (3, 2, -2): coil("garland"), (4, 3, -3): coil("lights"),
+                  (4, 2, -2): box("gifts", "full", "west"), (4, 2, 0): box("wreath", "full", "west")}
         festival = {p: b.replace("fill=full", "fill=low") for p, b in packed.items() if "st_box" in b}
         festival.update(row("garland", "south", [(x, 4, -3) for x in range(1, 5)]))
         festival[(2, 3, -3)] = wall("wreath", "south")
         festival.update(row("fairy_lights", "west", [(4, 4, z) for z in range(-2, 3)]))
         return dict(furniture=furniture, packed=packed, festival=festival, empty_in_festival={(1, 1, -3)})
     if (variant, level) == ("A", 5):
-        furniture = {(4, 6, -3): BARREL_UP, (4, 7, -3): BARREL_UP, (-4, 7, -2): BARREL_UP}
+        furniture = {(4, 6, -3): BARREL_UP, (4, 7, -3): BARREL_UP, (-4, 7, -2): BARREL_UP, (4, 6, -1): BARREL_UP}
         packed = {(-4, 7, -3): box("wreath", "full"), (-3, 8, -3): box("gifts", "full"),
                   (-4, 8, -2): box("lights", "full", "east"), (2, 7, -3): box("lanterns", "full"),
-                  (4, 8, -3): box("garland", "full"),
-                  (0, 8, -3): hung_coil("garland"), (1, 8, -3): hung_coil("lights"), (3, 8, -3): hung_coil("garland")}
+                  (4, 8, -3): box("garland", "full"), (4, 7, -1): coil("lights", facing="west")}
         festival = {p: b.replace("fill=full", "fill=low") for p, b in packed.items() if "st_box" in b}
-        festival.update(row("garland", "south", [(x, 8, -3) for x in range(-2, 4)]))
+        # the back beam above the upper racks (x -2 and -1) stays bare: those are the cells above a rack
+        festival.update(row("garland", "south", [(x, 8, -3) for x in range(0, 4)]))
         festival[(3, 7, -3)] = wall("wreath", "south")
         festival.update(row("fairy_lights", "east", [(-4, 8, z) for z in (-1, 1, 2, 3)]))
         festival.update(row("fairy_lights", "west", [(4, 8, z) for z in range(-2, 4)]))
@@ -505,11 +524,10 @@ def plan(variant, level):
     if (variant, level) == ("B", 1):
         furniture = {(3, 1, -3): CRATE, (4, 1, 2): HAY}
         furniture.update({(4, y, 0): "minecraft:ladder[facing=west]" for y in (1, 2, 3)})
-        packed = {(3, 2, -3): heap("garland", "full"), (1, 3, -3): hung_coil("garland", True),
-                  (2, 3, -3): hung_coil("lights", True), (4, 2, 2): sack("full", "west"),
-                  (4, 3, -3): sack("full", "west"), (4, 2, -2): gifts("full", "west")}
+        packed = {(3, 2, -3): heap("garland", "full"), (4, 3, -3): coil("lights", True, "west"),
+                  (4, 2, 2): sack("full", "west"), (4, 2, -2): gifts("full", "west")}
         festival = {(3, 2, -3): heap("garland", "low"), (4, 2, 2): sack("empty", "west"),
-                    (4, 3, -3): sack("empty", "west"), (4, 2, -2): gifts("low", "west")}
+                    (4, 2, -2): gifts("low", "west")}
         festival.update(row("lantern_string", "south", [(x, 4, -3) for x in range(1, 5)]))
         festival.update(row("garland", "west", [(4, 4, z) for z in range(-2, 3)]))
         festival[(3, 3, -3)] = wall("wreath", "south")
@@ -517,22 +535,19 @@ def plan(variant, level):
     if (variant, level) == ("B", 5):
         furniture = {(4, 6, -3): CRATE, (4, 6, -1): CRATE, (-3, 6, -2): CRATE,
                      (4, 6, 1): HAY, (4, 6, 3): HAY, (4, 7, 3): HAY,
-                     (3, 8, -3): "minecraft:spruce_fence", (3, 7, -3): LANTERN_HANGING,
                      (4, 8, 1): "minecraft:spruce_fence", (4, 7, 1): LANTERN_HANGING}
         furniture.update({(4, y, 0): "minecraft:ladder[facing=west]" for y in (6, 7, 8)})
         packed = {(4, 7, -3): heap("garland", "full"), (4, 7, -1): heap("wreath", "full", "west"),
-                  (-3, 7, -2): heap("lights", "full"),
-                  (0, 8, -3): hung_coil("lights", True), (1, 8, -3): hung_coil("garland", True),
-                  (-4, 7, -2): coil("garland", True, "east"),
+                  (-3, 7, -2): heap("lights", "full"), (-4, 7, -2): coil("garland", True, "east"),
                   (4, 8, 3): sack("full", "west"), (-3, 8, -3): sack("full"), (2, 7, -3): sack("full"),
                   (-4, 7, -3): gifts("full")}
         festival = {(4, 7, -3): heap("garland", "low"), (4, 7, -1): heap("wreath", "low", "west"),
                     (-3, 7, -2): heap("lights", "low"),
                     (4, 8, 3): sack("empty", "west"), (-3, 8, -3): sack("empty"), (2, 7, -3): sack("empty"),
                     (-4, 7, -3): gifts("low")}
-        festival.update(row("lantern_string", "south", [(x, 8, -3) for x in range(-2, 3)]))
+        # the back beam above the upper racks (x -2 and -1) stays bare: those are the cells above a rack
+        festival.update(row("lantern_string", "south", [(x, 8, -3) for x in range(0, 5)]))
         festival.update(row("garland", "east", [(-4, 8, z) for z in (-3, -2, -1, 1, 2, 3)]))
-        festival.update(row("garland", "west", [(4, 8, z) for z in (-3, -1, 2)]))
         festival[(4, 8, -2)] = wall("wreath", "west")
         return dict(furniture=furniture, packed=packed, festival=festival,
                     empty_in_festival={(-2, 6, -3), (-1, 6, -3), (-2, 7, -3), (-1, 7, -3)})
@@ -565,10 +580,19 @@ OPP = {"north": (0, 0, 1), "south": (0, 0, -1), "east": (-1, 0, 0), "west": (1, 
 NOT_FULL = ("lantern", "ladder", "glass_pane", "_door", "_trapdoor", "_stairs", "_slab", "_carpet", "_fence")
 
 
-def check(variant, level):
-    """The rules of docs/storage-look-design.md on one variant and level. Returns (problems, facts)."""
+def above_rack(blocks, q):
+    """True when the cell right below q holds a rack: MineColonies' full rack model draws boxes 6 px up into q (the
+    single rack's at y 16-22, the double rack's too, one of them out to the cell's edge), so nothing may be there."""
+    x, y, z = q
+    below = blocks.get((x, y - 1, z))
+    return below is not None and name_of(below) == RACK
+
+
+def check(variant, level, p=None):
+    """The rules of docs/storage-look-design.md on one variant and level (or on the plan `p`, for the self-test).
+    Returns (problems, facts)."""
     base = shipped(level)
-    p = plan(variant, level)
+    p = p or plan(variant, level)
     problems = []
     racks = {q for q, b in base.blocks.items() if name_of(b) == RACK}
     floor_ys = (1, 2, 3, 4) if level < 3 else (1, 2, 3, 4, 6, 7, 8, 9)
@@ -592,6 +616,8 @@ def check(variant, level):
     for q in p["furniture"]:
         if behind_window(q):
             problems.append(f"furniture {q}: right behind a window")
+        if above_rack(base.blocks, q):
+            problems.append(f"furniture {q}: directly above a rack (its boxes stand 6 px up into this cell)")
     built = voxel.Structure("built")
     built.blocks = dict(base.blocks)
     built.blocks.update(p["furniture"])
@@ -606,12 +632,13 @@ def check(variant, level):
                 problems.append(f"{state} {q}: on the ladder's way")
             n = name_of(b)
             props = voxel.parse_state(b)[1]
-            on_wall = n.startswith(f"{NS}:") or n == f"{D}:st_hung_coil"
+            on_wall = n.startswith(f"{NS}:")             # the shipped wall decorations: the only hung pieces
             if not on_wall and behind_window(q):
                 problems.append(f"{state} {q}: right behind a window")
-            below = built.get(x, y - 1, z)
-            if not on_wall and below is not None and name_of(below) == RACK:
-                problems.append(f"{state} {q}: on top of a rack (MineColonies draws its full rack's boxes there)")
+            if above_rack(built.blocks, q):
+                problems.append(f"{state} {q}: directly above a rack (its boxes stand 6 px up into this cell)")
+            if on_wall and state == "packed":
+                problems.append(f"packed {q}: {n} hangs on a wall (hung things are the festival's signal)")
             if on_wall:
                 dx, dy, dz = OPP[props["facing"]]
                 behind = built.get(x + dx, y + dy, z + dz)
@@ -696,7 +723,7 @@ def scene(variant, level, state, cut=True):
 
 
 CAM_CORNER = dict(yaw=-24, pitch=36, ortho=9.6, target=[2.2, 2.0, -1.6], res=[1000, 1000])
-CAM_ATTIC = dict(yaw=-6, pitch=30, ortho=10.8, target=[0.6, 5.5, -1.0], res=[1000, 1000])
+CAM_ATTIC = dict(yaw=-6, pitch=24, ortho=9.6, target=[0.4, 6.7, -2.0], res=[1000, 1000])   # the attic only
 CAM_OUTSIDE = dict(yaw=32, pitch=28, ortho=24.0, target=[0, 6.0, 0.5], res=[1000, 1000])   # render_set "hut"
 
 PANELS = [("l1-packed", 1, "packed", CAM_CORNER, "Level 1 corner, packed (outside the window)"),
@@ -734,25 +761,26 @@ def notes(variant):
     counts = f"(L1 {f1['packed']}, L5 {f5['packed']} pieces)"
     hung = f"(L1 {f1['hung']}, L5 {f5['hung']} blocks)"
     if variant == "A":
-        lines = ["Builder (blueprint): vanilla only, nothing new on the bill:",
+        lines = ["Builder (blueprint): vanilla only, no new kind of block on the bill:",
                  f"  L1 +{f1['furniture']} barrels, L5 +{f5['furniture']} barrels; {racks}.",
                  "Decorator (own thin blocks, ledger rule, into air only):",
-                 f"  packed: labelled boxes on the barrels, coils on wall pegs {counts}; nothing of his stands on "
-                 "the floor or on a rack.",
+                 f"  packed: labelled boxes and coils lying on the barrels {counts}; nothing hung, nothing on the "
+                 "floor, nothing in a cell above a rack.",
                  f"  festival: the boxes swapped to nearly empty, the coils taken off; hung: garland on the back beam, "
                  f"a wreath, fairy lights {hung}."]
     else:
-        lines = ["Builder (blueprint): hay, a ladder, lanterns on fence brackets (vanilla) and our own crate, which "
-                 f"goes on the bill: L1 {f1['own_in_blueprint']}, L5 {f5['own_in_blueprint']}; {racks}.",
+        lines = ["Builder (blueprint): hay, a ladder, a lantern on a fence bracket (vanilla; hay and the ladder are new "
+                 f"kinds on the L1 bill) and our own crate on the bill: L1 {f1['own_in_blueprint']}, "
+                 f"L5 {f5['own_in_blueprint']}; {racks}.",
                  "Decorator (own thin blocks, ledger rule, into air only):",
-                 f"  packed: heaps in the crates, sacks and gifts on top, coils hung on wall pegs {counts}; nothing "
-                 "of his on the floor or on a rack.",
-                 f"  festival: crates nearly empty, sacks folded, coils taken off; hung: lantern string on the back "
-                 f"beam, garland on the side beams, a wreath {hung}."]
-    lines += ["Racks look as MineColonies draws them: while they hold anything, two boxes on top; in the window "
-              "the racks of decorations are empty.",
-              "Checked: inside the walls, nothing right behind a window, every floor cell reachable from the door, "
-              "the ladder and its exit clear."]
+                 f"  packed: heaps in the crates, sacks, gifts and a coil with a loose end on top {counts}; nothing "
+                 "hung, nothing on the floor or above a rack.",
+                 f"  festival: crates nearly empty, sacks folded, gifts down to one, the coil taken off; hung: lantern "
+                 f"string on the back beam, garland along a side wall, a wreath {hung}."]
+    lines += ["Racks drawn as single racks, full while they hold anything (in the game neighbours can join into "
+              "doubles); the festival panels assume the racks that held the decorations are empty while those are out.",
+              "Checked: inside the walls, nothing right behind a window, nothing above a rack, every floor cell "
+              "reachable from the door, the ladder and its exit clear."]
     return lines
 
 
@@ -779,8 +807,8 @@ def sheet(variant):
     H = top + rows * (cw + label_h + gap) + gap
     out = Image.new("RGB", (W, H), (236, 236, 232))
     d = ImageDraw.Draw(out)
-    d.text((gap, 14), f"Storage room, variant {variant}: {VARIANTS[variant]}  (left: packed, outside the festival "
-                      f"window; middle: festival)", fill=(30, 30, 30), font=font(32))
+    d.text((gap, 14), f"Storage room, variant {variant}: {VARIANTS[variant]}  (left: packed, all year outside the "
+                      f"decoration window; middle: festival, in the window)", fill=(30, 30, 30), font=font(30))
     f = font(24)
     order = ["l1-packed", "l1-festival", "l5-outside", "l5-packed", "l5-festival", None]
     labels = {k: lab for k, _, _, _, lab in PANELS}
@@ -804,7 +832,21 @@ def sheet(variant):
     print("sheet", os.path.relpath(p, ROOT), out.size, os.path.getsize(p) // 1024, "KB")
 
 
+def selftest():
+    """The check must catch the two faults the S10g review found in the first draft: a festival piece on the back
+    beam above an upper attic rack, and a coil hung on a wall peg in the packed set."""
+    p = plan("A", 5)
+    bad = dict(p, festival=dict(p["festival"]), packed=dict(p["packed"]))
+    bad["festival"][(-2, 8, -3)] = wall("garland", "south")
+    bad["packed"][(0, 8, -3)] = wall("wreath", "south")
+    problems = check("A", 5, bad)[0]
+    assert any("(-2, 8, -3): directly above a rack" in pr for pr in problems), problems
+    assert any("packed (0, 8, -3)" in pr and "hangs on a wall" in pr for pr in problems), problems
+    print("self-test: the check finds a piece above a rack and a hung piece in the packed set")
+
+
 def main():
+    selftest()
     ok = True
     for v in VARIANTS:
         for level in (1, 5):
