@@ -219,7 +219,7 @@ Server (`colony_seasons-server.toml`, `ModConfigSpec` SERVER, getters that fall 
 | `events` | `gatherFromTick` (8500), `gatherUntilTick` (10500), `whoComes` (everyone_once_a_day), `midnightShow` (true), `giftsPerPlayerPerDay` (1) |
 | `effects` | `festivalHappiness` (false), `winterCropSlowdown` (false), `winterFoodNeed` (false), with their strengths |
 
-Client (`colony_seasons-client.toml`): `showClothes` (true), `showParticles` (true).
+Client (`colony_seasons-client.toml`): `showClothes` (true). (`showParticles` was taken out in S10i, the owner's answer of 21 Nov 2026: the mod has no particles of its own.)
 
 [B] A config probe proves every default against a hand-written list and that a changed file is read back, as Voyager's `configcheck` does.
 
@@ -271,3 +271,15 @@ Not shown to him yet and still his to judge when they exist: the lights at night
 - Kept as built: every look the owner has seen (lights at night, blocks, scarves and hats, the Decorator's skin, the hut block, the five hut levels, the four trees, the gifts and sounds), logo A, the name Decorator's Workshop, hat colour equal to the scarf, no scarf over chest armour, tinsel leaves lit at night, mushroom-stem plaster, the own happiness reason shown in the hut window.
 - Links in the mod (his decision of 20 Nov, see the supporter perks plan): Patreon https://www.patreon.com/cw/Lovkar and the Discord invite https://discord.gg/BVztrTtXFu in the mods.toml description with a short thank-you; one chat line the first time a player joins a world, once per player across all his mods (a shared neutral marker on the player), with a config switch: "Thanks for playing Lovkar's mods! News, help and test builds on Discord: discord.gg/BVztrTtXFu · Support the mods on Patreon: patreon.com/cw/Lovkar" (approved word for word); a "Discord / Support" line in the Decorator's Workshop window.
 - The final page text goes to him for approval after the in-game test.
+
+## Owner answers of 21 Nov 2026 [B]
+
+- `showParticles` is removed from the client config (the mod has no particles of its own; nothing read it).
+- The hut window says when the tree has no room at the festival marker; the managers' chat line stays (section 3.5).
+- The storeroom blocks are named Storage Box and Coiled Decorations.
+- The storeroom's fairy lights light with the tree.
+- The storeroom layout of hut levels 2 to 4 stays as built.
+- The switch `decorator.storeroomDressing` stays as built.
+- The CurseForge page text (`release/curseforge-description.md`) is approved as written.
+
+How S10i built the first two [A]: a client file that still has `showParticles` loads, and NeoForge drops the key when it corrects the file (csconfig seeded). The Calendar page shows one red line under "Now:" while the ledger notes that the tree did not fit (`DecorLedger.squareProblem`) and a decoration window is open; the note clears, and the line with it, when the tree fits on his next look.

@@ -37,8 +37,10 @@ flat world, MineColonies and its libraries loaded) and logs `[<probe>] CHECK <wh
 
 ```bash
 bash tools/probe.sh csboot                # the mod loads, every register is wired, the config spec is registered
-bash tools/probe.sh csconfig defaults     # every getter equals the hand-written defaults list
-bash tools/probe.sh csconfig seeded       # a config file with a non-default value for every key is read back
+bash tools/probe.sh csconfig defaults     # every getter equals the hand-written defaults list; the client file it opens itself
+                                         # is written with exactly the hand-written client keys (showClothes)
+bash tools/probe.sh csconfig seeded       # a config file with a non-default value for every key is read back; the client file
+                                         # of 0.1.0-beta.1 (showParticles still in it) loads, keeps showClothes, loses the old key
 bash tools/probe.sh csclient              # the client config is registered, not loaded on a server, answers its defaults; the season packet clamps a bad id
 ```
 
@@ -61,7 +63,7 @@ bash tools/probe.sh csdecorgate               # placing, the ledger and taking d
                                               # the square with the probe's test piece, a real colony and the Decorator's AI,
                                               # the grand tree with grass on a planter cell (a lantern that cannot stand)
 bash tools/probe.sh csdecorgate styles        # only the pasted huts (with their per-style and per-door lines) and the edge cases
-bash tools/probe.sh csdecorgate square        # only the square
+bash tools/probe.sh csdecorgate square        # only the square (S10i: the Calendar page's packet says when the tree has no room)
 bash tools/probe.sh csdecorgate lifecycle     # only the real colony and the AI
 bash tools/restart.sh csdecorgate             # half a building, the ledger file on disk, a restart, nothing placed twice
 bash tools/probe.sh csfestival                # the festival events on a real colony with the Decorator, a marker and the tree:

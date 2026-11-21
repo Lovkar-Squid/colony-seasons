@@ -148,11 +148,12 @@ usual. Blocks you placed yourself drop as usual.
 
 The Decorator's Workshop has a **Calendar** page in its window. It shows today's season and the day of the
 year, the festival that is on (or the next one and how many days away it is) with its dates, what the
-Decorator is doing right now, how many decorations are up and how many buildings are done, how many buildings he
-has started today of his daily number, the stock of each kit against the hut's cap, which materials the next kit
-still lacks, and what the three effect switches do on this server. Under the list, always in view, is a Discord /
-Support line with the two links as text (see Links below). Everything is translated for each player; the server
-only sends numbers, ids and lang keys.
+Decorator is doing right now, a line in red while the tree does not fit at the festival marker, how many
+decorations are up and how many buildings are done, how many buildings he has started today of his daily
+number, the stock of each kit against the hut's cap, which materials the next kit still lacks, and what the
+three effect switches do on this server. Under the list, always in view, is a Discord / Support line with the
+two links as text (see Links below). Everything is translated for each player; the server only sends numbers,
+ids and lang keys.
 
 The **Settings** page has five more switches besides "Prepare all year": "Decorate" (off: he puts nothing up and
 tends nothing, but still makes stock and still takes everything down afterwards), and one each for wreaths,
@@ -172,8 +173,9 @@ pile and no fireworks, but the buildings are still decorated. A colony has one m
 the colony's managers get one chat line saying that only the first one counts. Break the marker and the tree comes
 down with it; a second marker that stands elsewhere does not take over, so place one again. If something is in the
 way of the tree, he builds the rest when at most a tenth of it is blocked and none of that is the trunk. Otherwise
-he builds nothing, and the colony's managers get a chat line once a game day that there is not enough room at the
-festival marker.
+he builds nothing: the Workshop's Calendar page says that the tree does not fit, and the colony's managers get a
+chat line once a game day that there is not enough room at the festival marker. Once the way is clear, he builds
+the tree on his next visit and the line goes.
 
 ## What the player does in December
 
@@ -209,7 +211,7 @@ shows its own December hat; the scarf still is. A colonist in a chestplate, such
 
 This is drawn on the client only, as one extra layer on MineColonies' colonist renderer. Nothing is put in
 an inventory slot and nothing is saved on the colonist. To turn it off, set `showClothes` to false in the client
-config `colony_seasons-client.toml`. The same file has a `showParticles` switch, which 0.1.0 does not use yet.
+config `colony_seasons-client.toml`.
 
 ## Effects on the game
 

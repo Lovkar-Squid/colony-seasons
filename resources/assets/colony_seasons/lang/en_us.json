@@ -56,7 +56,6 @@
   "subtitles.colony_seasons.festival.song": "Festival song",
 
   "com.colony_seasons.config.show_clothes": "Winter clothes on colonists",
-  "com.colony_seasons.config.show_particles": "Festival particles",
   "itemGroup.colony_seasons": "Colony Seasons",
   "block.colony_seasons.wreath": "Wreath",
   "block.colony_seasons.garland": "Evergreen Garland",
@@ -136,6 +135,7 @@
   "com.colony_seasons.gui.info.windows": "Decorations %1$s to %2$s, festival days %3$s to %4$s.",
   "com.colony_seasons.gui.info.now": "Now: %1$s",
   "com.colony_seasons.gui.info.decorate_off": "Decorating is switched off in the settings.",
+  "com.colony_seasons.gui.info.square_no_room": "The tree does not fit on the square: something is in the way.",
   "com.colony_seasons.gui.info.progress": "%1$s decorations up, %2$s buildings done.",
   "com.colony_seasons.gui.info.today_quota": "Today: %1$s of %2$s buildings started.",
   "com.colony_seasons.gui.info.stock.none": "No decoration kits are loaded.",

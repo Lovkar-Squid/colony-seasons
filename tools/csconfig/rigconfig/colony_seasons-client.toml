@@ -1,0 +1,13 @@
+# Seeded by tools/probe.sh csconfig seeded (S10i): the client file as 0.1.0-beta.1 wrote it, with showClothes set
+# to false. Its showParticles key is no longer in the mod: the file must load, keep showClothes = false and lose
+# the old key when NeoForge corrects it.
+
+#What this player sees. Nothing here changes the world or what other players see.
+[display]
+	#true: colonists wear a scarf (and some a wool hat) in winter and a festive scarf during the
+	#Winter Festival. false: they look as MineColonies draws them.
+	showClothes = false
+	#true: festival particles (snow over the tree, the glow of lit decorations, fireworks sparks).
+	#false: none of this mod's particles.
+	showParticles = false
+
