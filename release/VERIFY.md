@@ -68,7 +68,7 @@ the screenshots go into the project's gallery, see the end of this file).
 | P36 | MineColonies' own crops are not slowed in winter | `effects/CropEffect.java:14,54` (`CropGrowEvent.Pre` only); cseffects on ("[V] MineColonies' own crop block grows, and does not fire CropGrowEvent.Pre") | |
 | P37 | English only | `resources/assets/colony_seasons/lang/` holds only `en_us.json` | |
 | P38 | Uninstalling: `decor remove` first; the trunk goes with the mod, the spruce leaves stay, at level 5 also the planter's stone bricks, podzol and lanterns | `tools/tree_pieces.py:141-155`; hostile-world H18 | |
-| P39 | Bug reports in the comments here (the GitHub sentence is off the page) | `gh repo view` on 21 Nov 2026: `isPrivate: true`, so a GitHub link is dead for visitors; see item 29 | |
+| P39 | Source and changelog on GitHub; bug reports there or in the comments | `gh repo view` on 22 Nov 2026: public (made public at the release on the owner's word); see item 29 | |
 | P40 | The Discord and Patreon links; one chat line the first time a player joins a world, once in that world; `links.showWelcome = false` turns it off | `links/Welcome.java:29-39,66-77,90-99`, `SeasonsConfig.java:230-235`; `tools/check_links.py`, csanswers | |
 
 Found by S11b in the code and not changed (only the page texts and one tooltip were in scope; for the owner):

@@ -117,7 +117,7 @@ the stone bricks, podzol and lanterns of the grand tree's planter.
 
 ## Links
 
-Bug reports in the comments here, with your `logs/latest.log`.
+Source and changelog on GitHub: https://github.com/Lovkar-Squid/colony-seasons. Bug reports there or in the comments here, with your `logs/latest.log`.
 
 News, help and test builds on Discord: https://discord.gg/BVztrTtXFu. Support the mods on Patreon:
 https://www.patreon.com/cw/Lovkar. The server sends a player these two links in one chat line the first time he
