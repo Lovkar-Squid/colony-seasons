@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.2.0 - unreleased - the Town Square
+
+The Town Square (docs/town-square-design.md): a building the player places and the Builder builds, which the
+Decorator decorates by season and festival while he stays employed at his Workshop. Below, the notes of each
+build chunk.
+
+### Build notes
+
+- **Q1, the Town Square building and its Decorator.** New hut `colony_seasons:townsquare` (the notice board,
+  one placeholder level 21 x 21 with every square tag); one Decorator is assigned to it by window or auto-hire
+  and stays employed at his Workshop; dead or re-jobbed Decorators drop off within one colony tick and on load;
+  probe `cssquare` with a restart. Nothing is decorated on the square yet.
+
 ## 0.1.0-beta.1 - unreleased - seasons and festivals for MineColonies
 
 What a player gets in this version: a calendar with seasons and real-date festivals, the Decorator (a new
