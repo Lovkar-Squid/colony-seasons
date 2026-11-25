@@ -45,6 +45,9 @@ import java.util.TreeSet;
  * itself, judged as Structurize read it, pasted into the world through Structurize's own placer, and the world is
  * read back against what tools/build_pack.py wrote (res/cspaste/manifest.json, made by the same build).
  *
+ * <p>The files are the Decorator's hut, the Town Square (0.2.0, one placeholder level in Q1) and the tree pieces;
+ * a hut's and the square's building type, folder and anchor block come from their manifest entry.</p>
+ *
  * <p>For every file: the pack is there with its name, description, authors and icon; the blueprint loads with its
  * size and anchor (primary offset); every palette entry is the state the build wrote (an unknown block id or a bad
  * property would have become air or a default); the blocks per id; the tags as Structurize returns them
@@ -283,8 +286,11 @@ public class CsPaste {
                 && teId.equals(spec.get("anchorEntity").getAsString());
         String extraInfo = "";
         if (!piece && te != null) {
-            anchorOk &= "colony_seasons:decorator".equals(te.getString("type"))
-                    && ("decorator/" + te.getCompound("blueprintDataProvider").getString("schematicName") + ".blueprint").equals(path);
+            // a hut or the Town Square (0.2.0): the building type and the folder come from the manifest entry
+            final String type = spec.has("buildingType") ? spec.get("buildingType").getAsString() : "colony_seasons:decorator";
+            final String folder = spec.has("folder") ? spec.get("folder").getAsString() : "decorator";
+            anchorOk &= type.equals(te.getString("type"))
+                    && (folder + "/" + te.getCompound("blueprintDataProvider").getString("schematicName") + ".blueprint").equals(path);
             extraInfo = ", type " + te.getString("type") + ", schematic " + te.getCompound("blueprintDataProvider").getString("schematicName");
         }
         check(path + " anchor", anchorOk, anchorId + " with block entity " + teId + extraInfo);
@@ -399,7 +405,7 @@ public class CsPaste {
         } else {
             final BlockEntity be = level.getBlockEntity(job.anchor());
             final String type = be == null ? "none" : String.valueOf(BuiltInRegistries.BLOCK_ENTITY_TYPE.getKey(be.getType()));
-            anchorOk = BuiltInRegistries.BLOCK.getKey(anchorState.getBlock()).toString().equals("colony_seasons:blockhutdecorator")
+            anchorOk = BuiltInRegistries.BLOCK.getKey(anchorState.getBlock()).toString().equals(idOf(spec.get("anchorBlock").getAsString()))
                     && "colony_seasons:colonybuilding".equals(type);
             anchorInfo = "hut block " + anchorState + " with " + type;
         }

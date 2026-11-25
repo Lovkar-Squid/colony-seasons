@@ -54,18 +54,22 @@ public final class DecoratorSetup {
     /** Whose voice lines the Decorator borrows, the first one MineColonies has. */
     public static final List<String> VOICE_SOURCES = List.of("florist", "builder", "unemployed");
 
-    /** MineColonies' creative tab that lists every hut block. */
-    private static final ResourceKey<CreativeModeTab> HUTS_TAB =
+    /** MineColonies' creative tab that lists every hut block (the Town Square's hut joins it too). */
+    static final ResourceKey<CreativeModeTab> HUTS_TAB =
             ResourceKey.create(Registries.CREATIVE_MODE_TAB, ResourceLocation.fromNamespaceAndPath("minecolonies", "mchuts"));
 
     public static final DeferredBlock<BlockHutDecorator> HUT = ColonySeasons.BLOCKS.register(HUT_NAME, BlockHutDecorator::new);
     public static final DeferredItem<Item> HUT_ITEM =
             ColonySeasons.ITEMS.register(HUT_NAME, () -> new ItemBlockHut(HUT.get(), new Item.Properties()));
 
-    /** The block-entity type of every hut of this mod; blueprints of our huts carry {@code colony_seasons:colonybuilding}. */
+    /**
+     * The block-entity type of every hut of this mod, the Workshop's and the Town Square's (0.2.0); blueprints of our huts
+     * carry {@code colony_seasons:colonybuilding}. {@link TownSquareSetup} is loaded in the mod constructor, before this
+     * supplier runs.
+     */
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<SeasonsTileEntity>> BUILDING_BE =
             ColonySeasons.BLOCK_ENTITIES.register("colonybuilding",
-                    () -> BlockEntityType.Builder.of(SeasonsTileEntity::new, HUT.get()).build(null));
+                    () -> BlockEntityType.Builder.of(SeasonsTileEntity::new, HUT.get(), TownSquareSetup.HUT.get()).build(null));
 
     public static final DeferredHolder<JobEntry, JobEntry> JOB = ColonySeasons.JOBS.register(JOB_ID.getPath(),
             () -> new JobEntry.Builder()

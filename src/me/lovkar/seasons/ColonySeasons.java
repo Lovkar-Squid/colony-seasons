@@ -80,6 +80,8 @@ public class ColonySeasons {
         NeoForge.EVENT_BUS.addListener(ColonySeasons::onServerStarted);
         CalendarEvents.register();
         DecoratorSetup.init(modEventBus);
+        // 0.2.0: the Town Square (loaded here, in the constructor, so its register calls come before the registry events)
+        me.lovkar.seasons.colony.TownSquareSetup.init(modEventBus);
         me.lovkar.seasons.decor.DecorEvents.init(modEventBus);
         // S10d: free decorations drop nothing (vanilla blocks of a piece through the drop event), the welcome line
         me.lovkar.seasons.decor.DecorDrops.init();

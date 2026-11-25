@@ -1,15 +1,18 @@
 package me.lovkar.seasons.colony;
 
 import com.minecolonies.api.colony.ICitizenData;
+import com.minecolonies.api.colony.buildings.modules.IAssignsJob;
 import com.minecolonies.core.colony.jobs.AbstractJob;
 import me.lovkar.seasons.ai.EntityAIWorkDecorator;
 import me.lovkar.seasons.ai.EntityAIWorkDecorator.DecoratorState;
 import me.lovkar.seasons.decor.DecorPhase;
 import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.Arrays;
 import java.util.EnumMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -40,6 +43,36 @@ public class JobDecorator extends AbstractJob<EntityAIWorkDecorator, JobDecorato
     @Override
     public @NotNull ResourceLocation getModel() {
         return DecoratorSetup.MODEL_ID;
+    }
+
+    /**
+     * A module of another job: no. The Town Square's Decorator module (0.2.0): yes, without MineColonies' own step,
+     * which would set the square as his work building and take him off his Workshop ([B] docs/town-square-design.md
+     * 2.2, as JobQuarrier does for a quarry). Every other module (his Workshop's work module): as MineColonies does it.
+     * MineColonies calls this only from its worker module; the square's module never calls it.
+     */
+    @Override
+    public boolean assignTo(final IAssignsJob module) {
+        if (module == null || !module.getJobEntry().equals(getJobRegistryEntry())) {
+            return false;
+        }
+        if (module instanceof SquareAssignmentModule) {
+            return true;
+        }
+        return super.assignTo(module);
+    }
+
+    /**
+     * The Town Square whose Decorator module lists him (the lowest position if several do), or null. Read from the
+     * squares each time; nothing is kept here.
+     */
+    public @Nullable BuildingTownSquare findSquare() {
+        final ICitizenData citizen = getCitizen();
+        if (citizen == null) {
+            return null;
+        }
+        final List<BuildingTownSquare> squares = SquareAssignmentModule.squaresListing(citizen.getColony(), citizen);
+        return squares.isEmpty() ? null : squares.get(0);
     }
 
     /** The phase of his last decision. */
