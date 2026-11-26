@@ -61,9 +61,10 @@ build chunk.
   rule. Probes: `cspaste` (all five squares in eight orientations with every centrepiece up to the level on free
   cells), `cssquare` (five levels in the tag file, levels 1 and 5 pasted in all eight orientations, 2 to 4 in two),
   `cssquarelife builder` (a real UPGRADE 1 to 2 worked by MineColonies' own Builder AI: our group down in 2 ticks,
-  before his first stage at about 370, his first change in the box at about 560 and his CLEAR_NON_SOLIDS at about
-  4450; the result is level 2's plaza and tags). Renders by day and at night in `docs/renders/q6/`
-  (`tools/render_q6.sh`).
+  before his first stage at about 370 to 390, his first change in the box at about 560 to 580 and his CLEAR_NON_SOLIDS
+  at 4450 to 5400 in two runs; the result is level 2's plaza and tags). Renders by day and at night in
+  `docs/renders/q6/` (`tools/render_q6.sh`). The square's info page counts `sit` as bench seats and `bed` as planter
+  spots (level 5: 12 seats on 8 benches, 8 spots in 6 planters).
 
 ## 0.1.0-beta.1 - unreleased - seasons and festivals for MineColonies
 
