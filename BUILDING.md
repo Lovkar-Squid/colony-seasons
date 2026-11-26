@@ -261,6 +261,12 @@ bash tools/probe.sh cssquarelife     # the ledger's files (no version, version 1
                                      # replaced as the Builder would: its group goes, no ghost entry, no notice), a marker put down after
                                      # the square (the fallback, one notice), and the colony deleted (its mark and marker off, a new colony
                                      # inherits neither)
+bash tools/probe.sh cssquarelife builder   # section 8 point 7 with MineColonies' own Builder AI: the square's plaza set as built, the builder
+                                     # given an entity, two REPAIR orders (the hut window with this Builder named, and one through the work
+                                     # manager, which the watch sees); the ticks from each order to our group empty, to the Builder's first
+                                     # stage, his CLEAR_NON_SOLIDS, his first change in the box (a torch on the paving) and the order done;
+                                     # our group down before his first stage, no block of ours touched by him, every item back, nothing lost
+                                     # (the rig's colony is never active, so the probe runs the work manager at MineColonies' 20 ticks)
 bash tools/restart.sh cssquarelife   # a switch stopped half way between two of the rig's own sweeps: the ledger file on disk, the mark and
                                      # marker read back, no second notice, the Decorator's work building; the sweeps finish the tree and
                                      # the world equals the expectation cell for cell

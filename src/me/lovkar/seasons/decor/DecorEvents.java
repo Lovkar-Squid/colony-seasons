@@ -217,6 +217,8 @@ public final class DecorEvents {
     public static boolean markerPlaced(final ServerLevel level, final int colony, final BlockPos pos) {
         final DecorLedger ledger = DecorLedger.get(level);
         final IColony owner = colonyOf(level, colony);
+        // the resolver tells the managers itself when it stores the mark while a (perhaps stale) marker is registered
+        final int toldBefore = Squares.markerUnusedNotices();
         if (owner != null) {
             Squares.refresh(level, owner, ledger);
         }
@@ -233,7 +235,7 @@ public final class DecorEvents {
         if (!registered) {
             secondMarkerNotices++;
             DecorWork.toManagers(level, colony, "com.colony_seasons.decor.second_marker");
-        } else if (fresh && ledger.squareMark(colony) != null) {
+        } else if (fresh && ledger.squareMark(colony) != null && Squares.markerUnusedNotices() == toldBefore) {
             Squares.markerUnused(level, colony);
         }
         return registered;

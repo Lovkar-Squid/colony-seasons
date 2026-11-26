@@ -20,7 +20,9 @@ build chunk.
   on the main square takes its decorations down at once, a removed square hands back to the marker, a second
   square is told it is not decorated, a deleted colony loses its mark; the decoration ledger is format 3 (files of
   0.1.0 load unchanged, 0.1.0 reads a 0.2.0 file); `decor list <colony>` names the centrepiece. Probe
-  `cssquarelife` with a restart in the middle of a switch.
+  `cssquarelife` with a restart in the middle of a switch, and its mode `builder` with MineColonies' own Builder
+  repairing the square (our decorations are down 2 ticks after a hut-window order and at most about 20 after one
+  made another way; his first change in the box comes 900 to 1,300 ticks after the order).
 
 ## 0.1.0-beta.1 - unreleased - seasons and festivals for MineColonies
 

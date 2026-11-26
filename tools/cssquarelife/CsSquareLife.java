@@ -100,18 +100,20 @@ import java.util.UUID;
  * points 3, 6, 7 and 13 of section 8): one centrepiece per colony ({@code decor.Squares}), the ledger's format version 3,
  * work orders, removal and the switch from a 0.1.0 festival marker.
  *
- * <p>The colony: a town hall, a Builder's hut with a builder (citizen data only, so no Builder walks and builds: every
- * work order is MineColonies' own, made through the square's {@code requestRepair}/{@code requestRemoval} or the work
- * manager, and the probe does what the Builder would do), a Decorator's Workshop pasted with the command a player types
- * and its Decorator (citizen data only, so his AI never runs and nothing is placed by him), a festival marker put down by
- * the colony's owner, and Town Squares placed through MineColonies' survival placement handler and built by what the
- * Builder does when he finishes (bytecode order: the order goes, {@code onUpgradeComplete}, the new level, the
- * construction event). Decorations are seeded by the probe: each cell recorded in the ledger before its block is set,
- * our trunk and vanilla spruce logs and leaves. The date is fixed in July (no decoration window), so nothing is put up.</p>
+ * <p>The colony: a town hall, a Builder's hut with a builder (citizen data only, except in mode builder, so no Builder
+ * walks and builds: every work order is MineColonies' own, made through the square's {@code requestRepair} or
+ * {@code requestRemoval} or the work manager, and the probe does what the Builder would do), a Decorator's Workshop
+ * pasted with the command a player types and its Decorator (citizen data only, so his AI never runs and nothing is
+ * placed by him), a festival marker put down by the colony's owner, and Town Squares placed through MineColonies'
+ * survival placement handler and built by what the Builder does when he finishes (bytecode order: the order goes,
+ * {@code onUpgradeComplete}, the new level, the construction event). Decorations are seeded by the probe: each cell
+ * recorded in the ledger before its block is set, our trunk and vanilla spruce logs and leaves. The date is fixed in
+ * July (no decoration window), so nothing is put up.</p>
  *
- * <p>Modes: none (everything), {@code restart-save} then {@code restart-load} (tools/restart.sh: a switch stopped half
- * way). Prints "[cssquarelife] CHECK ...: OK|FAIL" and "[cssquarelife] RESULT cssquarelife: PASS|FAIL", then halts. The
- * two words the rig greps for stay out of the details.</p>
+ * <p>Modes: none (everything above), {@code builder} (section 8 point 7 with the Builder's own AI at work on the square's
+ * REPAIR orders, {@link #planBuilder}), {@code restart-save} then {@code restart-load} (tools/restart.sh: a switch stopped
+ * half way). Prints "[cssquarelife] CHECK ...: OK|FAIL" and "[cssquarelife] RESULT cssquarelife: PASS|FAIL", then halts.
+ * The two words the rig greps for stay out of the details.</p>
  */
 @Mod("colonyseasonssquarelife")
 public class CsSquareLife {
@@ -155,6 +157,8 @@ public class CsSquareLife {
     private BlockPos center;
     private BuildingDecorator w1;
     private IBuilding builderHut;
+    /** The Builder's citizen data (an entity only in mode builder). */
+    private ICitizenData builder;
     private ICitizenData d1;
     private Blueprint squareBlueprint;
     private BlockPos m1;
@@ -306,6 +310,7 @@ public class CsSquareLife {
     private void plan() {
         switch (mode) {
             case "" -> planDefault();
+            case "builder" -> planBuilder();
             case "restart-save" -> planRestartSave();
             case "restart-load" -> planRestartLoad();
             default -> {
@@ -620,6 +625,7 @@ public class CsSquareLife {
                 builderHut = stockHut(colony, "minecolonies:blockhutbuilder", center.offset(BUILDER_OFFSET));
                 final IAssignsJob m = jobModule(builderHut, "builder");
                 final ICitizenData b = dataCitizen(colony);
+                this.builder = b;
                 check("setup: a builder works at the Builder's hut (MineColonies' work orders need one)", m != null && m.assignCitizen(b)
                         && b.getWorkBuilding() == builderHut, b.getJob() == null ? "no job" : b.getJob().getJobRegistryEntry().getKey().toString());
             }
@@ -1520,6 +1526,20 @@ public class CsSquareLife {
             placeMarker(c2[0], owner2[0], marker2[0]);
             check("deleted: a marker put down after the square registers as the fallback, with the notice",
                     marker2[0].equals(ledger().marker(id2[0])) && Squares.markerUnusedNotices() - unusedBefore == 1, "");
+            // a stale marker (registered, its block gone) while the mark is not stored yet: the placement's refresh stores
+            // the mark and tells the managers; the new marker then replaces the stale one without a second line
+            ledger().unregisterMarker(id2[0], marker2[0]);
+            ledger().clearSquareMark(id2[0]);
+            final BlockPos stale = at.offset(30, 0, 8);
+            final boolean staleIn = ledger().registerMarker(id2[0], stale) && level.getBlockState(stale).isAir();
+            final int beforeStale = Squares.markerUnusedNotices();
+            marker2[0] = at.offset(30, 0, 4);
+            placeMarker(c2[0], owner2[0], marker2[0]);
+            check("deleted: a marker put down while a stale one is registered and no mark is stored: it replaces the stale one, the mark is "
+                            + "stored, one notice", staleIn && marker2[0].equals(ledger().marker(id2[0])) && ledger().markerColony(stale) == -1
+                            && new DecorLedger.SquareMark(s5[0].getPosition(), anchor2[0]).equals(ledger().squareMark(id2[0]))
+                            && Squares.markerUnusedNotices() - beforeStale == 1,
+                    (Squares.markerUnusedNotices() - beforeStale) + " notices, stale registered " + staleIn);
             seed("deleted: S5's group", id2[0], sq(anchor2[0]), tree(anchor2[0], 1, 3), true);
             IColonyManager.getInstance().deleteColonyByWorld(id2[0], false, level);
         });
@@ -1652,8 +1672,306 @@ public class CsSquareLife {
         substitutionSteps();
         deletedSteps();
         now("summary", () -> note("NOTE section 8: Q2 proves points 3 (the Workshop's state with the Decorator on the square), 6 (CLEAR_NON_SOLIDS "
-                + "over substitution cells, with Structurize's placer), 7 (our side: ticks from a work order to an empty group) and 13 (the "
-                + "0.1.0 reader and MineColonies' unknown type); the Builder's own latency is for Q7's builder-over-tree"));
+                + "over substitution cells, with Structurize's placer), 7 (here our side: ticks from a work order to an empty group; mode "
+                + "builder measures the Builder's own side with his AI at work) and 13 (the 0.1.0 reader and MineColonies' unknown type)"));
+    }
+
+    // ================================================================ mode builder: section 8 point 7 with MineColonies' Builder at work
+
+    /** MineColonies' work manager runs every 20 ticks of an active colony (Colony's tickWorkManager transition). */
+    private static final int WORK_MANAGER_TICK = 20;
+    /** The most ticks one work order of the Builder may take here. */
+    private static final int BUILDER_TICKS = 6000;
+    /** A cell of the blueprint's air on the paving, where a torch stands: the Builder's CLEAR_NON_SOLIDS takes it. */
+    private BlockPos witness;
+
+    /**
+     * Mode builder: section 8 point 7 with the Builder's own AI. S1 is built as in the default mode and its plaza's blocks
+     * are set as the blueprint has them (what a finished build leaves), so a repair has nothing to place; the builder is
+     * given an entity at his hut and works on his own. Each case seeds a tree at the centrepiece and a torch on the
+     * paving, makes a REPAIR order and measures, in ticks from the order: our group empty; the Builder's first stage on
+     * the square (his structure handler's); his CLEAR_NON_SOLIDS; his first change of any block in the box that was not
+     * ours (the torch, normally); the order completed. The rig's colony never becomes active (no player), so the probe
+     * runs MineColonies' work manager itself at its own rate, {@link #WORK_MANAGER_TICK}; nothing else of the Builder's
+     * work is done for him.
+     */
+    private void planBuilder() {
+        setupSteps(true);
+        now("builder: S1 placed and built", () -> {
+            s1 = placeSquare("builder: S1", colony, owner, center.offset(SLOT_A));
+            if (s1 == null) {
+                finish();
+                return;
+            }
+            finishBuild(s1, WorkOrderType.BUILD, 1);
+            DecorEvents.drain(server);
+        });
+        waitTags("builder: S1", () -> s1);
+        now("builder: S1 is the main square, its plaza stands, the Builder works", () -> {
+            locate(s1);
+            final BlockPos a1 = anchorOf(s1);
+            checkEq("builder: S1 is the main square", ledger().squareMark(cid()), new DecorLedger.SquareMark(s1.getPosition(), a1));
+            final int set = pastePlaza(s1);
+            final List<BlockPos> differ = plazaDiff(s1);
+            check("builder: the plaza's blocks stand as the blueprint has them (a finished build)", set > 0 && differ.isEmpty(),
+                    set + " blocks set, " + differ.size() + " differ" + (differ.isEmpty() ? "" : " " + differ.get(0).toShortString()));
+            witness = witnessCell(s1);
+            check("builder: a cell of the blueprint's air on the paving for the torch", witness != null, String.valueOf(witness));
+            if (witness == null) {
+                finish();
+                return;
+            }
+            level.setDayTime(level.getDayTime() / 24000L * 24000L + 1000L);
+            builder.setSaturation(ICitizenData.MAX_SATURATION);
+            colony.getCitizenManager().spawnOrCreateCitizen(builder, level, builderHut.getPosition().offset(0, 0, 2));
+            check("builder: the builder has an entity and the builder's AI", builder.getEntity().isPresent() && builder.getJob() != null
+                    && builder.getJob().getWorkerAI() != null, builder.getEntity().isPresent() ? builderState() : "no entity");
+        });
+        steps.add(new Step("builder: the Builder settles at his hut", 200) {
+            @Override
+            boolean tick() {
+                builder.setSaturation(ICitizenData.MAX_SATURATION);
+                return false;
+            }
+
+            @Override
+            void end(final boolean done) {
+                note("NOTE builder: before the first order the builder is {}", builderState());
+            }
+        });
+        builderCase("builder: REPAIR from the hut window, this Builder chosen", 2, () -> {
+            s1.requestRepair(builderHut.getPosition());
+            return "the hut window's repair, the Builder named";
+        });
+        builderCase("builder: REPAIR through the work manager (the watch)", DecorEvents.SQUARE_WATCH + 3, () -> {
+            colony.getWorkManager().addWorkOrder(WorkOrderBuilding.create(WorkOrderType.REPAIR, s1), false);
+            return "an order that does not come through the square's request; the work manager gives it to the Builder";
+        });
+        now("summary", () -> note("NOTE section 8 point 7 (builder): measured with MineColonies' own Builder AI on the square's REPAIR, "
+                + "the order with the least to do before CLEAR_NON_SOLIDS (an UPGRADE first builds the next level's solid blocks; "
+                + "this build ships one level)"));
+    }
+
+    /** Sets the square's blueprint blocks in the world (not air, not substitution cells, not the hut block): what its build left. */
+    private int pastePlaza(final BuildingTownSquare square) {
+        final BlockPos origin = square.getPosition().subtract(squareBlueprint.getPrimaryBlockOffset());
+        int n = 0;
+        for (final com.ldtteam.structurize.util.BlockInfo info : squareBlueprint.getBlockInfoAsList()) {
+            final BlockState state = info.getState();
+            final BlockPos at = origin.offset(info.getPos());
+            if (state == null || state.isAir() || structurizeBlock(state) || at.equals(square.getPosition())) {
+                continue;
+            }
+            level.setBlock(at, state, SEED_FLAGS);
+            n++;
+        }
+        return n;
+    }
+
+    /** Cells where the world differs from the blueprint (not air, not substitution cells, not the hut block). */
+    private List<BlockPos> plazaDiff(final BuildingTownSquare square) {
+        final BlockPos origin = square.getPosition().subtract(squareBlueprint.getPrimaryBlockOffset());
+        final List<BlockPos> out = new ArrayList<>();
+        for (final com.ldtteam.structurize.util.BlockInfo info : squareBlueprint.getBlockInfoAsList()) {
+            final BlockState state = info.getState();
+            final BlockPos at = origin.offset(info.getPos());
+            if (state != null && !state.isAir() && !structurizeBlock(state) && !at.equals(square.getPosition()) && level.getBlockState(at) != state) {
+                out.add(at);
+            }
+        }
+        return out;
+    }
+
+    private static boolean structurizeBlock(final BlockState state) {
+        return "structurize".equals(BuiltInRegistries.BLOCK.getKey(state.getBlock()).getNamespace());
+    }
+
+    /** A blueprint air cell one above the paving, outside the tree's 11 x 11 column, on no tag, away from the hut; or null. */
+    private BlockPos witnessCell(final BuildingTownSquare square) {
+        final BlockPos origin = square.getPosition().subtract(squareBlueprint.getPrimaryBlockOffset());
+        final Set<BlockPos> tagged = new java.util.HashSet<>();
+        for (final String tag : BuildingTownSquare.TAGS) {
+            tagged.addAll(square.getLocationsFromTag(tag));
+        }
+        final BlockPos tree = anchorOf(square);
+        for (final com.ldtteam.structurize.util.BlockInfo info : squareBlueprint.getBlockInfoAsList()) {
+            final BlockPos at = origin.offset(info.getPos());
+            if (info.getState() == null || !(info.getState().getBlock() instanceof AirBlock) || at.getY() != tree.getY()
+                    || Math.abs(at.getX() - tree.getX()) <= 5 && Math.abs(at.getZ() - tree.getZ()) <= 5 || tagged.contains(at)
+                    || at.distManhattan(square.getPosition()) < 4 || !level.getBlockState(at).isAir()
+                    || !level.getBlockState(at.below()).isFaceSturdy(level, at.below(), Direction.UP)) {
+                continue;
+            }
+            return at.immutable();
+        }
+        return null;
+    }
+
+    /** The Builder's AI state, the stage of his structure handler, where he stands. */
+    private String builderState() {
+        final Object ai = builder.getJob() == null ? null : builder.getJob().getWorkerAI();
+        final String state = ai instanceof com.minecolonies.api.entity.ai.ITickingStateAI t ? String.valueOf(t.getState()) : "no AI";
+        final Object stage = builderStage();
+        final String at = builder.getEntity().map(e -> e.blockPosition().toShortString()).orElse("no entity");
+        return state + (stage == null ? "" : " " + stage) + " at " + at;
+    }
+
+    /** The stage the Builder's structure handler is in (BUILD_SOLID, CLEAR_NON_SOLIDS, ...), or null without one. */
+    private Object builderStage() {
+        final Object ai = builder.getJob() == null ? null : builder.getJob().getWorkerAI();
+        if (!(ai instanceof com.minecolonies.core.entity.ai.workers.AbstractEntityAIStructure<?, ?>)) {
+            return null;
+        }
+        try {
+            final java.lang.reflect.Field f = com.minecolonies.core.entity.ai.workers.AbstractEntityAIStructure.class.getDeclaredField("structurePlacer");
+            f.setAccessible(true);
+            final Object placer = f.get(ai);
+            if (placer instanceof com.minecolonies.api.util.Tuple<?, ?> t
+                    && t.getB() instanceof com.minecolonies.core.entity.ai.workers.util.BuildingStructureHandler<?, ?> handler) {
+                return handler.getStage();
+            }
+        } catch (final ReflectiveOperationException unreachable) {
+            return "stage unknown (" + unreachable.getClass().getSimpleName() + ")";
+        }
+        return null;
+    }
+
+    /**
+     * One REPAIR order on S1 worked by the Builder's own AI. {@code ourBound} is how many ticks after the order our group
+     * must be empty. The checks: the group was empty before the Builder's CLEAR_NON_SOLIDS and before his first change
+     * of a block in the box; no block of ours changed while it was listed; every paid item came back to the Workshop and
+     * nothing was lost; the Builder took the torch (his CLEAR_NON_SOLIDS did run over the box); the order completed, and
+     * then the mark is intact, the square free and nothing put up.
+     */
+    private void builderCase(final String name, final int ourBound, final java.util.function.Supplier<String> make) {
+        steps.add(new Step(name, BUILDER_TICKS) {
+            BlockPos a1;
+            Map<BlockPos, BlockState> cells;
+            final Map<BlockPos, BlockState> box = new LinkedHashMap<>();
+            long made;
+            int down = -1;
+            int onSquare = -1;
+            int clearNonSolids = -1;
+            int firstChange = -1;
+            String firstWhat = "-";
+            int torchTaken = -1;
+            int completed = -1;
+            final List<String> oursTouched = new ArrayList<>();
+            int before;
+            int lost;
+            int paid;
+            final List<String> stages = new ArrayList<>();
+
+            @Override
+            void start() {
+                a1 = anchorOf(s1);
+                cells = tree(a1, 3, 7);
+                seed(name, cid(), sq(a1), cells, false);
+                level.setBlock(witness, Blocks.TORCH.defaultBlockState(), Block.UPDATE_ALL);
+                before = workshopItems();
+                lost = DecorEvents.lostItems();
+                paid = refundNow(cid(), sq(a1));
+                final net.minecraft.util.Tuple<BlockPos, BlockPos> corners = s1.getCorners();
+                for (final BlockPos p : BlockPos.betweenClosed(corners.getA(), corners.getB())) {
+                    if (!cells.containsKey(p) && !p.equals(s1.getPosition())) {
+                        box.put(p.immutable(), level.getBlockState(p));
+                    }
+                }
+                made = level.getGameTime();
+                final String how = make.get();
+                check(name + ": the work order is open (" + how + ")", orderAt(s1) != null && s1.isPendingConstruction(), builderState());
+            }
+
+            @Override
+            boolean tick() {
+                final int at = (int) (level.getGameTime() - made);
+                builder.setSaturation(ICitizenData.MAX_SATURATION);
+                if (level.getGameTime() % WORK_MANAGER_TICK == 0) {
+                    colony.getWorkManager().onColonyTick(colony);
+                }
+                final DecorLedger.GroupView group = ledger().group(cid(), sq(a1));
+                if (down < 0 && size(sq(a1)) == 0) {
+                    down = at;
+                }
+                if (group != null) {
+                    for (final Map.Entry<BlockPos, DecorLedger.Entry> e : group.entries().entrySet()) {
+                        final BlockState now = level.getBlockState(e.getKey());
+                        if (now != e.getValue().state() && !leafDistanceOnly(e.getValue().state(), now) && oursTouched.size() < 5) {
+                            oursTouched.add(e.getKey().toShortString() + " at " + at + ": " + now);
+                        }
+                    }
+                }
+                final Object stage = builderStage();
+                if (stage != null) {
+                    if (onSquare < 0) {
+                        onSquare = at;
+                    }
+                    final String s = String.valueOf(stage);
+                    if (stages.isEmpty() || !stages.get(stages.size() - 1).startsWith(s + " ")) {
+                        stages.add(s + " " + at);
+                    }
+                    if (clearNonSolids < 0 && "CLEAR_NON_SOLIDS".equals(s)) {
+                        clearNonSolids = at;
+                    }
+                }
+                if (firstChange < 0) {
+                    for (final Map.Entry<BlockPos, BlockState> e : box.entrySet()) {
+                        final BlockState now = level.getBlockState(e.getKey());
+                        if (now != e.getValue() && !tape(now) && !tape(e.getValue())) {
+                            firstChange = at;
+                            firstWhat = e.getKey().toShortString() + " " + BuiltInRegistries.BLOCK.getKey(e.getValue().getBlock()).getPath() + " to "
+                                    + BuiltInRegistries.BLOCK.getKey(now.getBlock()).getPath();
+                            break;
+                        }
+                    }
+                }
+                if (torchTaken < 0 && !level.getBlockState(witness).is(Blocks.TORCH)) {
+                    torchTaken = at;
+                }
+                if (orderAt(s1) == null && completed < 0) {
+                    completed = at;
+                }
+                if (t % 1000 == 0) {
+                    note("{}: at {} ticks the builder is {}", name, at, builderState());
+                }
+                return completed >= 0;
+            }
+
+            @Override
+            void end(final boolean done) {
+                final String times = "group down " + down + ", the Builder's structure loaded (his first stage) " + onSquare + ", CLEAR_NON_SOLIDS " + clearNonSolids
+                        + ", first change in the box " + firstChange + " (" + firstWhat + "), torch taken " + torchTaken + ", completed " + completed
+                        + "; stages " + stages;
+                note("NOTE point 7 ({}): ticks from the order: {}", name, times);
+                check(name + ": the Builder completed the order with his own AI", done && completed >= 0, "after " + t + " ticks, " + builderState());
+                check(name + ": our group is down within " + ourBound + " ticks of the order", down >= 0 && down <= ourBound, "after " + down + " ticks");
+                check(name + ": our group was down before the Builder's first stage on the square began (nothing of his can touch the box earlier)",
+                        down >= 0 && onSquare > down, times);
+                check(name + ": our group was down before the Builder's CLEAR_NON_SOLIDS reached the square", down >= 0 && clearNonSolids > down, times);
+                check(name + ": our group was down before the Builder's first change in the box", down >= 0 && (firstChange < 0 || firstChange > down), times);
+                check(name + ": the Builder's CLEAR_NON_SOLIDS ran over the box (he took the torch, after our group was down)", torchTaken > down, times);
+                check(name + ": no block of ours changed while it was listed (the Builder never got there first)", oursTouched.isEmpty(), oursTouched.toString());
+                checkEq(name + ": every paid item came back to the Workshop", workshopItems() - before, paid);
+                checkEq(name + ": nothing was lost", DecorEvents.lostItems() - lost, 0);
+                check(name + ": the tree's cells are air", notAir(cells.keySet()).isEmpty(), notAir(cells.keySet()).size() + " not air");
+            }
+        });
+        steps.add(new Step(name + ": after the order", DecorEvents.SQUARE_WATCH + 10) {
+            @Override
+            void end(final boolean done) {
+                DecorEvents.sweep(level);
+                final BlockPos a1 = anchorOf(s1);
+                check(name + ": after the order the mark is intact and the square is free again", new DecorLedger.SquareMark(s1.getPosition(), a1)
+                        .equals(ledger().squareMark(cid())) && !resolve().busy() && resolve().hosts(a1), show(resolve()));
+                check(name + ": nothing was put up (Q2 places nothing on a square)", ledger().group(cid(), sq(a1)) == null && ledger().countOutdoor(cid()) == 0,
+                        ledger().countOutdoor(cid()) + " listed");
+            }
+        });
+    }
+
+    private static boolean tape(final BlockState state) {
+        final ResourceLocation id = BuiltInRegistries.BLOCK.getKey(state.getBlock());
+        return "minecolonies".equals(id.getNamespace()) && id.getPath().contains("tape");
     }
 
     // ================================================================ the restart in the middle of a switch
