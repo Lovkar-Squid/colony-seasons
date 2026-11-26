@@ -66,7 +66,8 @@ import java.util.Map;
  *       decorations still up after the window are Taking down, anything else is the Off season;</li>
  *   <li>outside the Off season, every {@link #PHASE_VISIT_TICKS} ticks he goes through that phase's state, and after a
  *       visit that put something up or took something down he pauses {@link #visitPause} ticks (shorter with more
- *       Creativity). Decorating picks the next building ({@link DecorWork#nextToDecorate}), walks there and places
+ *       Creativity). Decorating picks the next building ({@link DecorWork#nextToDecorate}; the colony's Town Square
+ *       only when his {@link JobDecorator#findSquare} is that square, 0.2.0 Q3), walks there and places
  *       what the plan and his stock allow; when nothing is left for the day it turns into Tending (once a game day
  *       per decorated group). Taking down clears one group per visit by the removal rule and puts the items back in
  *       the hut. Hosting (S7): in the gathering hours of the Winter Festival days he stands at the tree and hands the

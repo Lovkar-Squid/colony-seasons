@@ -58,12 +58,21 @@ bash tools/probe.sh csdecorator               # the Decorator on a real colony: 
 bash tools/probe.sh csdecorator free          # decorator.needsMaterials = false: no request, nothing used, nothing made
 bash tools/restart.sh csdecorator             # stock, cs_assembled, cs_decorations_up and the setting survive a restart
 bash tools/probe.sh cspaste                   # every blueprint of the pack loaded and pasted through Structurize, the
-                                              # world read back against tools/cspaste/res/cspaste/manifest.json
+                                              # world read back against tools/cspaste/res/cspaste/manifest.json; Q3: the
+                                              # Winter Festival's pieces as the Town Square reads them in its eight rotations
+                                              # (the mirror stripped) equal the marker's of that facing and an independent
+                                              # turn, and the level-1 piece stands on the square's free cells round its tree tag
 bash tools/probe.sh csdecorgate               # placing, the ledger and taking down: real huts of six style packs, edge cases,
                                               # the square with the probe's test piece, a real colony and the Decorator's AI,
                                               # the grand tree with grass on a planter cell (a lantern that cannot stand)
 bash tools/probe.sh csdecorgate styles        # only the pasted huts (with their per-style and per-door lines) and the edge cases
-bash tools/probe.sh csdecorgate square        # only the square (S10i: the Calendar page's packet says when the tree has no room)
+bash tools/probe.sh csdecorgate square        # only the square (S10i: the Calendar page's packet says when the tree has no room);
+                                              # Q3: the real small spruce at a marker in four facings, then the Town Square
+                                              # pasted in four turned and four mirrored rotations as the main square: the
+                                              # tree on its tree tag equals the marker's cell for cell, only for the square's
+                                              # own Decorator, sized by the lower level; the order (Bare takes it down with
+                                              # every item back, Always Winter Festival puts it up, no full set outside a
+                                              # window) and a stored order this version does not know (Follow, one log line)
 bash tools/probe.sh csdecorgate lifecycle     # only the real colony and the AI
 bash tools/restart.sh csdecorgate             # half a building, the ledger file on disk, a restart, nothing placed twice
 bash tools/probe.sh csfestival                # the festival events on a real colony with the Decorator, a marker and the tree:

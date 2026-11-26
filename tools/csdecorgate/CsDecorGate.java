@@ -120,7 +120,8 @@ import java.util.function.Predicate;
  *       garland row, a house across the claim edge), SQUARE (the probe's own test piece in its own pack, see
  *       make_piece.py: the [V] position formula in four facings, level skips, the 10 % rule and the Workshop's
  *       Calendar page saying that the tree has no room (S10i), a missing piece, the
- *       large star switched on, a festival marker broken), LIFECYCLE (a real colony: a swapped block, a light switched,
+ *       large star switched on, a festival marker broken; Q3: the Town Square pasted in eight rotations against the
+ *       marker's tree, its order and an order this version does not know), LIFECYCLE (a real colony: a swapped block, a light switched,
  *       a work order, the Builder's CLEAR_NON_SOLIDS, a hut level up, BuildingRemovedModEvent, decor list and remove,
  *       the Decorator's AI decorating, tending and taking down by himself, the hut destroyed in the window and the
  *       sweep after it);</li>
@@ -1555,7 +1556,9 @@ public class CsDecorGate {
                 note("[V] Q3: the mirrored test piece keeps its star tag on the star in {} of 4 mirrored rotations; a Town Square strips the mirror", survive);
                 nextMorning();                        // a new game day: the day's building budget is free again
                 for (final Direction facing : FACINGS) {
-                    final BlockPos m = new BlockPos(-62, ground + 1, 40);
+                    // in the middle of the square's plot, before any square stands there (a full run's earlier steps leave
+                    // the ground elsewhere uneven, so a reference there lost cells)
+                    final BlockPos m = new BlockPos(SQUARE_PLOT.getX() + 10, ground + 1, SQUARE_PLOT.getZ() + 10);
                     final Map<BlockPos, BlockState> snap = snapshot(around(m, 8));
                     marker(m.getX(), m.getZ(), facing);
                     final DecorWork.Target target = DecorWork.Target.square(m, facing, PieceLoader.PACK);
@@ -1568,6 +1571,9 @@ public class CsDecorGate {
                     check("Q3: the reference comes down to the snapshot (" + facing + ")", changed(snap).isEmpty(), changed(snap).size() + " cells differ");
                 }
                 checkEq("Q3: the four facings differ (the check sees the turn)", new HashSet<>(atMarker.values()).size(), 4);
+                final java.util.Set<Integer> counts = new HashSet<>();
+                atMarker.values().forEach(cells -> counts.add(cells.size()));
+                check("Q3: the reference is whole in every facing (the same number of cells, none blocked)", counts.size() == 1, String.valueOf(counts));
                 squareGround = snapshot(new DoorFinder.Box(SQUARE_PLOT.offset(-1, ground - 2, -1), SQUARE_PLOT.offset(22, ground + 22, 22), SQUARE_PLOT));
             }
         });

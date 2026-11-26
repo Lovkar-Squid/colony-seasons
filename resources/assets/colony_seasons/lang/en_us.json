@@ -199,5 +199,5 @@
   "com.minecolonies.coremod.setting.colony_seasons:kind_lights": "Lights",
   "com.minecolonies.coremod.setting.tooltip.colony_seasons:kind_lights": "Whether the Decorator hangs lantern strings or fairy lights above the garlands.",
   "com.minecolonies.coremod.setting.colony_seasons:kind_tree": "Tree",
-  "com.minecolonies.coremod.setting.tooltip.colony_seasons:kind_tree": "Whether the Decorator puts up the decorated tree at the festival marker. A tree that already stands stays until the take-down."
+  "com.minecolonies.coremod.setting.tooltip.colony_seasons:kind_tree": "Whether the Decorator puts up the decorated tree at the festival marker or on the Town Square. A tree that already stands stays until the take-down."
 }
