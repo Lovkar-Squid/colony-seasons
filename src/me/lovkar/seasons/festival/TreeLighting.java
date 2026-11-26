@@ -65,16 +65,17 @@ public final class TreeLighting {
     }
 
     /**
-     * The colony's finished tree: the square group at its registered marker, not empty, whose tree itself is up (every
+     * The colony's finished tree: the square group at its centrepiece (the main Town Square's {@code tree} cell, else its
+     * registered marker), not empty, whose tree itself is up (every
      * cell of the trunk, the leaves and the star: {@link DecorLedger.GroupView#treeDay}; S10c: a gift or a lantern
      * that cannot be placed now does not keep the tree dark); else {@code null}.
      */
     public static DecorLedger.GroupView tree(final DecorLedger ledger, final int colony) {
-        final BlockPos marker = Squares.marker(ledger, colony);
-        if (marker == null) {
+        final Squares.Centre centre = Squares.centre(ledger, colony);
+        if (centre == null) {
             return null;
         }
-        final DecorLedger.GroupView group = ledger.group(colony, DecorLedger.Owner.square(marker));
+        final DecorLedger.GroupView group = ledger.group(colony, DecorLedger.Owner.square(centre.anchor()));
         if (group == null || group.entries().isEmpty() || group.treeDay() < 0 || group.piece().isEmpty()
                 || ledger.squareProblem(colony)) {
             return null;
@@ -172,8 +173,8 @@ public final class TreeLighting {
         final int switched = switchOn(level, ledger, id);
         ledger.flush(level);
         FestivalData.of(level).setTreeLit(id, by);
-        final BlockPos marker = Squares.marker(ledger, id);
-        final BlockPos at = marker != null ? marker : colony.getCenter();
+        final Squares.Centre centre = Squares.centre(ledger, id);
+        final BlockPos at = centre != null ? centre.anchor() : colony.getCenter();
         level.playSound(null, at, FestivalSounds.CHIME.get(), SoundSource.BLOCKS, 2.0F, 1.0F);
         Fireworks.celebrate(level, id, Fireworks.LIGHTING_ROCKETS);
         lightings++;

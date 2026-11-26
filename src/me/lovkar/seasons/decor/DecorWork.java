@@ -295,6 +295,18 @@ public final class DecorWork {
         return square.withStand(squareStand(level, box, marker, from));
     }
 
+    /**
+     * The box the centrepiece of a Town Square takes at its {@code tree} cell ({@code anchor}): the cells of the piece
+     * its group was planned for (else the one its order wants at {@code hutLevel}) and the cells the group lists;
+     * {@code null} when neither is known yet. The gathering and the Decorator stand outside it.
+     */
+    public static AABB townSquareBox(final ServerLevel level, final DecorLedger ledger, final int colony, final BuildingTownSquare square,
+                                     final BlockPos anchor, final int hutLevel) {
+        final Target target = Target.townSquare(square, anchor);
+        final String path = squarePath(ledger, colony, anchor, hutLevel > 0 ? piecePath(target, hutLevel) : null);
+        return squareBox(level, ledger, colony, anchor, target.rotation(), target.pack(), path);
+    }
+
     /** The piece path of the colony's square: the one its group was planned for, else the one of this hut level (0: none). */
     public static String squarePath(final DecorLedger ledger, final int colony, final BlockPos marker, final int hutLevel) {
         return squarePath(ledger, colony, marker, hutLevel > 0 ? PieceLoader.pathFor(hutLevel) : null);

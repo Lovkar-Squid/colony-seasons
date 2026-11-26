@@ -160,6 +160,8 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
     public static final int GIFT_TICKS = 100;
     /** Colonists within this distance of the tree can be handed a gift. */
     public static final int GIFT_RADIUS = 8;
+    /** The same at a Town Square, whose crowd stands up to 10 blocks from the tree ({@code gather} tags). */
+    public static final int SQUARE_GIFT_RADIUS = 12;
 
     /** Ticks after a complete storeroom check before he looks at the room again (S10g2). */
     public static final int ROOM_RECHECK_TICKS = 600;
@@ -818,8 +820,9 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
     /** At the tree through the gathering hours: every {@link #GIFT_TICKS} ticks a gift to a colonist who has none today. */
     private IAIState host(final ServerLevel level) {
         final BlockPos site = Gathering.site(level, building.getColony());
-        // at the tree: on the ring outside the square's box, walked to the block (S10c: MineColonies' safe walk stops up
-        // to four blocks short, which is inside the box); without a square, the gathering's nearest spot
+        // at the tree: on the ring outside the centrepiece's box (the festival marker's or the Town Square's), walked to
+        // the block (S10c: MineColonies' safe walk stops up to four blocks short, which is inside the box); without
+        // either, the gathering's nearest spot
         final BlockPos stand = standOutside(level, building.getPosition());
         if (stand != null) {
             if (!EntityNavigationUtils.walkToPos(worker, stand, 0, true) && ++walkAttempts < WALK_ATTEMPTS_OUT) {
@@ -843,7 +846,8 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
         if (now >= nextGift) {
             nextGift = now + GIFT_TICKS;
             AbstractEntityCitizen next = null;
-            double best = (double) GIFT_RADIUS * GIFT_RADIUS;
+            final double reach = Gathering.keepRadius(level, building.getColony(), site) > Gathering.KEEP_RADIUS ? SQUARE_GIFT_RADIUS : GIFT_RADIUS;
+            double best = reach * reach;
             for (final ICitizenData citizen : building.getColony().getCitizenManager().getCitizens()) {
                 final AbstractEntityCitizen colonist = citizen.getEntity().orElse(null);
                 if (colonist == null || colonist == worker || thanked.contains(citizen.getId())) {
@@ -870,18 +874,40 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
      * inside the tree), else two blocks south of the site as before.
      */
     private BlockPos launchStand(final ServerLevel level, final BlockPos site) {
+        final DecorLedger ledger = ledger();
+        final Squares.Centre centre = ledger == null ? null : Squares.centre(ledger, building.getColony().getID());
+        if (centre != null && centre.onSquare()) {
+            // the square's launch point is no tree: he waits two blocks from it, on whichever side has room
+            for (final Direction side : new Direction[] {Direction.SOUTH, Direction.NORTH, Direction.EAST, Direction.WEST}) {
+                final BlockPos stand = Gathering.standable(level, site.relative(side, 2));
+                if (stand != null) {
+                    return stand;
+                }
+            }
+            return Gathering.standable(level, site.above());
+        }
         final BlockPos stand = standOutside(level, site);
         return stand != null ? stand : Gathering.standable(level, site.relative(Direction.SOUTH, 2));
     }
 
     /**
-     * The standing place outside the box of the colony's square nearest {@code from} ({@link DecorWork#squareStand}),
-     * or {@code null} without a standing festival marker or room round the tree.
+     * The standing place outside the box of the colony's centrepiece nearest {@code from} ({@link DecorWork#squareStand}):
+     * the main Town Square's tree, else the festival marker's; {@code null} without either (the marker must stand) or
+     * room round the tree.
      */
     private BlockPos standOutside(final ServerLevel level, final BlockPos from) {
         final int colony = building.getColony().getID();
         final DecorLedger ledger = ledger();
-        final BlockPos marker = ledger == null ? null : Squares.marker(ledger, colony);
+        final Squares.Centre centre = ledger == null ? null : Squares.centre(ledger, colony);
+        if (centre != null && centre.onSquare()) {
+            final BuildingTownSquare square = Squares.building(building.getColony(), ledger);
+            if (square == null || !level.hasChunkAt(centre.anchor())) {
+                return null;
+            }
+            return DecorWork.squareStand(level,
+                    DecorWork.townSquareBox(level, ledger, colony, square, centre.anchor(), building.getBuildingLevel()), centre.anchor(), from);
+        }
+        final BlockPos marker = centre == null ? null : centre.anchor();
         if (marker == null || !level.hasChunkAt(marker) || !(level.getBlockState(marker).getBlock() instanceof FestivalMarkerBlock)) {
             return null;
         }

@@ -14,6 +14,7 @@ import me.lovkar.seasons.block.SeasonsBlocks;
 import me.lovkar.seasons.calendar.CalendarManager;
 import me.lovkar.seasons.calendar.FestivalCalendar;
 import me.lovkar.seasons.colony.BuildingDecorator;
+import me.lovkar.seasons.colony.BuildingTownSquare;
 import me.lovkar.seasons.colony.DecoratorTexts;
 import me.lovkar.seasons.colony.JobDecorator;
 import me.lovkar.seasons.decor.DecorLedger;
@@ -464,22 +465,31 @@ public final class Fireworks {
 
     /**
      * Where the colony's rockets go up (they leave from the top of this block): its firework crate; without one (hut
-     * levels 1 and 2 have none) the marker when nothing stands over it, else the floor of the nearest standing place
-     * round the tree with open sky above, because the tree's trunk stands on the marker and a rocket started inside it
-     * bursts at once; {@code null} without a square.
+     * levels 1 and 2 have none) on a Town Square the cell of its {@code launch} tag when the sky is open above it (design
+     * 4.1: the launch point); then the centrepiece's cell (the marker, or the square's tree cell) when nothing stands over
+     * it, else the floor of the nearest standing place round the tree with open sky above, because the tree's trunk
+     * stands on the centrepiece and a rocket started inside it bursts at once; {@code null} without a square or marker.
      */
     public static BlockPos site(final ServerLevel level, final IColony colony) {
         final DecorLedger ledger = DecorLedger.peek(level);
-        final BlockPos marker = ledger == null ? null : Squares.marker(ledger, colony.getID());
-        if (marker == null || !level.hasChunkAt(marker) || !(level.getBlockState(marker).getBlock() instanceof FestivalMarkerBlock)) {
+        final Squares.Centre centre = Squares.centre(ledger, colony.getID());
+        if (centre == null || !level.hasChunkAt(centre.anchor())
+                || !centre.onSquare() && !(level.getBlockState(centre.anchor()).getBlock() instanceof FestivalMarkerBlock)) {
             return null;
         }
+        final BlockPos marker = centre.anchor();
         final DecorLedger.GroupView square = ledger.group(colony.getID(), DecorLedger.Owner.square(marker));
         if (square != null) {
             for (final Map.Entry<BlockPos, DecorLedger.Entry> e : square.entries().entrySet()) {
                 if (e.getValue().state().is(SeasonsBlocks.FIREWORK_CRATE.get()) && level.getBlockState(e.getKey()) == e.getValue().state()) {
                     return e.getKey();
                 }
+            }
+        }
+        if (centre.onSquare()) {
+            final BlockPos launch = launchBlock(level, Squares.building(colony, ledger));
+            if (launch != null) {
+                return launch;
             }
         }
         if (openSky(level, marker.above())) {
@@ -491,6 +501,29 @@ public final class Fireworks {
             }
         }
         return marker;
+    }
+
+    /**
+     * The block the rockets leave from at a Town Square's {@code launch} tag (the lowest cell should there be several):
+     * the cell itself when something solid stands there, else the floor under it; {@code null} while the tag reads
+     * empty, its chunk is not loaded or the sky above it is not open.
+     */
+    static BlockPos launchBlock(final ServerLevel level, final BuildingTownSquare square) {
+        final List<BlockPos> cells = square == null ? null : square.getLocationsFromTag(BuildingTownSquare.TAG_LAUNCH);
+        if (cells == null || cells.isEmpty()) {
+            return null;
+        }
+        BlockPos cell = cells.get(0);
+        for (final BlockPos other : cells) {
+            if (other.compareTo(cell) < 0) {
+                cell = other;
+            }
+        }
+        if (!level.hasChunkAt(cell)) {
+            return null;
+        }
+        final BlockPos block = level.getBlockState(cell).getCollisionShape(level, cell).isEmpty() ? cell.below() : cell;
+        return openSky(level, block.above()) ? block.immutable() : null;
     }
 
     /** True when nothing that stops a rocket stands at or above {@code pos} (the motion-blocking heightmap). */

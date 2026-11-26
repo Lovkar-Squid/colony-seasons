@@ -1019,8 +1019,8 @@ public class CsSquareLife {
                     !ledger().squareProblem(cid()), "");
             check("switch: the marker stays registered (the fallback), the resolver's marker is none, no square target",
                     m1.equals(ledger().marker(cid())) && Squares.marker(ledger(), cid()) == null && DecorWork.squareTarget(level, ledger(), cid()) == null, "");
-            check("switch: the gathering goes to the town hall meanwhile (Q4 brings it to the square)",
-                    Gathering.site(level, colony).equals(colony.getServerBuildingManager().getTownHall().getPosition()), "");
+            check("switch: the gathering is at the square's tree cell now (Q4), not at the marker or the town hall",
+                    Gathering.site(level, colony).equals(a1), String.valueOf(Gathering.site(level, colony)));
             check("switch: the mark is on disk at once (the ledger has nothing unwritten)", !ledger().isDirty(), "");
             // the rig's own sweep may have started already (it runs every 100 ticks): one pass takes at most its budget
             final int sizeBefore = size(sq(m1));
