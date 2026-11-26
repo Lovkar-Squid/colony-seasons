@@ -11,6 +11,8 @@ import com.minecolonies.api.util.MessageUtils;
 import me.lovkar.seasons.ColonySeasons;
 import me.lovkar.seasons.SeasonsConfig;
 import me.lovkar.seasons.block.FestivalMarkerBlock;
+import me.lovkar.seasons.block.GiftPileBlock;
+import me.lovkar.seasons.block.SeasonsBlocks;
 import me.lovkar.seasons.calendar.CalendarManager;
 import me.lovkar.seasons.colony.BuildingDecorator;
 import me.lovkar.seasons.colony.BuildingTownSquare;
@@ -291,20 +293,87 @@ public final class DecorWork {
                                    final int hutLevel, final BlockPos from) {
         final BlockPos marker = square.owner().pos();
         final String path = squarePath(ledger, colony, marker, hutLevel > 0 ? piecePath(square, hutLevel) : null);
-        final AABB box = squareBox(level, ledger, colony, marker, square.rotation(), square.pack(), path);
+        final AABB box = squareBox(level, ledger, colony, marker, square.rotation(), square.pack(), path, fixtureCells(square));
         return square.withStand(squareStand(level, box, marker, from));
     }
 
     /**
      * The box the centrepiece of a Town Square takes at its {@code tree} cell ({@code anchor}): the cells of the piece
      * its group was planned for (else the one its order wants at {@code hutLevel}) and the cells the group lists;
-     * {@code null} when neither is known yet. The gathering and the Decorator stand outside it.
+     * {@code null} when neither is known yet. The square's fixtures at its own {@code gift} and {@code launch} cells are
+     * not the tree's: they stand on the square's paving, not in this box. The gathering and the Decorator stand outside it.
      */
     public static AABB townSquareBox(final ServerLevel level, final DecorLedger ledger, final int colony, final BuildingTownSquare square,
                                      final BlockPos anchor, final int hutLevel) {
         final Target target = Target.townSquare(square, anchor);
         final String path = squarePath(ledger, colony, anchor, hutLevel > 0 ? piecePath(target, hutLevel) : null);
-        return squareBox(level, ledger, colony, anchor, target.rotation(), target.pack(), path);
+        return squareBox(level, ledger, colony, anchor, target.rotation(), target.pack(), path, fixtureCells(target));
+    }
+
+    /** The level from which a Town Square's own gift pile stands at its {@code gift} cell (design 4.2: from square level 1). */
+    public static final int SQUARE_GIFT_LEVEL = 1;
+
+    /**
+     * The festival's fixtures of a Town Square for a piece level (design 4.3 and 4.4, Q4), relative to its anchor: the
+     * gift pile at the square's {@code gift} cell (facing away from the tree) from {@link #SQUARE_GIFT_LEVEL}, and the
+     * firework crate at its {@code launch} cell from {@link PieceLoader#FIREWORK_CRATE_LEVEL}, while the square holds
+     * the Winter Festival's fixtures ({@link SquareSets#winterFixtures}); the lowest cell should a tag have several. None
+     * at the festival marker, before the calendar's first poll, or while the hut's tags read empty.
+     */
+    public static List<PieceLoader.PieceCell> fixtures(final Target target, final int pieceLevel) {
+        if (!(target.building() instanceof BuildingTownSquare square)) {
+            return List.of();
+        }
+        final CalendarManager.Snapshot now = CalendarManager.current();
+        if (now == null || !SquareSets.winterFixtures(SquareSets.wanted(square.order(), now), now)) {
+            return List.of();
+        }
+        final BlockPos anchor = target.owner().pos();
+        final List<PieceLoader.PieceCell> out = new ArrayList<>();
+        final BlockPos gift = lowest(square.getLocationsFromTag(BuildingTownSquare.TAG_GIFT));
+        if (gift != null && pieceLevel >= SQUARE_GIFT_LEVEL) {
+            final BlockPos rel = gift.subtract(anchor);
+            final Direction away = rel.getX() == 0 && rel.getZ() == 0 ? Direction.NORTH
+                    : Direction.getNearest(rel.getX(), 0, rel.getZ());
+            out.add(new PieceLoader.PieceCell(rel, SeasonsBlocks.GIFT_PILE.get().defaultBlockState()
+                    .setValue(GiftPileBlock.FACING, away), false, true, false, false, false));
+        }
+        final BlockPos launch = lowest(square.getLocationsFromTag(BuildingTownSquare.TAG_LAUNCH));
+        if (launch != null && pieceLevel >= PieceLoader.FIREWORK_CRATE_LEVEL) {
+            out.add(new PieceLoader.PieceCell(launch.subtract(anchor), SeasonsBlocks.FIREWORK_CRATE.get().defaultBlockState(),
+                    false, false, true, false, false));
+        }
+        return out;
+    }
+
+    /** The world cells of a Town Square's {@code gift} and {@code launch} tags (its fixtures' cells); empty at the festival marker. */
+    static Set<BlockPos> fixtureCells(final Target target) {
+        if (!(target.building() instanceof BuildingTownSquare square)) {
+            return Set.of();
+        }
+        final Set<BlockPos> out = new HashSet<>();
+        for (final String tag : List.of(BuildingTownSquare.TAG_GIFT, BuildingTownSquare.TAG_LAUNCH)) {
+            final List<BlockPos> cells = square.getLocationsFromTag(tag);
+            if (cells != null) {
+                for (final BlockPos cell : cells) {
+                    out.add(cell.immutable());
+                }
+            }
+        }
+        return out;
+    }
+
+    private static BlockPos lowest(final List<BlockPos> cells) {
+        if (cells == null || cells.isEmpty()) {
+            return null;
+        }
+        BlockPos lowest = cells.get(0);
+        for (final BlockPos cell : cells) {
+            if (cell.compareTo(lowest) < 0) {
+                lowest = cell;
+            }
+        }
+        return lowest.immutable();
     }
 
     /** The piece path of the colony's square: the one its group was planned for, else the one of this hut level (0: none). */
@@ -336,7 +405,11 @@ public final class DecorWork {
      */
     public static String piecePath(final Target target, final int hutLevel) {
         if (target.building() instanceof BuildingTownSquare square) {
-            return PieceLoader.pathFor(SquareSets.wanted(square.order(), CalendarManager.current()), pieceLevel(target, hutLevel));
+            final CalendarManager.Snapshot now = CalendarManager.current();
+            final SquareSets.Set set = SquareSets.wanted(square.order(), now);
+            final String path = PieceLoader.pathFor(set, pieceLevel(target, hutLevel));
+            // no centrepiece wanted (Bare) while the festival is on: its fixtures still go up (design 4.4)
+            return path == null && SquareSets.winterFixtures(set, now) ? PieceLoader.FIXTURES_ONLY : path;
         }
         return PieceLoader.pathFor(hutLevel);
     }
@@ -361,12 +434,24 @@ public final class DecorWork {
 
     public static AABB squareBox(final ServerLevel level, final DecorLedger ledger, final int colony, final BlockPos marker,
                                  final RotationMirror rotation, final String pack, final String path) {
+        return squareBox(level, ledger, colony, marker, rotation, pack, path, Set.of());
+    }
+
+    /** {@link #squareBox(ServerLevel, DecorLedger, int, BlockPos, RotationMirror, String, String)} without the entries at {@code skip}. */
+    static AABB squareBox(final ServerLevel level, final DecorLedger ledger, final int colony, final BlockPos marker,
+                          final RotationMirror rotation, final String pack, final String path, final Set<BlockPos> skip) {
         final PieceLoader.Piece piece = path == null ? null : PieceLoader.request(level, pack, path, rotation);
-        return squareBox(ledger, colony, marker, piece);
+        return squareBox(ledger, colony, marker, piece, skip);
     }
 
     /** The box of a known piece at the marker, joined with the group's entries. */
     static AABB squareBox(final DecorLedger ledger, final int colony, final BlockPos marker, final PieceLoader.Piece piece) {
+        return squareBox(ledger, colony, marker, piece, Set.of());
+    }
+
+    /** The same without the group's entries at {@code skip} (a Town Square's fixtures, which stand on its paving). */
+    static AABB squareBox(final DecorLedger ledger, final int colony, final BlockPos marker, final PieceLoader.Piece piece,
+                          final Set<BlockPos> skip) {
         AABB box = null;
         if (piece != null) {
             box = new AABB(Vec3.atLowerCornerOf(marker.offset(piece.min())), Vec3.atLowerCornerOf(marker.offset(piece.max()).offset(1, 1, 1)));
@@ -374,6 +459,9 @@ public final class DecorWork {
         final DecorLedger.GroupView group = ledger.group(colony, DecorLedger.Owner.square(marker));
         if (group != null) {
             for (final BlockPos pos : group.entries().keySet()) {
+                if (skip.contains(pos)) {
+                    continue;
+                }
                 box = box == null ? new AABB(pos) : box.minmax(new AABB(pos));
             }
         }
@@ -506,9 +594,9 @@ public final class DecorWork {
             return false;
         }
         final PieceLoader.SquarePlan plan = PieceLoader.plan(level, piece, target.owner().pos(), pieceLevel(target, hutLevel), ledger, colony,
-                target.owner(), SeasonsConfig.needsMaterials());
-        if (plan.waiting()) {
-            return false;
+                target.owner(), SeasonsConfig.needsMaterials(), fixtures(target, pieceLevel(target, hutLevel)));
+        if (plan.waiting() || plan.cells() == 0 && piece.cells().isEmpty()) {
+            return false;                             // (fixtures only, and their cells cannot be read now: nothing to do)
         }
         final boolean first = group == null || group.entries().isEmpty();
         if (first && !plan.fits()) {
@@ -790,11 +878,14 @@ public final class DecorWork {
             return Outcome.of(0, 0, false, "no tree piece " + path + " in pack " + target.pack());
         }
         // nobody stands in the tree while it goes up (S10c): every colonist in its box, the Decorator too, steps out first
-        evict(level, squareBox(ledger, colony, marker, piece), marker);
+        evict(level, squareBox(ledger, colony, marker, piece, fixtureCells(target)), marker);
         final PieceLoader.SquarePlan plan = PieceLoader.plan(level, piece, target.owner().pos(), pieceLevel, ledger, colony,
-                target.owner(), SeasonsConfig.needsMaterials());
+                target.owner(), SeasonsConfig.needsMaterials(), fixtures(target, pieceLevel));
         if (plan.waiting()) {
             return Outcome.of(0, 0, false, "waiting for the square's chunks to load");
+        }
+        if (plan.cells() == 0 && piece.cells().isEmpty()) {
+            return Outcome.of(0, 0, false, "the square's gift and launch cells cannot be read now");   // fixtures only
         }
         final String festival = festival();
         final boolean first = group == null || group.entries().isEmpty();
@@ -857,8 +948,8 @@ public final class DecorWork {
             ledger.setDecorated(colony, target.owner(), day);
         }
         // the tree is ready once no cell of the tree itself is still open (cells blocked when it was planned do not count)
-        if (new HashSet<>(result.placed()).containsAll(plan.treeSlots())) {
-            ledger.setTreeReady(colony, target.owner(), day);
+        if (!piece.cells().isEmpty() && new HashSet<>(result.placed()).containsAll(plan.treeSlots())) {
+            ledger.setTreeReady(colony, target.owner(), day);   // (fixtures only: there is no tree to light)
         }
         final String fruit = fruitless(level, ledger, colony, target, day, tending, placed, open, result);
         tended(ledger, colony, target, day, tending);

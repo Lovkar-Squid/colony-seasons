@@ -69,10 +69,12 @@ bash tools/probe.sh csdecorgate styles        # only the pasted huts (with their
 bash tools/probe.sh csdecorgate square        # only the square (S10i: the Calendar page's packet says when the tree has no room);
                                               # Q3: the real small spruce at a marker in four facings, then the Town Square
                                               # pasted in four turned and four mirrored rotations as the main square: the
-                                              # tree on its tree tag equals the marker's cell for cell, only for the square's
-                                              # own Decorator, sized by the lower level; the order (Bare takes it down with
-                                              # every item back, Always Winter Festival puts it up, no full set outside a
-                                              # window) and a stored order this version does not know (Follow, one log line)
+                                              # tree on its tree tag equals the marker's cell for cell (Q4: the square's gift
+                                              # pile at its own gift cell besides), only for the square's own Decorator,
+                                              # sized by the lower level; the order (Bare takes it down with every item back
+                                              # and keeps only the gift pile in the window, Always Winter Festival puts it up,
+                                              # no full set outside a window) and a stored order this version does not know
+                                              # (Follow, one log line)
 bash tools/probe.sh csdecorgate lifecycle     # only the real colony and the AI
 bash tools/restart.sh csdecorgate             # half a building, the ledger file on disk, a restart, nothing placed twice
 bash tools/probe.sh csfestival                # the festival events on a real colony with the Decorator, a marker and the tree:
@@ -96,8 +98,10 @@ bash tools/probe.sh csfestival square         # Q4: the same colony with a Town 
                                               # its tree cell, lit by a player and by the Decorator, the gifts, the gathering
                                               # (the crowd on the standing places of the gather tags, the hut as the leisure site
                                               # in the hours and off the list after them, the Decorator hosting outside the
-                                              # tree's box), the dusk shows from the crate and, once it is gone, from the launch
-                                              # tag's cell; with the gather tags gone the crowd finds the ring again
+                                              # tree's box), the gift pile at the gift cell and the one crate at the launch cell,
+                                              # the dusk shows from that crate and, once it is gone, from the launch tag's cell;
+                                              # with the gather tags gone the crowd finds the ring again; the order Bare in the
+                                              # window: the tree down, the gift pile and the crate stay and hand out gifts
 bash tools/restart.sh csfestival              # a gift taken and the tree lit, a restart: refused again, still lit, nothing repeated
 bash tools/probe.sh csforester                # MineColonies' Forester with the festival tree and a natural oak in his work
                                               # area, three game days: he cuts the oak and never the festival tree

@@ -55,7 +55,8 @@ public final class SquareSets {
     /**
      * The Winter Festival (and the New Year inside its window): the village spruce in its four sizes, the grand tree at
      * level 5. The files and their levels are the 0.1.0 marker's, unchanged. Slots from section 4.2: the tree, the gift
-     * pile, the crate, garlands and strings on the lamp posts (the pile and the crate stand in the piece itself in Q3).
+     * pile, the crate, garlands and strings on the lamp posts (from Q4 the square's own gift pile stands at its {@code gift}
+     * cell and the crate at its {@code launch} cell, {@link #winterFixtures}; the tree keeps the piles of its piece).
      */
     public static final Set WINTER = new Set("winter_festival", "com.colony_seasons.square.set.winter_festival",
             List.of(SeasonsConfig.WINTER_FESTIVAL, SeasonsConfig.NEW_YEAR),
@@ -165,6 +166,27 @@ public final class SquareSets {
             }
         }
         return SEASONAL;
+    }
+
+    /**
+     * Whether the square holds the Winter Festival's fixtures now (design 4.4, Q4: the gift pile at the {@code gift}
+     * cell, the crate at the {@code launch} cell): with the Winter Festival's set on it, and in that festival's
+     * decoration window under every order, Bare included, so the daily gift never depends on the order. {@code wanted}
+     * is {@link #wanted}'s answer for the same snapshot.
+     */
+    public static boolean winterFixtures(final Set wanted, final CalendarManager.Snapshot snapshot) {
+        if (wanted == WINTER) {
+            return true;
+        }
+        if (!DecorPhase.windowOpen(snapshot)) {
+            return false;
+        }
+        for (final String festival : snapshot.festivals().decor()) {
+            if (forFestival(festival) == WINTER) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** [B] owner answer of 20 Nov 2026: the centrepiece's size follows the lower of the square's level and the Workshop's. */

@@ -160,8 +160,11 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
     public static final int GIFT_TICKS = 100;
     /** Colonists within this distance of the tree can be handed a gift. */
     public static final int GIFT_RADIUS = 8;
-    /** The same at a Town Square, whose crowd stands up to 10 blocks from the tree ({@code gather} tags). */
-    public static final int SQUARE_GIFT_RADIUS = 12;
+    /**
+     * The same at a Town Square: its whole crowd, which keeps within {@link Gathering#SQUARE_KEEP_RADIUS} of the tree
+     * (its {@code gather} spots lie up to about 14 blocks away on a diagonal).
+     */
+    public static final int SQUARE_GIFT_RADIUS = Gathering.SQUARE_KEEP_RADIUS;
 
     /** Ticks after a complete storeroom check before he looks at the room again (S10g2). */
     public static final int ROOM_RECHECK_TICKS = 600;

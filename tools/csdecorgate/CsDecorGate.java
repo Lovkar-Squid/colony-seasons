@@ -1662,6 +1662,16 @@ public class CsDecorGate {
         final DecorWork.Outcome o = decorateFully(target, 5, DecorPlacer.Stock.FREE);
         final DecorLedger.GroupView group = ledger.group(colonyId, target.owner());
         final Map<BlockPos, BlockState> got = relCells(target.owner());
+        // Q4: the square's own gift pile at its gift cell (from square level 1) is a fixture of the square, not of the tree
+        final List<PieceLoader.PieceCell> fixtures = DecorWork.fixtures(target, 1);
+        final List<BlockPos> giftCells = townSquare.getLocationsFromTag(BuildingTownSquare.TAG_GIFT);
+        check(at + ": Q4: the square's gift pile stands at its gift cell, which turns with the square", fixtures.size() == 1
+                && fixtures.get(0).giftPile() && giftCells.size() == 1 && anchor.offset(fixtures.get(0).rel()).equals(giftCells.get(0))
+                && got.get(fixtures.get(0).rel()) != null && got.get(fixtures.get(0).rel()).is(SeasonsBlocks.GIFT_PILE.get())
+                && level.getBlockState(giftCells.get(0)).is(SeasonsBlocks.GIFT_PILE.get()), fixtures + ", " + giftCells);
+        for (final PieceLoader.PieceCell fixture : fixtures) {
+            got.remove(fixture.rel());
+        }
         final Map<BlockPos, BlockState> want = atMarker.get(PieceLoader.facing(turn));
         check(at + ": the tree on the square equals the marker's facing " + PieceLoader.facing(turn) + " cell for cell", o.complete()
                 && want != null && got.equals(want), got.size() + " cells, " + (want == null ? 0 : want.size()) + " at the marker, " + o.status());
@@ -1714,7 +1724,8 @@ public class CsDecorGate {
         // Bare: the next visit takes the set down by the exact-state rule, every item back to his stock
         order(SquareSets.Order.BARE);
         checkEq("Q3: the order reads Bare", townSquare.order(), SquareSets.Order.BARE);
-        check("Q3: Bare wants no centrepiece", DecorWork.piecePath(target, 5) == null, "");
+        checkEq("Q3: Bare wants no centrepiece; Q4: in the festival's window the square's fixtures still go up",
+                DecorWork.piecePath(target, 5), PieceLoader.FIXTURES_ONLY);
         final DecorWork.Target goes = DecorWork.nextToDecorate(level, colony, 5, anchor, ledger, stock, day(), townSquare);
         check("Q3: Bare with the set up: the square is his next place to go (to take it down)", goes != null && goes.owner().equals(owner), String.valueOf(goes));
         final int given0 = stock.given;
@@ -1726,13 +1737,22 @@ public class CsDecorGate {
         check("Q3: Bare: the set comes down to the square as it was, the group gone, every item back",
                 changed(snap).isEmpty() && ledger.group(colonyId, owner) == null && stock.given - given0 == stock.taken,
                 changed(snap).size() + " cells differ, " + (stock.given - given0) + " of " + stock.taken + " items back, " + down.status());
+        // Q4, design 4.4: Bare in the festival's window keeps the festival's fixtures, so the daily gift does not depend on
+        // the order: a visit puts up the square's gift pile at its gift cell (the square is level 1: no crate), nothing else
         final DecorWork.Outcome bare = DecorWork.decorate(level, colonyId, target, 5, stock, day(), ledger);
-        check("Q3: Bare: a visit places nothing, and the square is no place to go", bare.placed() == 0 && changed(snap).isEmpty()
-                && DecorWork.nextToDecorate(level, colony, 5, anchor, ledger, stock, day(), townSquare) == null, bare.status());
-        // Always Winter Festival: up again, the same tree
+        final BlockPos giftCell = townSquare.getLocationsFromTag(BuildingTownSquare.TAG_GIFT).get(0);
+        final Map<BlockPos, BlockState> fixturesOnly = relCells(owner);
+        check("Q4: Bare in the window: a visit puts up only the gift pile at the square's gift cell, no tree",
+                bare.placed() == 1 && fixturesOnly.size() == 1 && level.getBlockState(giftCell).is(SeasonsBlocks.GIFT_PILE.get())
+                        && changed(snap).size() == 1 && changed(snap).contains(giftCell), fixturesOnly + ", " + bare.status());
+        final DecorWork.Outcome bare2 = DecorWork.decorate(level, colonyId, target, 5, stock, day(), ledger);
+        check("Q3: Bare: a further visit places nothing, and the square is no place to go", bare2.placed() == 0
+                && DecorWork.nextToDecorate(level, colony, 5, anchor, ledger, stock, day(), townSquare) == null, bare2.status());
+        // Always Winter Festival: up again, the same tree (the fixtures come down first, as any set that changes)
         order(SquareSets.Order.ALWAYS_WINTER);
         final DecorWork.Target back = DecorWork.nextToDecorate(level, colony, 5, anchor, ledger, stock, day(), townSquare);
         check("Q3: Always Winter Festival: the square is his next place again", back != null && back.owner().equals(owner), String.valueOf(back));
+        DecorWork.decorate(level, colonyId, target, 5, stock, day(), ledger);
         final DecorWork.Outcome again = decorateFully(target, 5, stock);
         checkEq("Q3: Always Winter Festival puts the same tree up again", relCells(owner), tree);
         check("Q3: ... complete", again.complete(), again.status());

@@ -399,6 +399,7 @@ public class CsFestival {
                 planSquareNoTags();
                 planDusk();
                 planLaunching();
+                planSquareBare();
             }
             case "nomixin" -> {
                 planSetup(false);
@@ -780,6 +781,76 @@ public class CsFestival {
         return cells.isEmpty() ? null : cells.get(0).below();
     }
 
+    /** The lowest cell of one of the square's tags, or null. */
+    private BlockPos tagCell(final String tag) {
+        BlockPos lowest = null;
+        for (final BlockPos cell : townSquare.getLocationsFromTag(tag)) {
+            if (lowest == null || cell.compareTo(lowest) < 0) {
+                lowest = cell;
+            }
+        }
+        return lowest;
+    }
+
+    /** True when the square's group lists {@code pos} as a block of {@code block} and the world holds exactly that state. */
+    private boolean listedAs(final BlockPos pos, final Block block) {
+        final DecorLedger.GroupView g = ledger.group(colonyId, square());
+        final DecorLedger.Entry e = g == null ? null : g.entries().get(pos);
+        return e != null && e.state().is(block) && level.getBlockState(pos) == e.state();
+    }
+
+    /** How many entries of the square's group match. */
+    private int countOf(final java.util.function.Predicate<BlockState> what) {
+        final DecorLedger.GroupView g = ledger.group(colonyId, square());
+        return g == null ? 0 : (int) g.entries().values().stream().filter(e -> what.test(e.state())).count();
+    }
+
+    /**
+     * Q4, design 4.4: the festival's fixtures under every order, Bare included. With the order Bare in the festival's
+     * window the tree comes down and only the gift pile at the gift cell and the crate at the launch cell go up: the
+     * daily gift and the show do not depend on the order, and there is no tree to light.
+     */
+    private void planSquareBare() {
+        step(new Step("square: Bare in the festival's window: the tree goes, the gift pile and the crate stay at their cells", 400, true) {
+            DecorWork.Outcome last;
+
+            @Override
+            void start() {
+                townSquare.settings().getSetting(BuildingTownSquare.ORDER).set(me.lovkar.seasons.decor.SquareSets.Order.BARE.key());
+            }
+
+            @Override
+            boolean tick() {
+                if (t % 20 == 0) {
+                    last = DecorWork.decorate(level, colonyId, treeTarget(), 3, DecorPlacer.Stock.FREE, day(), ledger);
+                }
+                final DecorLedger.GroupView g = ledger.group(colonyId, square());
+                return t % 20 == 0 && g != null && PieceLoader.FIXTURES_ONLY.equals(g.piece()) && last != null && last.complete();
+            }
+
+            @Override
+            void end(final boolean done) {
+                final DecorLedger.GroupView g = ledger.group(colonyId, square());
+                checkEq("Bare in the window wants the fixtures only", DecorWork.piecePath(treeTarget(), 3), PieceLoader.FIXTURES_ONLY);
+                check("the square's group holds the fixtures only: no trunk, two cells", done && g != null && g.size() == 2
+                        && firstOf(st -> st.is(SeasonsBlocks.FESTIVAL_TRUNK.get())) == null, (g == null ? "none" : g.size() + " cells, " + g.piece())
+                        + ", " + (last == null ? "-" : last.status()));
+                final BlockPos giftCell = tagCell(BuildingTownSquare.TAG_GIFT);
+                final BlockPos launchCell = tagCell(BuildingTownSquare.TAG_LAUNCH);
+                check("the gift pile stands at the gift cell", giftCell != null && listedAs(giftCell, SeasonsBlocks.GIFT_PILE.get()), String.valueOf(giftCell));
+                check("the crate stands at the launch cell", launchCell != null && listedAs(launchCell, SeasonsBlocks.FIREWORK_CRATE.get()), String.valueOf(launchCell));
+                check("there is no tree to light", TreeLighting.tree(ledger, colonyId) == null, "");
+                final Gifts.Outcome gift = giftCell == null ? null : Gifts.take(level, giftCell, one);
+                check("the pile is the Decorator's: it hands out the daily gift under Bare (given, or already taken today)",
+                        gift == Gifts.Outcome.GIVEN || gift == Gifts.Outcome.ALREADY, String.valueOf(gift));
+                checkEq("the show leaves from the crate at the launch cell", Fireworks.site(level, colony), launchCell);
+                final DecorWork.Outcome again = DecorWork.decorate(level, colonyId, treeTarget(), 3, DecorPlacer.Stock.FREE, day(), ledger);
+                checkEq("a further visit places nothing", again.placed(), 0);
+                invariant("Bare with the fixtures");
+            }
+        });
+    }
+
     /** The standing places of the square's gather cells, as the crowd should find them. */
     private Set<BlockPos> gatherStands() {
         final Set<BlockPos> out = new LinkedHashSet<>();
@@ -909,8 +980,19 @@ public class CsFestival {
                 check("no spot is inside the tree's box", box != null && spots.stream().noneMatch(sp -> box.intersects(new AABB(sp))), String.valueOf(box));
                 checkEq("a Town Square keeps its crowd within the square's keep radius", Gathering.keepRadius(level, colony, marker), Gathering.SQUARE_KEEP_RADIUS);
                 check("the tree is finished from the square's group (the lighting reads the tree cell)", TreeLighting.tree(ledger, colonyId) != null, "");
+                // Q4, design 4.3: the square's own gift pile at its gift cell, its one crate at its launch cell (not the piece's)
+                final BlockPos giftCell = tagCell(BuildingTownSquare.TAG_GIFT);
+                final BlockPos launchCell = tagCell(BuildingTownSquare.TAG_LAUNCH);
+                check("the square's gift pile stands at its gift cell (listed in the square's group, the world the same)",
+                        giftCell != null && listedAs(giftCell, SeasonsBlocks.GIFT_PILE.get()), String.valueOf(giftCell));
+                check("the square's one firework crate stands at its launch cell (the piece's own crate is not placed)",
+                        launchCell != null && listedAs(launchCell, SeasonsBlocks.FIREWORK_CRATE.get())
+                                && countOf(st -> st.is(SeasonsBlocks.FIREWORK_CRATE.get())) == 1, launchCell + ", "
+                                + countOf(st -> st.is(SeasonsBlocks.FIREWORK_CRATE.get())) + " crates");
+                check("the gift and launch cells are not in the tree's box (they stand on the paving)", box != null && giftCell != null
+                        && launchCell != null && !box.intersects(new AABB(giftCell)) && !box.intersects(new AABB(launchCell)), String.valueOf(box));
                 final BlockPos crate = firstOf(st -> st.is(SeasonsBlocks.FIREWORK_CRATE.get()));
-                checkEq("the show leaves from the crate the square's tree has", Fireworks.site(level, colony), crate);
+                checkEq("the show leaves from the crate at the square's launch cell", Fireworks.site(level, colony), launchCell);
                 // where the Decorator waits for the show: never inside the tree (S10c), also when it leaves from the crate by the trunk
                 final BlockPos naive = crate == null ? null : Gathering.standable(level, crate.relative(Direction.SOUTH, 2));
                 note("two blocks south of the crate {} is {} ({} the tree's box)", crate, naive,
