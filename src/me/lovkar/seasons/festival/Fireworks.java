@@ -18,6 +18,7 @@ import me.lovkar.seasons.colony.DecoratorTexts;
 import me.lovkar.seasons.colony.JobDecorator;
 import me.lovkar.seasons.decor.DecorLedger;
 import me.lovkar.seasons.decor.DecorWork;
+import me.lovkar.seasons.decor.Squares;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
@@ -469,7 +470,7 @@ public final class Fireworks {
      */
     public static BlockPos site(final ServerLevel level, final IColony colony) {
         final DecorLedger ledger = DecorLedger.peek(level);
-        final BlockPos marker = ledger == null ? null : ledger.marker(colony.getID());
+        final BlockPos marker = ledger == null ? null : Squares.marker(ledger, colony.getID());
         if (marker == null || !level.hasChunkAt(marker) || !(level.getBlockState(marker).getBlock() instanceof FestivalMarkerBlock)) {
             return null;
         }

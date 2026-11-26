@@ -18,6 +18,7 @@ import me.lovkar.seasons.colony.JobDecorator;
 import me.lovkar.seasons.decor.DecorLedger;
 import me.lovkar.seasons.decor.DecorWork;
 import me.lovkar.seasons.decor.PieceLoader;
+import me.lovkar.seasons.decor.Squares;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceKey;
@@ -156,7 +157,7 @@ public final class Gathering {
     /** Where the colony gathers: its festival marker when it stands, else the town hall, else the colony's centre. */
     public static BlockPos site(final ServerLevel level, final IColony colony) {
         final DecorLedger ledger = DecorLedger.peek(level);
-        final BlockPos marker = ledger == null ? null : ledger.marker(colony.getID());
+        final BlockPos marker = ledger == null ? null : Squares.marker(ledger, colony.getID());
         if (marker != null && level.hasChunkAt(marker) && level.getBlockState(marker).getBlock() instanceof FestivalMarkerBlock) {
             return marker;
         }
@@ -348,7 +349,7 @@ public final class Gathering {
     /** During the hours the marker is one of the colony's leisure sites ([V]: only where its block entity is a blueprint-data provider). */
     private static void leisureSite(final ServerLevel level, final IColony colony, final boolean on) {
         final DecorLedger ledger = DecorLedger.peek(level);
-        final BlockPos marker = ledger == null ? null : ledger.marker(colony.getID());
+        final BlockPos marker = ledger == null ? null : Squares.marker(ledger, colony.getID());
         if (marker == null || !level.hasChunkAt(marker)) {
             return;
         }

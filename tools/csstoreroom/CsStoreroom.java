@@ -1095,7 +1095,7 @@ public class CsStoreroom {
         check("version 2: the outside forms leave the storeroom out", v2.countOutdoor(FILE_COLONY) == 4 && v2.count(FILE_COLONY) == 6
                 && v2.hasOutdoorEntries(FILE_COLONY), v2.countOutdoor(FILE_COLONY) + "/" + v2.count(FILE_COLONY));
         final CompoundTag saved = v2.save(new CompoundTag(), provider);
-        checkEq("this build writes version 2", saved.getInt("version"), 2);
+        checkEq("this build writes version 3", saved.getInt("version"), 3);
         final DecorLedger back = DecorLedger.load(saved, provider);
         checkEq("version 2 with a storeroom: save and load give the same groups", back.groups(FILE_COLONY), v2.groups(FILE_COLONY));
         checkEq("version 2 with a storeroom: and the same entries", back.entries(FILE_COLONY), v2.entries(FILE_COLONY));

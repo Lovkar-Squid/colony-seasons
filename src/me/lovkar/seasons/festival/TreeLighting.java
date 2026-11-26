@@ -11,6 +11,7 @@ import me.lovkar.seasons.calendar.CalendarManager;
 import me.lovkar.seasons.decor.DecorLedger;
 import me.lovkar.seasons.decor.DecorPhase;
 import me.lovkar.seasons.decor.DecorWork;
+import me.lovkar.seasons.decor.Squares;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.level.ServerLevel;
@@ -69,7 +70,7 @@ public final class TreeLighting {
      * that cannot be placed now does not keep the tree dark); else {@code null}.
      */
     public static DecorLedger.GroupView tree(final DecorLedger ledger, final int colony) {
-        final BlockPos marker = ledger.marker(colony);
+        final BlockPos marker = Squares.marker(ledger, colony);
         if (marker == null) {
             return null;
         }
@@ -171,7 +172,7 @@ public final class TreeLighting {
         final int switched = switchOn(level, ledger, id);
         ledger.flush(level);
         FestivalData.of(level).setTreeLit(id, by);
-        final BlockPos marker = ledger.marker(id);
+        final BlockPos marker = Squares.marker(ledger, id);
         final BlockPos at = marker != null ? marker : colony.getCenter();
         level.playSound(null, at, FestivalSounds.CHIME.get(), SoundSource.BLOCKS, 2.0F, 1.0F);
         Fireworks.celebrate(level, id, Fireworks.LIGHTING_ROCKETS);

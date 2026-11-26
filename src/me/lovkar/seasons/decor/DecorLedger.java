@@ -46,7 +46,8 @@ import java.util.TreeMap;
  * "removing" mark for the server sweep. Per colony the record also keeps the day's building budget (how many and
  * which buildings or squares were counted on that game day: the count belongs to the colony, so a group that is
  * dropped and made again the same day, as when a work order takes a building's decorations off, is not counted
- * twice), the festival marker, and when the colony's managers were last told the square has no room.</p>
+ * twice), the festival marker, the main Town Square's mark (0.2.0, {@link SquareMark}), and when the colony's managers
+ * were last told the square has no room.</p>
  *
  * <p>Rules this class keeps: a position is listed at most once, in all colonies of the level together ({@link #record}
  * refuses a second one), and {@link #record} is called BEFORE the block is set, so a crash can at worst leave an entry
@@ -61,12 +62,15 @@ import java.util.TreeMap;
 public final class DecorLedger extends SavedData {
     public static final String FILE = "colony_seasons_decor";
     /**
-     * The file format: 1 (S4 to S10g1), 2 (S10g2: the {@link Kind#STOREROOM} kind). The layout is the same; a file with
-     * no version, or with version 1, has no storeroom groups and loads exactly as before. A build that knows only
-     * version 1 reads a version 2 file with its one warning and skips the storeroom groups (their blocks do not exist
-     * in that build either).
+     * The file format: 1 (S4 to S10g1), 2 (S10g2: the {@link Kind#STOREROOM} kind), 3 (0.2.0, Q2: per colony the main
+     * Town Square's mark, {@code squareBuilding} and {@code squareAnchor}, see {@link SquareMark}). The layout is the
+     * same in all three, and each version only adds: a file with no version, or with version 1, has no storeroom groups
+     * and no mark and loads exactly as before; a version 2 file has no mark. A build that knows only version 1 reads a
+     * version 2 file with its one warning and skips the storeroom groups (their blocks do not exist in that build
+     * either); a build that knows version 2 (0.1.0) reads a version 3 file with its one warning and ignores the two mark
+     * keys, and its own rule (a square's group whose position is not the marker goes) then takes the square's group down.
      */
-    static final int VERSION = 2;
+    static final int VERSION = 3;
 
     /**
      * What a group belongs to: a building (its hut position), the square (its festival marker's position), or the
@@ -159,6 +163,9 @@ public final class DecorLedger extends SavedData {
         /** The owners counted on {@code budgetDay}; kept when their group is dropped. */
         final Set<Owner> charged = new LinkedHashSet<>();
         BlockPos marker;
+        /** The main Town Square's hut and its centrepiece cell (version 3): both set or both null. */
+        BlockPos squareBuilding;
+        BlockPos squareAnchor;
         long noticeDay = -1;
         boolean squareProblem;
         final LinkedHashMap<Owner, Group> groups = new LinkedHashMap<>();
@@ -638,6 +645,53 @@ public final class DecorLedger extends SavedData {
         return -1;
     }
 
+    /**
+     * The colony's main Town Square as the resolver last stored it (0.2.0, Q2, design 4.6): the hut's position and the
+     * centrepiece cell (the world position of its {@code tree} tag). While a mark is stored the festival marker is only
+     * the fallback ({@link Squares}).
+     */
+    public record SquareMark(BlockPos building, BlockPos anchor) {
+        public SquareMark {
+            building = building.immutable();
+            anchor = anchor.immutable();
+        }
+    }
+
+    /** The colony's stored {@link SquareMark}, or {@code null}. */
+    public SquareMark squareMark(final int colony) {
+        final ColonyRecord record = colonies.get(colony);
+        return record == null || record.squareBuilding == null || record.squareAnchor == null
+                ? null : new SquareMark(record.squareBuilding, record.squareAnchor);
+    }
+
+    /** Stores the colony's main square (makes the record if there is none); true, and marked dirty, only when it changed. */
+    public boolean setSquareMark(final int colony, final BlockPos building, final BlockPos anchor) {
+        ColonyRecord record = colonies.get(colony);
+        if (record != null && building.equals(record.squareBuilding) && anchor.equals(record.squareAnchor)) {
+            return false;
+        }
+        if (record == null) {
+            record = new ColonyRecord();
+            colonies.put(colony, record);
+        }
+        record.squareBuilding = building.immutable();
+        record.squareAnchor = anchor.immutable();
+        setDirty();
+        return true;
+    }
+
+    /** Forgets the colony's main square (never makes a record); true, and marked dirty, only when one was stored. */
+    public boolean clearSquareMark(final int colony) {
+        final ColonyRecord record = colonies.get(colony);
+        if (record == null || record.squareBuilding == null && record.squareAnchor == null) {
+            return false;
+        }
+        record.squareBuilding = null;
+        record.squareAnchor = null;
+        setDirty();
+        return true;
+    }
+
     /** True while the square's piece does not fit at the marker (S8 shows it in the hut window). */
     public boolean squareProblem(final int colony) {
         final ColonyRecord record = colonies.get(colony);
@@ -807,7 +861,11 @@ public final class DecorLedger extends SavedData {
             }
             one.put("charged", charged);
             if (record.marker != null) {
-                one.putLong("marker", record.marker.asLong());
+                one.putLong("marker", record.marker.asLong());   // also while a square is main: 0.1.0 reads it as the square
+            }
+            if (record.squareBuilding != null && record.squareAnchor != null) {
+                one.putLong("squareBuilding", record.squareBuilding.asLong());
+                one.putLong("squareAnchor", record.squareAnchor.asLong());
             }
             one.putLong("noticeDay", record.noticeDay);
             one.putBoolean("squareProblem", record.squareProblem);
@@ -871,8 +929,8 @@ public final class DecorLedger extends SavedData {
     }
 
     /**
-     * Reads a ledger. The file's {@code version} is read first (a file without one is version 1; versions 1 and 2 share
-     * one layout, so both read the same way): a newer one than
+     * Reads a ledger. The file's {@code version} is read first (a file without one is version 1; versions 1, 2 and 3
+     * share one layout, so all read the same way, a version 3 file with its square marks): a newer one than
      * {@link #VERSION} is read for what this version knows, with one warning naming both versions; group kinds this
      * version does not know are skipped and counted in that warning.
      */
@@ -898,6 +956,11 @@ public final class DecorLedger extends SavedData {
             }
             final boolean oldFile = !one.contains("charged");
             record.marker = one.contains("marker") ? BlockPos.of(one.getLong("marker")) : null;
+            // version 3: the main square's mark; one key without the other reads as no mark
+            if (one.contains("squareBuilding", Tag.TAG_LONG) && one.contains("squareAnchor", Tag.TAG_LONG)) {
+                record.squareBuilding = BlockPos.of(one.getLong("squareBuilding"));
+                record.squareAnchor = BlockPos.of(one.getLong("squareAnchor"));
+            }
             record.noticeDay = one.contains("noticeDay") ? one.getLong("noticeDay") : -1;
             record.squareProblem = one.getBoolean("squareProblem");
             ledger.colonies.put(id, record);

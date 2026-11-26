@@ -6,10 +6,12 @@ import com.minecolonies.api.colony.IColonyManager;
 import com.minecolonies.api.colony.buildings.IBuilding;
 import com.minecolonies.api.eventbus.events.ColonyManagerLoadedModEvent;
 import com.minecolonies.api.eventbus.events.ColonyManagerUnloadedModEvent;
+import com.minecolonies.api.eventbus.events.colony.buildings.BuildingConstructionModEvent;
 import com.minecolonies.api.eventbus.events.colony.buildings.BuildingRemovedModEvent;
 import me.lovkar.seasons.ColonySeasons;
 import me.lovkar.seasons.calendar.CalendarManager;
 import me.lovkar.seasons.colony.BuildingDecorator;
+import me.lovkar.seasons.colony.BuildingTownSquare;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
@@ -22,7 +24,11 @@ import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 import net.neoforged.neoforge.event.tick.LevelTickEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Queue;
+import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -33,6 +39,10 @@ import java.util.concurrent.atomic.AtomicInteger;
  *   <li>MineColonies' {@code BuildingRemovedModEvent} (its own event bus): that building's decorations go at the end
  *       of the server tick, if the colony really has no building there any more;</li>
  *   <li>a festival marker broken: its square goes the same way;</li>
+ *   <li>the Town Square (0.2.0, Q2, design 4.6 to 4.8): {@link Squares} names the colony's one centrepiece, the sweep
+ *       takes every square group elsewhere down, a work order on the main square takes its group down from the end of
+ *       that tick on, in slices ({@link #squareOrder}, and {@link #squareWatch} for an order that came another way), and a
+ *       removed square's group goes at once and the marker takes over again;</li>
  *   <li>the sweep, every {@link #SWEEP_INTERVAL} ticks per level, at most {@link #SWEEP_BUDGET} cells a pass, only in
  *       loaded chunks and never before MineColonies' colony manager has loaded: groups marked for removal; a
  *       building's group while the building is under construction (an upgrade or repair would clear our blocks in
@@ -50,9 +60,29 @@ public final class DecorEvents {
 
     public static final int SWEEP_INTERVAL = 100;
     public static final int SWEEP_BUDGET = 256;
+    /**
+     * Ticks between two looks for a busy main Town Square whose group is still up (0.2.0, Q2): a work order that did not
+     * come through the square's own request (MineColonies' {@code requestWorkOrder}) is seen within this many ticks.
+     */
+    public static final int SQUARE_WATCH = 20;
 
-    /** A group to remove at the end of the tick; {@code ifGone}: only if the colony has no building at the owner's position. */
-    private record Pending(ResourceKey<Level> dimension, int colony, DecorLedger.Owner owner, boolean ifGone) {
+    /** What a queued item asks for at the end of the tick. */
+    private enum What {
+        /** Remove the owner's group, unless the colony has a building at {@code guard} again (guard null: always). */
+        GROUP,
+        /** The Town Square whose hut stood at {@code guard} was removed: its group goes whole, the resolver runs again. */
+        SQUARE_REMOVED,
+        /** The Town Square at {@code guard} has a work order: its group comes down, {@link DecorWork#SQUARE_SLICE} cells a tick. */
+        SQUARE_ORDER,
+        /** The Town Square at {@code guard} was built, upgraded or removed by the Builder: the resolver runs again. */
+        SQUARE_REFRESH
+    }
+
+    /**
+     * One item of work for the end of the tick. {@code owner} is the group (only for {@link What#GROUP}); {@code guard} is
+     * a building position that is not the group's own (a square's group sits at its centrepiece, not at its hut).
+     */
+    private record Pending(ResourceKey<Level> dimension, int colony, What what, DecorLedger.Owner owner, BlockPos guard) {
     }
 
     private static final Queue<Pending> QUEUE = new ConcurrentLinkedQueue<>();
@@ -85,6 +115,7 @@ public final class DecorEvents {
         try {
             final var bus = IMinecoloniesAPI.getInstance().getEventBus();
             bus.subscribe(BuildingRemovedModEvent.class, DecorEvents::onBuildingRemoved);
+            bus.subscribe(BuildingConstructionModEvent.class, DecorEvents::onBuildingConstructed);
             bus.subscribe(ColonyManagerLoadedModEvent.class, e -> MANAGER_LOADS.incrementAndGet());
             bus.subscribe(ColonyManagerUnloadedModEvent.class, e -> MANAGER_LOADS.updateAndGet(n -> Math.max(0, n - 1)));
             subscribed = true;
@@ -119,15 +150,52 @@ public final class DecorEvents {
         final IBuilding building = event.getBuilding();
         final IColony colony = building == null ? null : building.getColony();
         if (colony != null) {
-            QUEUE.add(new Pending(colony.getDimension(), colony.getID(), DecorLedger.Owner.building(building.getPosition()), true));
+            final BlockPos at = building.getPosition().immutable();
+            QUEUE.add(new Pending(colony.getDimension(), colony.getID(), What.GROUP, DecorLedger.Owner.building(at), at));
             // a Workshop's storeroom goes with it (storage-look 3.3 point 5); any other building has no such group
-            QUEUE.add(new Pending(colony.getDimension(), colony.getID(), DecorLedger.Owner.storeroom(building.getPosition()), true));
+            QUEUE.add(new Pending(colony.getDimension(), colony.getID(), What.GROUP, DecorLedger.Owner.storeroom(at), at));
+            if (building instanceof BuildingTownSquare) {
+                // the square's group sits at its centrepiece, which the stored mark names (read when the queue is worked off)
+                QUEUE.add(new Pending(colony.getDimension(), colony.getID(), What.SQUARE_REMOVED, null, at));
+            }
+        }
+    }
+
+    /** MineColonies' Builder finished a work order (build, upgrade, repair, removal): a Town Square's resolver runs again. */
+    private static void onBuildingConstructed(final BuildingConstructionModEvent event) {
+        if (event.getBuilding() instanceof BuildingTownSquare square) {
+            squareChanged(square);
+        }
+    }
+
+    /**
+     * A Town Square's level or state changed (its upgrade completed, a removal order finished): the resolver runs at
+     * the end of the tick. Not at once, because MineColonies' Builder calls {@code onUpgradeComplete} before it sets the
+     * new level (bytecode of {@code AbstractEntityAIStructureWithWorkOrder}).
+     */
+    public static void squareChanged(final BuildingTownSquare square) {
+        final IColony colony = square.getColony();
+        if (colony != null) {
+            QUEUE.add(new Pending(colony.getDimension(), colony.getID(), What.SQUARE_REFRESH, null, square.getPosition().immutable()));
+        }
+    }
+
+    /**
+     * [B] design 4.6: a work order on a Town Square (upgrade, repair, removal) takes its group down on the server at
+     * once, before the Builder reaches CLEAR_NON_SOLIDS. Called by the square's {@code requestWorkOrder}; the group goes
+     * at the end of this tick, {@link DecorWork#SQUARE_SLICE} cells a tick. Work orders that come another way are seen
+     * by {@link #squareWatch} within {@link #SQUARE_WATCH} ticks.
+     */
+    public static void squareOrder(final BuildingTownSquare square) {
+        final IColony colony = square.getColony();
+        if (colony != null) {
+            QUEUE.add(new Pending(colony.getDimension(), colony.getID(), What.SQUARE_ORDER, null, square.getPosition().immutable()));
         }
     }
 
     /** A festival marker went: its square's decorations go at the end of the tick. */
     public static void squareGone(final ServerLevel level, final int colony, final BlockPos marker) {
-        QUEUE.add(new Pending(level.dimension(), colony, DecorLedger.Owner.square(marker), false));
+        QUEUE.add(new Pending(level.dimension(), colony, What.GROUP, DecorLedger.Owner.square(marker), null));
     }
 
     /** Lines "only the first marker counts" sent since the server started (the probe counts them). */
@@ -142,10 +210,16 @@ public final class DecorEvents {
      * (one marker per colony in 0.1.0). A registered marker that no longer stands (its chunk loaded) is replaced. A
      * marker that is not registered because the colony has another one (standing, or in a chunk that is not loaded)
      * sends the colony's managers one line that only the first one counts (the owner's answer of 20 Nov 2026), once
-     * for this placement; the registered marker placed again at its own position sends nothing.
+     * for this placement; the registered marker placed again at its own position sends nothing. 0.2.0: while a Town
+     * Square is the colony's main square, a marker that registers is the fallback only, and the managers get one line
+     * that the festival marker is not used while the Town Square stands (design 4.8).
      */
     public static boolean markerPlaced(final ServerLevel level, final int colony, final BlockPos pos) {
         final DecorLedger ledger = DecorLedger.get(level);
+        final IColony owner = colonyOf(level, colony);
+        if (owner != null) {
+            Squares.refresh(level, owner, ledger);
+        }
         final BlockPos old = ledger.marker(colony);
         if (old != null && !old.equals(pos) && level.hasChunkAt(old)
                 && !(level.getBlockState(old).getBlock() instanceof me.lovkar.seasons.block.FestivalMarkerBlock)) {
@@ -153,13 +227,25 @@ public final class DecorEvents {
             squareGone(level, colony, old);
             me.lovkar.seasons.festival.Gathering.markerGone(level, colony, old);
         }
+        final boolean fresh = !pos.equals(ledger.marker(colony));
         final boolean registered = ledger.registerMarker(colony, pos);
         ledger.flush(level);
         if (!registered) {
             secondMarkerNotices++;
             DecorWork.toManagers(level, colony, "com.colony_seasons.decor.second_marker");
+        } else if (fresh && ledger.squareMark(colony) != null) {
+            Squares.markerUnused(level, colony);
         }
         return registered;
+    }
+
+    /** The colony MineColonies has loaded with this id in this level, or {@code null} (also when MineColonies cannot say). */
+    private static IColony colonyOf(final ServerLevel level, final int colony) {
+        try {
+            return IColonyManager.getInstance().getColonyByWorld(colony, level);
+        } catch (final RuntimeException unavailable) {
+            return null;
+        }
     }
 
     /** A marker block went: if it was a colony's square, the colony has none now and the square's decorations go. */
@@ -180,8 +266,13 @@ public final class DecorEvents {
         drain(event.getServer());
     }
 
-    /** Works off everything queued so far (public for the probe, which may want it done before it looks). */
+    /**
+     * Works off everything queued so far (public for the probe, which may want it done before it looks). A square's
+     * work-order take-down that has cells left is queued again for the next call (the next tick), never in this one.
+     */
     public static void drain(final MinecraftServer server) {
+        List<Pending> again = null;
+        final Set<Pending> sliced = new HashSet<>();
         Pending pending;
         while ((pending = QUEUE.poll()) != null) {
             final ServerLevel level = server.getLevel(pending.dimension());
@@ -189,16 +280,132 @@ public final class DecorEvents {
                 continue;
             }
             final DecorLedger ledger = DecorLedger.peek(level);
-            if (ledger == null || ledger.group(pending.colony(), pending.owner()) == null) {
+            if (ledger == null) {
                 continue;
             }
-            final IColony colony = IColonyManager.getInstance().getColonyByWorld(pending.colony(), level);
-            if (pending.ifGone() && colony != null && colony.getServerBuildingManager().getBuilding(pending.owner().pos()) != null) {
-                continue;                              // a building is there again (or never went): nothing to do
+            switch (pending.what()) {
+                case GROUP -> removeQueued(level, ledger, pending);
+                case SQUARE_REMOVED -> squareRemoved(level, ledger, pending);
+                case SQUARE_REFRESH -> {
+                    final IColony colony = colonyOf(level, pending.colony());
+                    if (colony != null) {
+                        Squares.refresh(level, colony, ledger);
+                    }
+                }
+                case SQUARE_ORDER -> {
+                    // the watch and the square's own request may both have asked: one slice a tick
+                    if (sliced.add(pending) && orderSlice(level, ledger, pending)) {
+                        if (again == null) {
+                            again = new ArrayList<>();
+                        }
+                        again.add(pending);
+                    }
+                }
             }
-            removeGroup(level, ledger, colony, pending.colony(), pending.owner(), Integer.MAX_VALUE);
-            ledger.flush(level);
         }
+        if (again != null) {
+            QUEUE.addAll(again);
+        }
+    }
+
+    private static void removeQueued(final ServerLevel level, final DecorLedger ledger, final Pending pending) {
+        if (ledger.roomMark(pending.colony(), pending.owner()) == null) {
+            return;
+        }
+        final IColony colony = colonyOf(level, pending.colony());
+        if (pending.guard() != null && colony != null && colony.getServerBuildingManager().getBuilding(pending.guard()) != null) {
+            return;                                    // a building is there again (or never went): nothing to do
+        }
+        removeGroup(level, ledger, colony, pending.colony(), pending.owner(), Integer.MAX_VALUE);
+        ledger.flush(level);
+    }
+
+    /**
+     * The main square's hut is gone (broken, destroyed with its colony): its group comes down whole at once and the
+     * resolver falls back in the same tick (to a second square, the marker, the town hall). A square that was not the
+     * main one has no group, and a hut that stands again changes nothing.
+     */
+    private static void squareRemoved(final ServerLevel level, final DecorLedger ledger, final Pending pending) {
+        final int id = pending.colony();
+        final DecorLedger.SquareMark mark = ledger.squareMark(id);
+        if (mark == null || !mark.building().equals(pending.guard())) {
+            return;
+        }
+        final IColony colony = colonyOf(level, id);
+        if (colony != null && colony.getServerBuildingManager().getBuilding(pending.guard()) != null) {
+            return;
+        }
+        removeGroup(level, ledger, colony, id, DecorLedger.Owner.square(mark.anchor()), Integer.MAX_VALUE);
+        if (colony != null) {
+            Squares.refresh(level, colony, ledger);
+        } else {
+            ledger.clearSquareMark(id);
+        }
+        ledger.flush(level);
+    }
+
+    /**
+     * One slice of a busy main square's take-down: while the stored mark names this hut, the group at its centrepiece
+     * lists entries and the square is busy (a work order on it or inside its box), at most {@link DecorWork#SQUARE_SLICE}
+     * cells come down by the exact-state rule, items to the Workshop. True when entries are left and this slice took
+     * some (it is queued again); a group stuck on unloaded cells stays marked for the sweep.
+     */
+    private static boolean orderSlice(final ServerLevel level, final DecorLedger ledger, final Pending pending) {
+        final int id = pending.colony();
+        final DecorLedger.SquareMark mark = ledger.squareMark(id);
+        if (mark == null || !mark.building().equals(pending.guard())) {
+            return false;
+        }
+        final DecorLedger.Owner owner = DecorLedger.Owner.square(mark.anchor());
+        final DecorLedger.RoomMark group = ledger.roomMark(id, owner);
+        if (group == null || group.size() == 0) {
+            return false;
+        }
+        final IColony colony = colonyOf(level, id);
+        final IBuilding square = colony == null ? null : colony.getServerBuildingManager().getBuilding(pending.guard());
+        if (!(square instanceof BuildingTownSquare) || !DecorWork.busy(colony, square)) {
+            return false;
+        }
+        final int touched = removeGroup(level, ledger, colony, id, owner, DecorWork.SQUARE_SLICE);
+        squareOrderCells += touched;
+        ledger.flush(level);
+        final DecorLedger.RoomMark left = ledger.roomMark(id, owner);
+        return touched > 0 && left != null && left.size() > 0;
+    }
+
+    /** Cells a busy square's take-down touched since the server started (the probe reads it). */
+    private static int squareOrderCells;
+
+    public static int squareOrderCells() {
+        return squareOrderCells;
+    }
+
+    /**
+     * Every {@link #SQUARE_WATCH} ticks: each colony of the level whose stored main square has a group up at its
+     * centrepiece gets the work-order check of {@link #squareOrder} (it does nothing while the square is free). With no
+     * mark stored this is one map read per colony. Returns how many checks it queued.
+     */
+    public static int squareWatch(final ServerLevel level) {
+        if (!managerLoaded()) {
+            return 0;
+        }
+        final DecorLedger ledger = DecorLedger.peek(level);
+        if (ledger == null) {
+            return 0;
+        }
+        int queued = 0;
+        for (final int id : ledger.colonies()) {
+            final DecorLedger.SquareMark mark = ledger.squareMark(id);
+            if (mark == null) {
+                continue;
+            }
+            final DecorLedger.RoomMark group = ledger.roomMark(id, DecorLedger.Owner.square(mark.anchor()));
+            if (group != null && group.size() > 0) {
+                QUEUE.add(new Pending(level.dimension(), id, What.SQUARE_ORDER, null, mark.building()));
+                queued++;
+            }
+        }
+        return queued;
     }
 
     private static void onServerStopped(final ServerStoppedEvent event) {
@@ -208,7 +415,14 @@ public final class DecorEvents {
     }
 
     private static void onLevelTick(final LevelTickEvent.Post event) {
-        if (event.getLevel() instanceof ServerLevel level && level.getGameTime() % SWEEP_INTERVAL == 0) {
+        if (!(event.getLevel() instanceof ServerLevel level)) {
+            return;
+        }
+        final long time = level.getGameTime();
+        if (time % SQUARE_WATCH == 0) {
+            squareWatch(level);
+        }
+        if (time % SWEEP_INTERVAL == 0) {
             sweep(level);
         }
     }
@@ -237,6 +451,8 @@ public final class DecorEvents {
                 continue;                             // a deleted colony with nothing listed: its record is gone now
             }
             final boolean noDecorator = colony == null || !DecorWork.staffed(colony);
+            // the colony's one centrepiece now (0.2.0): every square group anywhere else goes; the main square's mark follows
+            final Squares.Square square = colony == null ? null : Squares.refresh(level, colony, ledger);
             for (final DecorLedger.GroupView group : ledger.groups(id)) {
                 if (budget <= 0) {
                     break;
@@ -248,12 +464,12 @@ public final class DecorEvents {
                     continue;
                 }
                 if (group.owner().kind() == DecorLedger.Kind.STOREROOM) {
-                    if (roomGoes(level, colony, ledger, id, group, windowOver, busy)) {
+                    if (roomGoes(level, colony, ledger, id, group, windowOver, busy, square)) {
                         budget -= removeGroup(level, ledger, colony, id, group.owner(), budget);
                     }
                     continue;
                 }
-                if (group.removing() || windowOver && noDecorator || ownerGoneOrBusy(level, colony, ledger, id, group, busy)) {
+                if (group.removing() || windowOver && noDecorator || ownerGoneOrBusy(level, colony, ledger, id, group, busy, square)) {
                     budget -= removeGroup(level, ledger, colony, id, group.owner(), budget);
                 }
             }
@@ -275,15 +491,17 @@ public final class DecorEvents {
     }
 
     /**
-     * A colony MineColonies does not have any more (the manager is loaded, so it was deleted): its marker comes off at
-     * once, so a new colony that gets the same id inherits no square; once nothing of it is listed its record and its
-     * festival state are dropped (true then). Its entries go by the rules above (after the window, as with no Decorator).
+     * A colony MineColonies does not have any more (the manager is loaded, so it was deleted): its marker and its main
+     * square's mark come off at once, so a new colony that gets the same id inherits no square; once nothing of it is
+     * listed its record and its festival state are dropped (true then). Its entries go by the rules above (after the
+     * window, as with no Decorator).
      */
     private static boolean gone(final ServerLevel level, final DecorLedger ledger, final int id) {
         final BlockPos marker = ledger.marker(id);
         if (marker != null) {
             ledger.unregisterMarker(id, marker);
         }
+        ledger.clearSquareMark(id);
         if (ledger.hasEntries(id)) {
             return false;
         }
@@ -294,16 +512,19 @@ public final class DecorEvents {
 
     /**
      * A building's group whose building is gone or under construction (a storeroom's Workshop included), or a square
-     * whose marker is gone. {@code busy} keeps the work-order test of each position for this pass.
+     * group that is not the colony's centrepiece now ({@link Squares.Square#hosts}: the marker when it is the square,
+     * the main Town Square's anchor while that square is free; nothing while it is busy). A main square that cannot be
+     * located now keeps every square group as it is. {@code busy} keeps the work-order test of each position for this pass.
      */
     private static boolean ownerGoneOrBusy(final ServerLevel level, final IColony colony, final DecorLedger ledger, final int id,
-                                           final DecorLedger.GroupView group, final java.util.Map<BlockPos, Boolean> busy) {
+                                           final DecorLedger.GroupView group, final java.util.Map<BlockPos, Boolean> busy,
+                                           final Squares.Square square) {
         if (colony == null) {
             return false;                             // no colony: only the window's end clears it (windowOver && noDecorator)
         }
         final BlockPos pos = group.owner().pos();
         if (group.owner().kind() == DecorLedger.Kind.SQUARE) {
-            return !pos.equals(ledger.marker(id));
+            return square != null && square.located() && !square.hosts(pos);
         }
         final IBuilding building = colony.getServerBuildingManager().getBuilding(pos);
         return building == null || busy.computeIfAbsent(pos, p -> DecorWork.busy(colony, building));
@@ -318,11 +539,12 @@ public final class DecorEvents {
      * unstaffed Workshop in a colony whose other Workshop has one (its festive room would stay all year).
      */
     private static boolean roomGoes(final ServerLevel level, final IColony colony, final DecorLedger ledger, final int id,
-                                    final DecorLedger.GroupView group, final boolean windowOver, final java.util.Map<BlockPos, Boolean> busy) {
+                                    final DecorLedger.GroupView group, final boolean windowOver, final java.util.Map<BlockPos, Boolean> busy,
+                                    final Squares.Square square) {
         if (group.removing() || colony == null || !me.lovkar.seasons.SeasonsConfig.storeroomDressing()) {
             return true;
         }
-        if (ownerGoneOrBusy(level, colony, ledger, id, group, busy)) {
+        if (ownerGoneOrBusy(level, colony, ledger, id, group, busy, square)) {
             return true;
         }
         return windowOver && !StoreroomWork.staffed(colony, group.owner().pos()) && StoreroomWork.holdsFestival(group);

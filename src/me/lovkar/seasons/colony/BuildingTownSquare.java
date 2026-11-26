@@ -1,8 +1,15 @@
 package me.lovkar.seasons.colony;
 
+import com.ldtteam.structurize.blueprints.v1.Blueprint;
 import com.minecolonies.api.colony.IColony;
+import com.minecolonies.api.colony.buildings.IBuilding;
+import com.minecolonies.api.colony.workorders.WorkOrderType;
 import com.minecolonies.core.colony.buildings.AbstractBuilding;
+import me.lovkar.seasons.decor.DecorEvents;
+import me.lovkar.seasons.decor.DecorLedger;
+import me.lovkar.seasons.decor.Squares;
 import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerLevel;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -13,10 +20,12 @@ import java.util.List;
  * places and the Builder builds, which the Decorator decorates while he stays employed at his Workshop. It has no
  * worker module; one Decorator is assigned to it through {@link SquareModules#DECORATOR}. Chunk Q1 builds the shell and
  * the assignment only: nothing is placed on the square yet, and {@code DecorWork.buildingsInOrder} leaves it out of
- * the Decorator's buildings (it has no doors).
+ * the Decorator's buildings (it has no doors). Chunk Q2 makes it the colony's centrepiece ({@code decor.Squares}): a
+ * work order on it takes its group down first, and its removal or completed upgrade runs the resolver again.
  *
  * <p>Its footprint is 21 x 21 at every level and the tag cells below keep their place at every level ([B] design 4.1),
- * so an upgrade never moves the square's centrepiece. It saves nothing of its own in Q1.</p>
+ * so an upgrade never moves the square's centrepiece. It saves nothing of its own; the decoration ledger keeps which
+ * square is the main one.</p>
  */
 public class BuildingTownSquare extends AbstractBuilding {
 
@@ -78,5 +87,47 @@ public class BuildingTownSquare extends AbstractBuilding {
     /** The square's Decorator module (looked up by its producer, never with getModuleMatching); null if it is somehow missing. */
     public @Nullable SquareAssignmentModule assignment() {
         return getModule(SquareModules.DECORATOR);
+    }
+
+    /**
+     * [B] design 4.6 (Q2): every work order MineColonies makes for this square (the hut window's upgrade, repair and
+     * removal all come here) takes the square's group down on the server, from the end of this tick, before the Builder
+     * reaches CLEAR_NON_SOLIDS. An order made another way is seen by {@code DecorEvents.squareWatch}.
+     */
+    @Override
+    protected void requestWorkOrder(final WorkOrderType type, final BlockPos builder) {
+        super.requestWorkOrder(type, builder);
+        if (isPendingConstruction()) {
+            DecorEvents.squareOrder(this);
+        }
+    }
+
+    /** The upgrade is done: the resolver runs again at the end of the tick (MineColonies sets the new level after this). */
+    @Override
+    public void onUpgradeComplete(final Blueprint blueprint, final int newLevel) {
+        super.onUpgradeComplete(blueprint, newLevel);
+        if (getColony() != null && getColony().getWorld() instanceof ServerLevel level && DecorLedger.peek(level) != null) {
+            DecorEvents.squareChanged(this);
+        }
+    }
+
+    /**
+     * Placed (MineColonies calls this once, when the hut makes the building): a colony that has another Town Square
+     * already is told that only the main one is decorated in this version (design 4.3 and 4.8). A square whose removal
+     * order is done (deconstructed, its hut only waiting to be picked up) is no other square.
+     */
+    @Override
+    public void onPlacement() {
+        super.onPlacement();
+        final IColony colony = getColony();
+        if (colony == null || !(colony.getWorld() instanceof ServerLevel level)) {
+            return;
+        }
+        for (final IBuilding other : colony.getServerBuildingManager().getBuildings().values()) {
+            if (other instanceof BuildingTownSquare square && other != this && !square.isDeconstructed()) {
+                Squares.secondSquare(level, colony.getID());
+                return;
+            }
+        }
     }
 }

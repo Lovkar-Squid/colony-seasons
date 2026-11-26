@@ -364,9 +364,13 @@ public final class DecorWork {
         return moved;
     }
 
-    /** The colony's square, if a marker is registered and still stands (or its chunk is not loaded). */
+    /**
+     * The colony's square, if a marker is registered and still stands (or its chunk is not loaded) and no Town Square is
+     * the colony's main square ({@link Squares#marker}: while one is, the marker is only the fallback). In 0.2.0 Q2
+     * nothing is put up on a Town Square yet; Q3 makes its tag-anchored target here.
+     */
     public static Target squareTarget(final ServerLevel level, final DecorLedger ledger, final int colony) {
-        final BlockPos marker = ledger.marker(colony);
+        final BlockPos marker = Squares.marker(ledger, colony);
         if (marker == null || !level.hasChunkAt(marker)) {
             return null;
         }
@@ -615,7 +619,9 @@ public final class DecorWork {
             ledger.flush(level);
             return Outcome.of(0, 1, false, "took the old tree down (" + removed.removed() + " blocks) for a new one");
         }
-        // design 3.2: collision only at a marker the player put down; it may have been broken while he walked here
+        // design 3.2 with the owner's answer of 20 Nov 2026: blocks with collision only at a marker the player put down
+        // or on a Town Square the player built (Q3 puts the square's own target here); the marker may have been broken
+        // while he walked here
         final BlockPos marker = target.owner().pos();
         if (!level.hasChunkAt(marker)) {
             return Outcome.of(0, 0, false, "waiting for the square's chunks to load");
