@@ -72,9 +72,11 @@ public class FestivalMarkerBlock extends HorizontalDirectionalBlock implements E
         }
         marker.setPlacedBy(placer == null ? null : placer.getUUID());
         marker.setColonyId(colonyAt(level, pos));
-        // only a player's own placing chooses the square (design 3.5; 3.2: nothing with collision goes up except at a
-        // marker the player put down). Structurize's paste and MineColonies' builder call this with no placer, and
-        // /setblock never calls it, so a marker from a blueprint or a command is a plain block (S10h)
+        // only a player's own placing chooses the square (design 3.5; 3.2 with the owner's answer of 20 Nov 2026: nothing
+        // with collision goes up except at a marker the player put down or on a Town Square the player built).
+        // Structurize's paste and MineColonies' builder call this with no placer, and /setblock never calls it, so a
+        // marker from a blueprint or a command is a plain block (S10h). While a Town Square is the colony's main square
+        // the marker registers as its fallback, and DecorEvents.markerPlaced tells the managers that it is not used
         if (level instanceof ServerLevel server && placer instanceof Player && marker.getColonyId() != FestivalMarkerBlockEntity.NO_COLONY) {
             DecorEvents.markerPlaced(server, marker.getColonyId(), pos);
         }

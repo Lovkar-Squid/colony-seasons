@@ -30,6 +30,7 @@ import me.lovkar.seasons.decor.DecorWork;
 import me.lovkar.seasons.decor.DoorFinder;
 import me.lovkar.seasons.decor.Kits;
 import me.lovkar.seasons.decor.PieceLoader;
+import me.lovkar.seasons.decor.Squares;
 import me.lovkar.seasons.decor.StoreroomWork;
 import me.lovkar.seasons.decor.Supply;
 import me.lovkar.seasons.festival.Fireworks;
@@ -876,7 +877,7 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
     private BlockPos standOutside(final ServerLevel level, final BlockPos from) {
         final int colony = building.getColony().getID();
         final DecorLedger ledger = ledger();
-        final BlockPos marker = ledger == null ? null : ledger.marker(colony);
+        final BlockPos marker = ledger == null ? null : Squares.marker(ledger, colony);
         if (marker == null || !level.hasChunkAt(marker) || !(level.getBlockState(marker).getBlock() instanceof FestivalMarkerBlock)) {
             return null;
         }
