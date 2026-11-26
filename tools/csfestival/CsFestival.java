@@ -909,8 +909,19 @@ public class CsFestival {
                 check("no spot is inside the tree's box", box != null && spots.stream().noneMatch(sp -> box.intersects(new AABB(sp))), String.valueOf(box));
                 checkEq("a Town Square keeps its crowd within the square's keep radius", Gathering.keepRadius(level, colony, marker), Gathering.SQUARE_KEEP_RADIUS);
                 check("the tree is finished from the square's group (the lighting reads the tree cell)", TreeLighting.tree(ledger, colonyId) != null, "");
-                checkEq("the show leaves from the crate the square's tree has", Fireworks.site(level, colony),
-                        firstOf(st -> st.is(SeasonsBlocks.FIREWORK_CRATE.get())));
+                final BlockPos crate = firstOf(st -> st.is(SeasonsBlocks.FIREWORK_CRATE.get()));
+                checkEq("the show leaves from the crate the square's tree has", Fireworks.site(level, colony), crate);
+                // where the Decorator waits for the show: never inside the tree (S10c), also when it leaves from the crate by the trunk
+                final BlockPos naive = crate == null ? null : Gathering.standable(level, crate.relative(Direction.SOUTH, 2));
+                note("two blocks south of the crate {} is {} ({} the tree's box)", crate, naive,
+                        naive != null && box != null && box.intersects(body(naive)) ? "inside" : "outside");
+                final BlockPos fromCrate = crate == null ? null : EntityAIWorkDecorator.squareLaunchStand(level, box, marker, crate);
+                check("he waits for the show from the crate outside the tree's box", fromCrate != null && box != null
+                        && !box.intersects(body(fromCrate)), fromCrate + ", crate " + crate + ", box " + box);
+                final BlockPos launch = launchBlock();
+                final BlockPos fromLaunch = launch == null ? null : EntityAIWorkDecorator.squareLaunchStand(level, box, marker, launch);
+                check("he waits for the show from the launch cell beside it, outside the tree's box", fromLaunch != null && box != null
+                        && !box.intersects(body(fromLaunch)) && fromLaunch.distSqr(launch) <= 3 * 3 + 3 * 3, fromLaunch + ", launch " + launch);
                 check("the square's hut is not a leisure site outside the hours",
                         !colony.getServerBuildingManager().getLeisureSites().contains(townSquare.getPosition()), "");
                 check("the hut block's block entity is a blueprint-data provider (the leisure wander strolls in it)",
@@ -1855,6 +1866,11 @@ public class CsFestival {
 
     private int within() {
         return townSquare != null ? WITHIN_SQUARE : WITHIN;
+    }
+
+    /** A colonist's body standing at {@code feet}: the feet and the head cell. */
+    private static AABB body(final BlockPos feet) {
+        return new AABB(feet.getX(), feet.getY(), feet.getZ(), feet.getX() + 1, feet.getY() + 2, feet.getZ() + 1);
     }
 
     private boolean inside(final ICitizenData c, final AABB box) {

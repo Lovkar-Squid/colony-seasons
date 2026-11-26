@@ -877,17 +877,31 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
         final DecorLedger ledger = ledger();
         final Squares.Centre centre = ledger == null ? null : Squares.centre(ledger, building.getColony().getID());
         if (centre != null && centre.onSquare()) {
-            // the square's launch point is no tree: he waits two blocks from it, on whichever side has room
-            for (final Direction side : new Direction[] {Direction.SOUTH, Direction.NORTH, Direction.EAST, Direction.WEST}) {
-                final BlockPos stand = Gathering.standable(level, site.relative(side, 2));
-                if (stand != null) {
-                    return stand;
-                }
-            }
-            return Gathering.standable(level, site.above());
+            final BuildingTownSquare square = Squares.building(building.getColony(), ledger);
+            final AABB box = square == null || !level.hasChunkAt(centre.anchor()) ? null
+                    : DecorWork.townSquareBox(level, ledger, building.getColony().getID(), square, centre.anchor(), building.getBuildingLevel());
+            return squareLaunchStand(level, box, centre.anchor(), site);
         }
         final BlockPos stand = standOutside(level, site);
         return stand != null ? stand : Gathering.standable(level, site.relative(Direction.SOUTH, 2));
+    }
+
+    /**
+     * Where he waits for the show on a Town Square: two blocks from the launch site on whichever side has room and is
+     * outside the tree's {@code box} (the site may be the crate, which stands beside the trunk: S10c, never inside the
+     * tree), else the standing place outside the box nearest the site ({@link DecorWork#squareStand}), else on the site.
+     * Public for the probe.
+     */
+    public static BlockPos squareLaunchStand(final ServerLevel level, final AABB box, final BlockPos anchor, final BlockPos site) {
+        for (final Direction side : new Direction[] {Direction.SOUTH, Direction.NORTH, Direction.EAST, Direction.WEST}) {
+            final BlockPos stand = Gathering.standable(level, site.relative(side, 2));
+            if (stand != null && (box == null || !box.intersects(new AABB(stand.getX(), stand.getY(), stand.getZ(),
+                    stand.getX() + 1, stand.getY() + 2, stand.getZ() + 1)))) {
+                return stand;
+            }
+        }
+        final BlockPos outside = DecorWork.squareStand(level, box, anchor, site);
+        return outside != null ? outside : Gathering.standable(level, site.above());
     }
 
     /**
