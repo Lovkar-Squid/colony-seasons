@@ -1,5 +1,12 @@
 package me.lovkar.seasons.csfestival;
 
+import com.ldtteam.structurize.api.RotationMirror;
+import com.ldtteam.structurize.blueprints.v1.Blueprint;
+import com.ldtteam.structurize.placement.AbstractBlueprintIterator;
+import com.ldtteam.structurize.placement.StructurePhasePlacementResult;
+import com.ldtteam.structurize.placement.StructurePlacer;
+import com.ldtteam.structurize.placement.structure.CreativeStructureHandler;
+import com.ldtteam.structurize.storage.StructurePacks;
 import com.minecolonies.api.colony.ICitizenData;
 import com.minecolonies.api.colony.IColony;
 import com.minecolonies.api.colony.IColonyManager;
@@ -23,6 +30,7 @@ import me.lovkar.seasons.calendar.CalendarManager;
 import me.lovkar.seasons.calendar.DateSource;
 import me.lovkar.seasons.calendar.Season;
 import me.lovkar.seasons.colony.BuildingDecorator;
+import me.lovkar.seasons.colony.BuildingTownSquare;
 import me.lovkar.seasons.colony.DecoratorModules;
 import me.lovkar.seasons.colony.DecoratorSetup;
 import me.lovkar.seasons.colony.DecoratorTexts;
@@ -33,6 +41,7 @@ import me.lovkar.seasons.decor.DecorPlacer;
 import me.lovkar.seasons.decor.DecorWork;
 import me.lovkar.seasons.decor.DoorFinder;
 import me.lovkar.seasons.decor.PieceLoader;
+import me.lovkar.seasons.decor.Squares;
 import me.lovkar.seasons.festival.FestivalData;
 import me.lovkar.seasons.festival.FestivalDirector;
 import me.lovkar.seasons.festival.Fireworks;
@@ -129,6 +138,12 @@ import java.util.UUID;
  *   <li>voyager: Voyager 0.4.0 next to the mod: both mixins are in CitizenAI, the workers come on the everyone day,
  *       the Decorator stays up for the dusk show and launches it, and the Astronomer works at night while the others
  *       sleep;</li>
+ *   <li>square (0.2.0, Q4): the same colony with a Town Square instead of the festival marker (the square's blueprint
+ *       pasted and registered as the main square, its Decorator assigned): the tree on its {@code tree} cell, lit by a
+ *       player and by the Decorator, the gifts, and the gathering with the crowd on the standing places of its
+ *       {@code gather} tags and the square's hut as the leisure site in the hours (and off the list after them), the
+ *       Decorator hosting outside the tree's box, the dusk shows from the crate and, once it is gone, from the
+ *       {@code launch} tag's cell; the keep radius of a square, the fallback to the ring when the tag reads empty;</li>
  *   <li>{@code restart-save} then {@code restart-load} (tools/restart.sh): a gift taken and the tree lit, the world saved;
  *       after the restart the same player is refused, another one gets a gift, the tree is still lit, no notice and no
  *       season line is sent again.</li>
@@ -150,6 +165,8 @@ public class CsFestival {
     private static final int BEFORE_HOURS = 8000;
     private static final int SAMPLE_FROM = 9300;
     private static final int WITHIN = 8;
+    /** The crowd of a Town Square stands up to 10 blocks from its tree. */
+    private static final int WITHIN_SQUARE = 12;
     /** MineColonies' bedtime: the citizen state SLEEP and the states of its sleep AI. */
     private static final Set<String> BEDTIME_STATES = Set.of("SLEEP", "WALKING_HOME", "FIND_BED", "SLEEPING");
     /** MineColonies' citizen AI at work: WORK, then WORKING. */
@@ -183,6 +200,8 @@ public class CsFestival {
     private final List<ICitizenData> workers = new ArrayList<>();
     private final List<ICitizenData> offDuty = new ArrayList<>();
     private BlockPos marker;
+    /** square mode: the colony's Town Square (its {@code tree} cell is {@link #marker} once the tags are read). */
+    private BuildingTownSquare townSquare;
     private boolean present = true;
     private IBuilding lumberjackHut;
     private IBuilding masonHut;
@@ -367,6 +386,19 @@ public class CsFestival {
                 planSetup(false);
                 planTree();
                 planNewYear();
+            }
+            case "square" -> {
+                planSetup(false);
+                planSquarePlace();
+                planTree();
+                planSquareEvents();
+                planLighting();
+                planDecoratorLights();
+                planGifts();
+                planGathering(true);
+                planSquareNoTags();
+                planDusk();
+                planLaunching();
             }
             case "nomixin" -> {
                 planSetup(false);
@@ -690,14 +722,17 @@ public class CsFestival {
                     check("an off-duty colonist has no job", c.getJob() == null, c.getName());
                 }
                 // the festival marker where the tree should stand, put down by the "player" the way a player does
+                // (square mode: no marker; the cell is where the square's tree tag turns out to be, the middle of its plot)
                 marker = new BlockPos(2, ground + 1, 32);
-                final BlockState m = SeasonsBlocks.FESTIVAL_MARKER.get().defaultBlockState().setValue(FestivalMarkerBlock.FACING, Direction.NORTH);
-                level.setBlock(marker, m, Block.UPDATE_ALL);
-                SeasonsBlocks.FESTIVAL_MARKER.get().setPlacedBy(level, marker, m, owner, new ItemStack(SeasonsBlocks.FESTIVAL_MARKER_ITEM.get()));
-                checkEq("the marker is the colony's square", ledger.marker(colonyId), marker);
-                check("[V] the marker's block entity is a blueprint-data provider (a leisure site can stroll in it)",
-                        level.getBlockEntity(marker) instanceof com.ldtteam.structurize.blockentities.interfaces.IBlueprintDataProviderBE be
-                                && be.getInWorldCorners().getA().equals(marker.offset(-6, -1, -6)), "");
+                if (!"square".equals(mode)) {
+                    final BlockState m = SeasonsBlocks.FESTIVAL_MARKER.get().defaultBlockState().setValue(FestivalMarkerBlock.FACING, Direction.NORTH);
+                    level.setBlock(marker, m, Block.UPDATE_ALL);
+                    SeasonsBlocks.FESTIVAL_MARKER.get().setPlacedBy(level, marker, m, owner, new ItemStack(SeasonsBlocks.FESTIVAL_MARKER_ITEM.get()));
+                    checkEq("the marker is the colony's square", ledger.marker(colonyId), marker);
+                    check("[V] the marker's block entity is a blueprint-data provider (a leisure site can stroll in it)",
+                            level.getBlockEntity(marker) instanceof com.ldtteam.structurize.blockentities.interfaces.IBlueprintDataProviderBE be
+                                    && be.getInWorldCorners().getA().equals(marker.offset(-6, -1, -6)), "");
+                }
                 // the town hall gets its decorations (with strings of lights at hut level 3), so lighting the tree has strings to light
                 DecorWork.decorate(level, colonyId, DecorWork.Target.building(townHall), 3, DecorPlacer.Stock.FREE, day(), ledger);
                 one = player(P1, "csfestival_one");
@@ -729,6 +764,222 @@ public class CsFestival {
                 check("the town hall has strings of lights, unlit", strings > 0 && buildingLightsLit() == 0, strings + " lights");
                 note("citizens: decorator {}, workers {}, off duty {}", state(decorator), workers.stream().map(CsFestival::state).toList(),
                         offDuty.stream().map(CsFestival::state).toList());
+            }
+        });
+    }
+
+    // ================================================================ the Town Square (0.2.0, Q4)
+
+    /** The square's one blueprint level in this build, and its plot: the low corner of its 21 x 21 box, so that its tree cell is where the marker stands in the other modes. */
+    private static final String SQUARE_FILE = "square/townsquare1.blueprint";
+    private static final BlockPos SQUARE_PLOT = new BlockPos(-8, 0, 22);
+
+    /** The floor block of the launch tag's cell (the cell is air: the rockets leave from the top of the floor). */
+    private BlockPos launchBlock() {
+        final List<BlockPos> cells = townSquare.getLocationsFromTag(BuildingTownSquare.TAG_LAUNCH);
+        return cells.isEmpty() ? null : cells.get(0).below();
+    }
+
+    /** The standing places of the square's gather cells, as the crowd should find them. */
+    private Set<BlockPos> gatherStands() {
+        final Set<BlockPos> out = new LinkedHashSet<>();
+        for (final BlockPos cell : townSquare.getLocationsFromTag(BuildingTownSquare.TAG_GATHER)) {
+            final BlockPos stand = Gathering.standable(level, cell);
+            if (stand != null) {
+                out.add(stand);
+            }
+        }
+        return out;
+    }
+
+    /** Sets a level this build has no blueprint for (MineColonies refuses a level above the building's maximum): a level 3 square puts up the full spruce with its gift pile and crate. */
+    private void forceLevel(final IBuilding building, final int lv) {
+        try {
+            final java.lang.reflect.Field f = com.minecolonies.core.colony.buildings.AbstractSchematicProvider.class.getDeclaredField("buildingLevel");
+            f.setAccessible(true);
+            f.setInt(building, lv);
+        } catch (final ReflectiveOperationException unreachable) {
+            check("the level of the square can be set to " + lv, false, unreachable.getClass().getSimpleName());
+        }
+    }
+
+    /** The square's blueprint pasted with its box's low corner at the plot (Structurize's creative handler); returns the hut block's position, or null. */
+    private BlockPos pasteSquare() {
+        try {
+            final Blueprint blueprint = StructurePacks.getBlueprintFuture(PieceLoader.PACK, SQUARE_FILE, level.registryAccess())
+                    .get(60, java.util.concurrent.TimeUnit.SECONDS);
+            if (blueprint == null) {
+                check("the square's blueprint loads", false, SQUARE_FILE);
+                return null;
+            }
+            blueprint.setRotationMirror(RotationMirror.NONE, level);
+            final BlockPos plot = SQUARE_PLOT.offset(0, ground, 0);
+            final BlockPos anchor = plot.offset(blueprint.getPrimaryBlockOffset());
+            final CreativeStructureHandler handler = new CreativeStructureHandler(level, anchor, blueprint, RotationMirror.NONE, true);
+            final StructurePlacer placer = new StructurePlacer(handler);
+            int rounds = 0;
+            while (rounds++ < 4000) {
+                final StructurePhasePlacementResult result = placer.executeStructureStep(level, null, placer.getIterator().getProgressPos(),
+                        StructurePlacer.Operation.BLOCK_PLACEMENT, () -> placer.getIterator().increment((info, at, h) -> false), false);
+                if (result.getIteratorPos().equals(AbstractBlueprintIterator.NULL_POS)) {
+                    break;
+                }
+            }
+            return anchor;
+        } catch (final Exception unreadable) {
+            check("the square's blueprint pastes", false, unreadable.getClass().getSimpleName().replace("Exception", ""));
+            return null;
+        }
+    }
+
+    /** The square goes up, is registered as the colony's main square (level 3, so the full spruce) and gets the Decorator. */
+    private void planSquarePlace() {
+        step(new Step("square: the Town Square pasted, registered, its Decorator assigned", 1) {
+            @Override
+            void start() {
+                final BlockPos hutAt = pasteSquare();
+                if (hutAt == null) {
+                    finish();
+                    return;
+                }
+                IBuilding building = colony.getServerBuildingManager().getBuilding(hutAt);
+                if (building == null && level.getBlockEntity(hutAt) instanceof AbstractTileEntityColonyBuilding te) {
+                    building = colony.getServerBuildingManager().addNewBuilding(te, level);
+                }
+                if (!(building instanceof BuildingTownSquare square)) {
+                    check("the pasted square registers as a Town Square", false, String.valueOf(building));
+                    finish();
+                    return;
+                }
+                final BlockPos plot = SQUARE_PLOT.offset(0, ground, 0);
+                square.setCorners(plot, plot.offset(20, 19, 20));
+                square.setBuildingLevel(1);
+                square.setStructurePack(PieceLoader.PACK);
+                square.setBlueprintPath(SQUARE_FILE);
+                square.assignment().setHiringMode(com.minecolonies.api.colony.buildings.HiringMode.MANUAL);
+                square.markDirty();
+                check("the Decorator is assigned to the square (he stays employed at his Workshop)",
+                        square.assignment().assignCitizen(decorator) && decorator.getWorkBuilding() == hut
+                                && decorator.getJob() instanceof JobDecorator j && j.findSquare() == square, "");
+                forceLevel(square, 3);
+                townSquare = square;
+            }
+        });
+        step(new Step("square: its tags are read, it is the colony's main square", 200) {
+            @Override
+            boolean tick() {
+                return Squares.treeCell(townSquare) != null;
+            }
+
+            @Override
+            void end(final boolean done) {
+                check("the square's tree tag reads", done, "after " + t + " ticks");
+                if (!done) {
+                    finish();
+                    return;
+                }
+                marker = Squares.treeCell(townSquare);
+                Squares.refresh(level, colony, ledger);
+                for (final FakePlayer pl : List.of(one, two, visitor)) {
+                    pl.setPos(marker.getX() + 0.5, marker.getY(), marker.getZ() + 3.5);
+                }
+                note("the square's tree cell {}, its hut {}", marker.toShortString(), townSquare.getPosition().toShortString());
+                check("the square is level 3 and the colony's main square (its mark is stored)",
+                        townSquare.getBuildingLevel() == 3 && ledger.squareMark(colonyId) != null
+                                && ledger.squareMark(colonyId).anchor().equals(marker), String.valueOf(ledger.squareMark(colonyId)));
+            }
+        });
+    }
+
+    /** What the square gives the events once its tree stands: the site, the centre, the crowd's spots, the show's cell. */
+    private void planSquareEvents() {
+        step(new Step("square: the gathering, the lighting and the show find the square's tags", 1) {
+            @Override
+            void start() {
+                final Squares.Centre centre = Squares.centre(ledger, colonyId);
+                check("the colony's festival centre is the square (tree cell and hut)", centre != null && centre.onSquare()
+                        && centre.anchor().equals(marker) && centre.hut().equals(townSquare.getPosition()), String.valueOf(centre));
+                checkEq("no festival marker is registered in this colony", ledger.marker(colonyId), null);
+                checkEq("the gathering's site is the square's tree cell (not the town hall)", Gathering.site(level, colony), marker);
+                final Set<BlockPos> stands = gatherStands();
+                final List<BlockPos> spots = Gathering.spots(level, colony, marker);
+                check("the crowd's spots are exactly the standing places of the square's gather tags", stands.size() >= 8
+                        && spots.size() == stands.size() && new LinkedHashSet<>(spots).equals(stands), spots.size() + " spots, " + stands.size() + " tagged");
+                final AABB box = treeBox();
+                check("no spot is inside the tree's box", box != null && spots.stream().noneMatch(sp -> box.intersects(new AABB(sp))), String.valueOf(box));
+                checkEq("a Town Square keeps its crowd within the square's keep radius", Gathering.keepRadius(level, colony, marker), Gathering.SQUARE_KEEP_RADIUS);
+                check("the tree is finished from the square's group (the lighting reads the tree cell)", TreeLighting.tree(ledger, colonyId) != null, "");
+                checkEq("the show leaves from the crate the square's tree has", Fireworks.site(level, colony),
+                        firstOf(st -> st.is(SeasonsBlocks.FIREWORK_CRATE.get())));
+                check("the square's hut is not a leisure site outside the hours",
+                        !colony.getServerBuildingManager().getLeisureSites().contains(townSquare.getPosition()), "");
+                check("the hut block's block entity is a blueprint-data provider (the leisure wander strolls in it)",
+                        level.getBlockEntity(townSquare.getPosition()) instanceof com.ldtteam.structurize.blockentities.interfaces.IBlueprintDataProviderBE, "");
+            }
+        });
+    }
+
+    /** Per colonist: samples taken while he stood still, and samples where he stood on (within 3 blocks of) one of the crowd's spots. */
+    private final Map<ICitizenData, int[]> still = new LinkedHashMap<>();
+
+    private void sampleSpots(final List<ICitizenData> who) {
+        if (timeOfDay() < SAMPLE_FROM) {
+            return;
+        }
+        final List<BlockPos> spots = Gathering.spots(level, colony, marker);
+        for (final ICitizenData c : who) {
+            final AbstractEntityCitizen e = c.getEntity().orElse(null);
+            if (e == null || !e.getNavigation().isDone() || dist(c) > Gathering.SQUARE_KEEP_RADIUS) {
+                continue;
+            }
+            final int[] n = still.computeIfAbsent(c, k -> new int[2]);
+            n[0]++;
+            n[1] += spots.stream().anyMatch(sp -> e.position().distanceToSqr(Vec3.atBottomCenterOf(sp)) <= 9.0) ? 1 : 0;
+        }
+    }
+
+    private void checkSpots() {
+        int total = 0;
+        int onSpot = 0;
+        for (final int[] n : still.values()) {
+            total += n[0];
+            onSpot += n[1];
+        }
+        note("colonists standing still: {} samples, {} of them on a gather spot", total, onSpot);
+        check("the crowd stands on the gather spots (most of the samples of colonists standing still are within 3 blocks of one)",
+                total >= 5 && onSpot * 4 >= total * 3, onSpot + " of " + total);
+    }
+
+    /** The 0.1.0 ring still stands behind the tags: with the gather tags gone the crowd finds the ring, the tags back give them back. */
+    private void planSquareNoTags() {
+        step(new Step("square: no gather tags, the crowd falls back to the ring round the tree", 1) {
+            @Override
+            void start() {
+                if (!(level.getBlockEntity(townSquare.getPosition()) instanceof com.ldtteam.structurize.blockentities.interfaces.IBlueprintDataProviderBE be)) {
+                    check("the hut's block entity holds the tags", false, "");
+                    return;
+                }
+                final Set<BlockPos> stands = gatherStands();
+                final List<BlockPos> rel = new ArrayList<>();
+                for (final Map.Entry<BlockPos, List<String>> e : be.getPositionedTags().entrySet()) {
+                    if (e.getValue().contains(BuildingTownSquare.TAG_GATHER)) {
+                        rel.add(e.getKey());
+                    }
+                }
+                for (final BlockPos r : rel) {
+                    be.removeTag(r, BuildingTownSquare.TAG_GATHER);
+                }
+                check("the gather tags are gone from the hut", townSquare.getLocationsFromTag(BuildingTownSquare.TAG_GATHER).isEmpty(), rel.size() + " removed");
+                final List<BlockPos> ring = Gathering.spots(level, colony, marker);
+                final AABB box = treeBox();
+                check("the ring has spots, at most 24, none in the tree's box, all within the square's keep radius", !ring.isEmpty() && ring.size() <= 24
+                        && ring.stream().noneMatch(sp -> box != null && box.intersects(new AABB(sp)))
+                        && ring.stream().allMatch(sp -> sp.distSqr(marker) <= (double) Gathering.SQUARE_KEEP_RADIUS * Gathering.SQUARE_KEEP_RADIUS), ring.size() + " spots");
+                check("they are not the tag spots", !new LinkedHashSet<>(ring).equals(stands), "");
+                for (final BlockPos r : rel) {
+                    be.addTag(r, BuildingTownSquare.TAG_GATHER);
+                }
+                checkEq("the tags back, the crowd's spots are the tag spots again", new LinkedHashSet<>(Gathering.spots(level, colony, marker)), stands);
             }
         });
     }
@@ -787,8 +1038,7 @@ public class CsFestival {
             @Override
             boolean tick() {
                 if (t % 20 == 0 && (last == null || !last.complete())) {
-                    last = DecorWork.decorate(level, colonyId, DecorWork.Target.square(marker, Direction.NORTH, PieceLoader.PACK), 3,
-                            DecorPlacer.Stock.FREE, day(), ledger);
+                    last = DecorWork.decorate(level, colonyId, treeTarget(), 3, DecorPlacer.Stock.FREE, day(), ledger);
                 }
                 return last != null && last.complete() && t % 20 == 0 && TreeLighting.notices() > notices0;
             }
@@ -950,7 +1200,8 @@ public class CsFestival {
                 click(visitor, pile);
                 checkEq("a visitor (not of the colony) gets no gift", gifts(visitor, Gifts.DAILY), 0);
                 // a gift pile a player put down himself is a decoration
-                final BlockPos own = marker.offset(10, 0, 8);
+                final BlockPos own = marker.offset(5, 0, -4);
+                final BlockState ownWas = level.getBlockState(own);
                 level.setBlock(own, SeasonsBlocks.GIFT_PILE.get().defaultBlockState(), Block.UPDATE_ALL);
                 setDate(LocalDate.of(2026, 12, 11));
                 click(one, own);
@@ -975,7 +1226,7 @@ public class CsFestival {
                 final boolean colourful = count(one, s -> s.is(Items.FIREWORK_ROCKET) && s.get(DataComponents.FIREWORKS) != null
                         && !s.get(DataComponents.FIREWORKS).explosions().isEmpty()) >= 3;
                 check("the New Year gift holds a few festival rockets", rockets >= 3 && colourful, rockets + " rockets");
-                level.setBlock(own, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+                level.setBlock(own, ownWas, Block.UPDATE_ALL);
                 setDate(DECOR_DAY);
                 invariant("after the gifts");
             }
@@ -991,7 +1242,7 @@ public class CsFestival {
         for (final ICitizenData c : who) {
             final int[] n = near.computeIfAbsent(c, k -> new int[2]);
             n[0]++;
-            n[1] += dist(c) <= WITHIN ? 1 : 0;
+            n[1] += dist(c) <= within() ? 1 : 0;
         }
     }
 
@@ -1075,7 +1326,10 @@ public class CsFestival {
                     for (final ICitizenData w : workers) {
                         workerStates.add(state(w));
                     }
-                    leisure |= colony.getServerBuildingManager().getLeisureSites().contains(marker);
+                    leisure |= colony.getServerBuildingManager().getLeisureSites().contains(leisureCell());
+                    if (townSquare != null) {
+                        sampleSpots(offDuty);
+                    }
                     if (job() != null) {
                         statusKeys.add(job().statusKey());
                         if (DecoratorTexts.HOSTING.equals(job().statusKey())) {
@@ -1089,7 +1343,7 @@ public class CsFestival {
 
             @Override
             void end(final boolean done) {
-                check("the off-duty colonists stand within " + WITHIN + " blocks of the tree in the hours", mostlyNear(offDuty), nearText(offDuty));
+                check("the off-duty colonists stand within " + within() + " blocks of the tree in the hours", mostlyNear(offDuty), nearText(offDuty));
                 if (everyoneDay && mixin) {
                     check("the everyone day: the workers come too (the mixin)", mostlyNear(workers) && Gathering.broughtWorkers() > brought0[0],
                             nearText(workers) + ", states " + workerStates);
@@ -1102,7 +1356,10 @@ public class CsFestival {
                 } else {
                     checkEq("the mixin is absent and never asked", Gathering.mixinCalls(), 0);
                 }
-                check("[V] the marker is one of the colony's leisure sites in the hours", leisure, "");
+                check("[V] the " + (townSquare != null ? "Town Square's hut" : "marker") + " is one of the colony's leisure sites in the hours", leisure, "");
+                if (townSquare != null) {
+                    checkSpots();
+                }
                 check("the song played", Gathering.songs() > songs0, (Gathering.songs() - songs0) + " times");
                 final int hosting = job() == null ? 0 : job().visits(EntityAIWorkDecorator.DecoratorState.HOSTING) - hosting0;
                 final int handed = job() == null ? 0 : job().giftsHanded() - handed0;
@@ -1123,7 +1380,8 @@ public class CsFestival {
             void end(final boolean done) {
                 final List<String> states = workers.stream().map(CsFestival::state).toList();
                 check("after the hours the workers are back at work", states.stream().noneMatch("IDLE"::equals), states.toString());
-                check("the marker is off the leisure sites again", !colony.getServerBuildingManager().getLeisureSites().contains(marker), "");
+                check("the " + (townSquare != null ? "Town Square's hut" : "marker") + " is off the leisure sites again",
+                        !colony.getServerBuildingManager().getLeisureSites().contains(leisureCell()), "");
             }
         });
         step(new Step("gathering: bedtime", 2600, true) {
@@ -1310,7 +1568,12 @@ public class CsFestival {
                 if (noCrate) {
                     check("without the crate they leave beside the tree with open sky, not from the marker under the trunk",
                             site != null && !site.equals(marker) && Fireworks.openSky(level, site.above()), site + ", marker " + marker);
+                    if (townSquare != null) {
+                        checkEq("on a Town Square they leave from the floor of the launch tag's cell", site, launchBlock());
+                    }
                     invariant("the crate taken away");
+                } else if (townSquare != null) {
+                    checkEq("on a Town Square with a crate they leave from the crate (" + name + ")", site, firstOf(s -> s.is(SeasonsBlocks.FIREWORK_CRATE.get())));
                 }
                 note("{} rocket entities about at the end, stock {} -> {}; launched by the Decorator {}, by the server {}; his states {}", seen,
                         before, rocketsInStock(), Fireworks.decoratorShows() - byHim0, Fireworks.serverShows() - byServer0, his);
@@ -1573,7 +1836,25 @@ public class CsFestival {
     }
 
     private AABB treeBox() {
+        if (townSquare != null) {
+            return DecorWork.townSquareBox(level, ledger, colonyId, townSquare, marker, 3);
+        }
         return DecorWork.squareBox(level, ledger, colonyId, marker, Direction.NORTH, PieceLoader.PACK, PieceLoader.pathFor(3));
+    }
+
+    /** What the Decorator works on for the tree: the Town Square's centrepiece (square mode) or the marker's square. */
+    private DecorWork.Target treeTarget() {
+        return townSquare != null ? DecorWork.Target.townSquare(townSquare, marker)
+                : DecorWork.Target.square(marker, Direction.NORTH, PieceLoader.PACK);
+    }
+
+    /** The cell MineColonies lists as the colony's leisure site: the square's hut, else the marker. */
+    private BlockPos leisureCell() {
+        return townSquare != null ? townSquare.getPosition() : marker;
+    }
+
+    private int within() {
+        return townSquare != null ? WITHIN_SQUARE : WITHIN;
     }
 
     private boolean inside(final ICitizenData c, final AABB box) {

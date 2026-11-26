@@ -91,6 +91,13 @@ bash tools/probe.sh csfestival voyager        # Voyager 0.4.0 next to it: both m
 bash tools/probe.sh csfestival newyear        # the New Year dusk of the in-game test replayed (sprinted from 11800), and the
                                               # Decorator asleep in the rain: the server launches the show from the crate,
                                               # from his stock and free
+bash tools/probe.sh csfestival square         # Q4: the same colony with a Town Square instead of the marker (its blueprint pasted
+                                              # and registered as the main square, level 3, the Decorator assigned): the tree on
+                                              # its tree cell, lit by a player and by the Decorator, the gifts, the gathering
+                                              # (the crowd on the standing places of the gather tags, the hut as the leisure site
+                                              # in the hours and off the list after them, the Decorator hosting outside the
+                                              # tree's box), the dusk shows from the crate and, once it is gone, from the launch
+                                              # tag's cell; with the gather tags gone the crowd finds the ring again
 bash tools/restart.sh csfestival              # a gift taken and the tree lit, a restart: refused again, still lit, nothing repeated
 bash tools/probe.sh csforester                # MineColonies' Forester with the festival tree and a natural oak in his work
                                               # area, three game days: he cuts the oak and never the festival tree
