@@ -117,6 +117,9 @@ public class ColonySeasons {
 
     private static void onServerStarted(final ServerStartedEvent event) {
         serverStartedSeen = true;
+        // 0.2.0, Q10: a new session of the Trade Post bridge; one INFO line, and only when Trade Post is installed and the switch is on
+        me.lovkar.seasons.decor.MarketStalls.newSession();
+        me.lovkar.seasons.decor.MarketStalls.bridge().announce();
     }
 
     /** True once the mod bus delivered FMLCommonSetupEvent to us. */

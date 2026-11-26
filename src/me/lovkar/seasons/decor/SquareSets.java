@@ -67,6 +67,18 @@ public final class SquareSets {
     /** Between the festivals: small touches in the planters by the in-game season; their pieces come with Q6. */
     public static final Set SEASONAL = new Set("seasonal", "com.colony_seasons.square.set.seasonal", List.of(), List.of(), List.of("bed"));
 
+    /**
+     * The festival market's stalls (0.2.0, Q10, design 7.2 b): pieces at the {@code stall} tag cells on top of the set
+     * that stands, only while the Trade Post bridge is on ({@link #market}). It is no set the player can order and no set
+     * the square "wants": it is not in {@link #ALL}, has no centrepiece and is named here for the one lang key and the
+     * tag it uses.
+     */
+    public static final Set MARKET = new Set("market", "com.colony_seasons.square.set.market", List.of(SeasonsConfig.WINTER_FESTIVAL),
+            List.of(), List.of("stall"));
+
+    /** The square level from which there are stalls (design 4.2: two stall pads at level 4, four at level 5). */
+    public static final int MARKET_LEVEL = 4;
+
     /** Every set of this version, in the order the settings page lists the "Always" entries of those that ship. */
     public static final List<Set> ALL = List.of(WINTER, SEASONAL);
 
@@ -187,6 +199,16 @@ public final class SquareSets {
             }
         }
         return false;
+    }
+
+    /**
+     * Whether the square holds the festival market's stalls now (Q10, design 7.2 b): only with the Trade Post bridge on
+     * ({@code bridgeOn}), a square of level {@link #MARKET_LEVEL} or more, a decoration window open and a festival set
+     * wanted ({@code wanted} is {@link #wanted}'s answer for the same snapshot: neither none, as under Bare, nor the
+     * seasonal touches). Pure.
+     */
+    public static boolean market(final Set wanted, final CalendarManager.Snapshot snapshot, final int squareLevel, final boolean bridgeOn) {
+        return bridgeOn && squareLevel >= MARKET_LEVEL && wanted != null && wanted != SEASONAL && DecorPhase.windowOpen(snapshot);
     }
 
     /** [B] owner answer of 20 Nov 2026: the centrepiece's size follows the lower of the square's level and the Workshop's. */

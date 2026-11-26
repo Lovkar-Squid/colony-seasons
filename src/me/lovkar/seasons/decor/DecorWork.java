@@ -325,11 +325,21 @@ public final class DecorWork {
             return List.of();
         }
         final CalendarManager.Snapshot now = CalendarManager.current();
-        if (now == null || !SquareSets.winterFixtures(SquareSets.wanted(square.order(), now), now)) {
+        if (now == null) {
             return List.of();
         }
-        final BlockPos anchor = target.owner().pos();
         final List<PieceLoader.PieceCell> out = new ArrayList<>();
+        if (SquareSets.winterFixtures(SquareSets.wanted(square.order(), now), now)) {
+            winterFixtures(target, square, pieceLevel, out);
+        }
+        // Q10: the festival market's stalls at the stall tags, only while the Trade Post bridge is on (none otherwise)
+        out.addAll(MarketStalls.fixtures(target));
+        return out;
+    }
+
+    private static void winterFixtures(final Target target, final BuildingTownSquare square, final int pieceLevel,
+                                       final List<PieceLoader.PieceCell> out) {
+        final BlockPos anchor = target.owner().pos();
         final BlockPos gift = lowest(square.getLocationsFromTag(BuildingTownSquare.TAG_GIFT));
         if (gift != null && pieceLevel >= SQUARE_GIFT_LEVEL) {
             final BlockPos rel = gift.subtract(anchor);
@@ -343,7 +353,6 @@ public final class DecorWork {
             out.add(new PieceLoader.PieceCell(launch.subtract(anchor), SeasonsBlocks.FIREWORK_CRATE.get().defaultBlockState(),
                     false, false, true, false, false));
         }
-        return out;
     }
 
     /** The world cells of a Town Square's {@code gift} and {@code launch} tags (its fixtures' cells); empty at the festival marker. */
@@ -360,6 +369,7 @@ public final class DecorWork {
                 }
             }
         }
+        out.addAll(MarketStalls.cells(square, target.owner().pos()));   // Q10: the stalls' cells too, whether they stand or not
         return out;
     }
 
@@ -420,7 +430,8 @@ public final class DecorWork {
         if (path == null) {
             return group == null || group.entries().isEmpty();
         }
-        return group != null && group.decoratedDay() >= 0 && group.level() == pieceLevel(target, hutLevel) && group.piece().equals(path);
+        return group != null && group.decoratedDay() >= 0 && group.level() == pieceLevel(target, hutLevel) && group.piece().equals(path)
+                && !MarketStalls.open(group, target);   // Q10: a market wanted since the group was done is not done
     }
 
     /**

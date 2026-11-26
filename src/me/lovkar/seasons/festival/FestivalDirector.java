@@ -8,6 +8,7 @@ import me.lovkar.seasons.calendar.CalendarEvents;
 import me.lovkar.seasons.calendar.CalendarManager;
 import me.lovkar.seasons.decor.DecorEvents;
 import me.lovkar.seasons.decor.DecorWork;
+import me.lovkar.seasons.decor.MarketStalls;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -99,6 +100,12 @@ public final class FestivalDirector {
                 ColonySeasons.LOGGER.warn("Festival events skipped colony {} this time: {}", colony.getID(), broken.toString());
             }
             try {
+                // on its own: a market that throws never stops the gathering or the show (0.2.0, Q10)
+                MarketStalls.tick(level, colony, snapshot, level.getGameTime());
+            } catch (final RuntimeException broken) {
+                MarketStalls.bridge().fail("the festival market skipped colony " + colony.getID(), broken);
+            }
+            try {
                 // on its own: a tree or a gathering that throws never keeps the New Year rockets on the ground (S10c)
                 Fireworks.dusk(level, colony, states, snapshot, gameDay);
             } catch (final RuntimeException broken) {
@@ -140,6 +147,7 @@ public final class FestivalDirector {
     private static void onServerStopped(final ServerStoppedEvent event) {
         Fireworks.reset();
         Gathering.reset();
+        MarketStalls.newSession();
         polls = 0;
     }
 }

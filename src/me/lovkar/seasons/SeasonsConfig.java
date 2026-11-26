@@ -33,6 +33,9 @@ public final class SeasonsConfig {
     public static final boolean DEFAULT_USE_SERENE_SEASONS = true;
     public static final String DEFAULT_TIME_ZONE = "system";
 
+    // compat (0.2.0, Q10)
+    public static final boolean DEFAULT_TRADE_POST_BRIDGE = true;
+
     // festivals: every festival has the same five keys; the dates are month-day strings (MM-DD)
     public static final String WINTER_FESTIVAL = "winter_festival";
     public static final String NEW_YEAR = "new_year";
@@ -95,6 +98,7 @@ public final class SeasonsConfig {
     private static final ModConfigSpec.ConfigValue<String> START_SEASON;
     private static final ModConfigSpec.BooleanValue USE_SERENE_SEASONS;
     private static final ModConfigSpec.ConfigValue<String> TIME_ZONE;
+    private static final ModConfigSpec.BooleanValue TRADE_POST_BRIDGE;
 
     /** The five keys of one festival. */
     private record FestivalKeys(ModConfigSpec.BooleanValue enabled, ModConfigSpec.ConfigValue<String> decorFrom,
@@ -234,6 +238,14 @@ public final class SeasonsConfig {
                 .define("showWelcome", DEFAULT_SHOW_WELCOME);
         builder.pop();
 
+        builder.comment("Other mods Colony Seasons works with when they are installed.").push("compat");
+        TRADE_POST_BRIDGE = builder
+                .comment("true: with Trade Post for MineColonies installed, a Town Square of level 4 or more puts up festival market",
+                        "stalls on festival days that pay the colony's Trade Post balance, up to one Trade Coin per stall per day.",
+                        "false: the stalls and the payments are off. Without Trade Post this key does nothing.")
+                .define("tradePostBridge", DEFAULT_TRADE_POST_BRIDGE);
+        builder.pop();
+
         SPEC = builder.build();
     }
 
@@ -344,6 +356,11 @@ public final class SeasonsConfig {
 
     public static boolean useSereneSeasons() {
         return read(USE_SERENE_SEASONS);
+    }
+
+    /** True: the festival market bridge to Trade Post is wanted (it still needs Trade Post installed). */
+    public static boolean tradePostBridge() {
+        return read(TRADE_POST_BRIDGE);
     }
 
     /** {@code system} or a zone id. */

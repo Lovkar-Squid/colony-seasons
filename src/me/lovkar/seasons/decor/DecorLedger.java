@@ -69,6 +69,11 @@ public final class DecorLedger extends SavedData {
      * version 2 file with its one warning and skips the storeroom groups (their blocks do not exist in that build
      * either); a build that knows version 2 (0.1.0) reads a version 3 file with its one warning and ignores the two mark
      * keys, and its own rule (a square's group whose position is not the marker goes) then takes the square's group down.
+     *
+     * <p>0.2.0, Q10 adds two more keys to a colony's record without a new version number (0.2.0 is not released, and each
+     * version only adds): {@code marketDay} and {@code marketPaid}, what the festival market's stalls paid on one colony
+     * day ({@link MarketMath.PaidDay}); both are written only once something was paid, and a file without them reads as
+     * "never paid".</p>
      */
     static final int VERSION = 3;
 
@@ -166,6 +171,8 @@ public final class DecorLedger extends SavedData {
         /** The main Town Square's hut and its centrepiece cell (version 3): both set or both null. */
         BlockPos squareBuilding;
         BlockPos squareAnchor;
+        /** What the festival market paid on one colony day (Q10): {@code marketDay} -1 for never. */
+        MarketMath.PaidDay market = MarketMath.PaidDay.NONE;
         long noticeDay = -1;
         boolean squareProblem;
         final LinkedHashMap<Owner, Group> groups = new LinkedHashMap<>();
@@ -706,6 +713,37 @@ public final class DecorLedger extends SavedData {
         }
     }
 
+    // ---------------------------------------------------------------- the festival market's paid day (Q10)
+
+    /** What the festival market paid on one colony day: {@link MarketMath.PaidDay#NONE} when it never paid. */
+    public MarketMath.PaidDay market(final int colony) {
+        final ColonyRecord record = colonies.get(colony);
+        return record == null ? MarketMath.PaidDay.NONE : record.market;
+    }
+
+    /** What the stalls already paid on colony day {@code day}: 0 on a later day, "everything" on an earlier one than the stored day ({@link MarketMath.PaidDay#paidOn}). */
+    public int marketPaid(final int colony, final long day) {
+        return market(colony).paidOn(day);
+    }
+
+    /**
+     * Adds {@code amount} (a refund is negative) to what the stalls paid on colony day {@code day}, and marks the ledger
+     * for saving. A day earlier than the stored one changes nothing. The caller flushes the ledger before it pays, so a
+     * restart can never pay a sale twice.
+     */
+    public void addMarketPaid(final int colony, final long day, final int amount) {
+        ColonyRecord record = colonies.get(colony);
+        if (record == null) {
+            record = new ColonyRecord();
+            colonies.put(colony, record);
+        }
+        final MarketMath.PaidDay next = record.market.plus(day, amount);
+        if (!next.equals(record.market)) {
+            record.market = next;
+            setDirty();
+        }
+    }
+
     /** True (and remembered) when the managers have not been told about the square yet on game day {@code day}. */
     public boolean noticeDue(final int colony, final long day) {
         final ColonyRecord record = colonies.get(colony);
@@ -867,6 +905,10 @@ public final class DecorLedger extends SavedData {
                 one.putLong("squareBuilding", record.squareBuilding.asLong());
                 one.putLong("squareAnchor", record.squareAnchor.asLong());
             }
+            if (record.market.day() >= 0) {
+                one.putLong("marketDay", record.market.day());
+                one.putInt("marketPaid", record.market.paid());
+            }
             one.putLong("noticeDay", record.noticeDay);
             one.putBoolean("squareProblem", record.squareProblem);
             final ListTag groups = new ListTag();
@@ -960,6 +1002,10 @@ public final class DecorLedger extends SavedData {
             if (one.contains("squareBuilding", Tag.TAG_LONG) && one.contains("squareAnchor", Tag.TAG_LONG)) {
                 record.squareBuilding = BlockPos.of(one.getLong("squareBuilding"));
                 record.squareAnchor = BlockPos.of(one.getLong("squareAnchor"));
+            }
+            // 0.2.0 Q10: what the festival market paid on one colony day; one key without the other reads as never paid
+            if (one.contains("marketDay", Tag.TAG_LONG) && one.contains("marketPaid", Tag.TAG_INT)) {
+                record.market = MarketMath.PaidDay.of(one.getLong("marketDay"), one.getInt("marketPaid"));
             }
             record.noticeDay = one.contains("noticeDay") ? one.getLong("noticeDay") : -1;
             record.squareProblem = one.getBoolean("squareProblem");
