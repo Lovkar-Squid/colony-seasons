@@ -62,6 +62,13 @@ import java.util.Set;
  * for the rest of that day, and he moves on to the next one; it is back in the order the next day. The tree is ready
  * to light once the cells of the tree itself are up ({@link DecorLedger#setTreeReady}), whatever else of the square is
  * still open.</p>
+ *
+ * <p>The seasonal touches (0.2.0, Q12, [B] owner answer of 20 Nov 2026: small seasonal touches in the planters between
+ * the festivals, the full sets only in festival windows): {@link #nextTouches} / {@link #touch} put the in-game season's
+ * touch ({@link SquareSets#touchPath}) on every {@code bed} cell of the main Town Square, swap it when the season
+ * changes, and take it down when a festival set wants the square or the order is Bare. They are a ledger group of their
+ * own ({@link DecorLedger.Kind#TOUCHES}), never "decorations up": no phase, no take-down, no budget, no notice; they
+ * cost nothing and come back only once the square's own group lists nothing (after the window's take-down).</p>
  */
 public final class DecorWork {
 
@@ -117,6 +124,16 @@ public final class DecorWork {
             return PieceLoader.facing(rotation);
         }
 
+        /**
+         * The seasonal touches of a Town Square's target {@code square} (Q12): the same building, pack and rotation, the
+         * touches' own group at the same anchor, and the place he stands at ({@code null}: the anchor).
+         */
+        public static Target touches(final Target square, final BlockPos stand) {
+            final BlockPos anchor = square.owner().pos();
+            return new Target(DecorLedger.Owner.touches(anchor), square.box(), square.building(), stand == null ? anchor : stand.immutable(),
+                    square.pack(), square.rotation());
+        }
+
         /** The same target with the place he stands at ({@code null}: the anchor). */
         public Target withStand(final BlockPos at) {
             return new Target(owner, box, building, at == null ? owner.pos() : at.immutable(), pack, rotation);
@@ -136,6 +153,10 @@ public final class DecorWork {
         static Outcome of(final int placed, final int open, final boolean complete, final String status) {
             return new Outcome(placed, open, complete, status, Map.of());
         }
+    }
+
+    /** What one visit to the square's planters did (Q12): blocks taken down, blocks placed, cells still open, a status line. */
+    public record TouchOutcome(int removed, int placed, int open, String status) {
     }
 
     private DecorWork() {
@@ -318,7 +339,8 @@ public final class DecorWork {
      * gift pile at the square's {@code gift} cell (facing away from the tree) from {@link #SQUARE_GIFT_LEVEL}, and the
      * firework crate at its {@code launch} cell from {@link PieceLoader#FIREWORK_CRATE_LEVEL}, while the square holds
      * the Winter Festival's fixtures ({@link SquareSets#winterFixtures}); the lowest cell should a tag have several. None
-     * at the festival marker, before the calendar's first poll, or while the hut's tags read empty.
+     * at the festival marker, before the calendar's first poll, or while the hut's tags read empty. With the Winter
+     * Festival's set itself (not under Bare) also the tree's foot (Q12, {@link #foot}), after the gift pile and the crate.
      */
     public static List<PieceLoader.PieceCell> fixtures(final Target target, final int pieceLevel) {
         if (!(target.building() instanceof BuildingTownSquare square)) {
@@ -329,8 +351,12 @@ public final class DecorWork {
             return List.of();
         }
         final List<PieceLoader.PieceCell> out = new ArrayList<>();
-        if (SquareSets.winterFixtures(SquareSets.wanted(square.order(), now), now)) {
+        final SquareSets.Set wanted = SquareSets.wanted(square.order(), now);
+        if (SquareSets.winterFixtures(wanted, now)) {
             winterFixtures(target, square, pieceLevel, out);
+        }
+        if (wanted == SquareSets.WINTER) {
+            out.add(foot());
         }
         // Q10: the festival market's stalls at the stall tags, only while the Trade Post bridge is on (none otherwise)
         out.addAll(MarketStalls.fixtures(target));
@@ -353,6 +379,16 @@ public final class DecorWork {
             out.add(new PieceLoader.PieceCell(launch.subtract(anchor), SeasonsBlocks.FIREWORK_CRATE.get().defaultBlockState(),
                     false, false, true, false, false));
         }
+    }
+
+    /**
+     * The tree's foot on a Town Square (Q12): one festival trunk in the centrepiece cell itself. The square's {@code tree}
+     * cell is the one the 0.1.0 marker stood in, so the tree's own trunk starts a block above the paving; the foot fills
+     * the cell, so the tree never floats. A tree cell of the square's group, planned first and soft
+     * ({@link PieceLoader#plan}): an occupied centre never refuses the tree.
+     */
+    public static PieceLoader.PieceCell foot() {
+        return new PieceLoader.PieceCell(BlockPos.ZERO, SeasonsBlocks.FESTIVAL_TRUNK.get().defaultBlockState(), true, false, false, false, true);
     }
 
     /** The world cells of a Town Square's {@code gift} and {@code launch} tags (its fixtures' cells); empty at the festival marker. */
@@ -678,8 +714,8 @@ public final class DecorWork {
         final int id = colony.getID();
         final List<Target> found = new ArrayList<>();
         for (final DecorLedger.GroupView group : ledger.groups(id)) {
-            if (group.owner().kind() == DecorLedger.Kind.STOREROOM) {
-                continue;                             // the storeroom follows its target at the hut (StoreroomWork), not tending
+            if (!group.owner().outdoor()) {
+                continue;                             // the storeroom follows its target at the hut (StoreroomWork), the touches the season (nextTouches)
             }
             if (group.decoratedDay() < 0 || group.decoratedDay() >= day || group.tendedDay() >= day || group.removing()) {
                 continue;
@@ -700,12 +736,13 @@ public final class DecorWork {
 
     /**
      * The next group with entries to take down (nearest first, loaded ones only), or {@code null}. The storeroom is never
-     * one (storage-look 3.3, point 3): it changes by its target at the hut ({@link StoreroomWork}), packed after the window.
+     * one (storage-look 3.3, point 3): it changes by its target at the hut ({@link StoreroomWork}), packed after the window;
+     * nor are the seasonal touches (Q12): they stand between the festivals ({@link #nextTouches}).
      */
     public static Target nextToTakeDown(final ServerLevel level, final IColony colony, final BlockPos from, final DecorLedger ledger) {
         final List<Target> found = new ArrayList<>();
         for (final DecorLedger.GroupView group : ledger.groups(colony.getID())) {
-            if (group.entries().isEmpty() || group.owner().kind() == DecorLedger.Kind.STOREROOM) {
+            if (group.entries().isEmpty() || !group.owner().outdoor()) {
                 continue;
             }
             boolean anyLoaded = false;
@@ -727,7 +764,8 @@ public final class DecorWork {
 
     /**
      * The target for a group's owner as it is now, or {@code null} when the building or the marker is gone, and for the
-     * storeroom (it is no place he walks to: {@link StoreroomWork} checks it at the hut).
+     * storeroom (it is no place he walks to: {@link StoreroomWork} checks it at the hut) and for the seasonal touches
+     * ({@link #nextTouches} names their target).
      */
     public static Target targetOf(final ServerLevel level, final IColony colony, final DecorLedger ledger, final DecorLedger.Owner owner) {
         return targetOf(level, colony, ledger, owner, null);
@@ -736,7 +774,7 @@ public final class DecorWork {
     /** {@link #targetOf(ServerLevel, IColony, DecorLedger, DecorLedger.Owner)}; a Town Square's group only for its Decorator ({@code assigned}). */
     public static Target targetOf(final ServerLevel level, final IColony colony, final DecorLedger ledger, final DecorLedger.Owner owner,
                                   final BuildingTownSquare assigned) {
-        if (owner.kind() == DecorLedger.Kind.STOREROOM) {
+        if (owner.kind() == DecorLedger.Kind.STOREROOM || owner.kind() == DecorLedger.Kind.TOUCHES) {
             return null;
         }
         if (owner.kind() == DecorLedger.Kind.SQUARE) {
@@ -875,7 +913,7 @@ public final class DecorWork {
             }
         }
         if (path == null) {
-            // Bare, or between the windows with no seasonal touches in this version: nothing up, nothing to put up
+            // Bare, or between the windows: no set (the seasonal touches are a group of their own, nextTouches)
             tended(ledger, colony, target, day, tending);
             ledger.flush(level);
             return Outcome.of(0, 0, false, "the square's order wants no set now");
@@ -1057,6 +1095,210 @@ public final class DecorWork {
         } catch (final RuntimeException unavailable) {
             ColonySeasons.LOGGER.debug("Message {} not sent: {}", key, unavailable.toString());
         }
+    }
+
+    // ---------------------------------------------------------------- the seasonal touches (Q12)
+
+    /** The distinct {@code bed} cells of a Town Square in position order (the planters, the touches' cells); empty while its tags read empty. */
+    public static List<BlockPos> bedCells(final BuildingTownSquare square) {
+        final List<BlockPos> cells = square.getLocationsFromTag(BuildingTownSquare.TAG_BED);
+        if (cells == null || cells.isEmpty()) {
+            return List.of();
+        }
+        final java.util.TreeSet<BlockPos> sorted = new java.util.TreeSet<>();
+        for (final BlockPos cell : cells) {
+            sorted.add(cell.immutable());
+        }
+        return List.copyOf(sorted);
+    }
+
+    /**
+     * The next visit to the main Town Square's planters for a Decorator who works {@code assigned} (the Town Square whose
+     * Decorator module lists him), or {@code null}. Reads only. Never at a festival marker, never on a busy or unlocated
+     * square, never before the calendar's first poll. With {@code W} the touch the planters want now
+     * ({@link SquareSets#touchPath}):
+     * <ol>
+     *   <li>touches stand and {@code W} is none or another piece (a festival set wants the square, Bare, the in-game
+     *       season changed): the target, to take them down or swap them, also when {@code placing} is false (the hut's
+     *       "decorate" setting off); a swap waits while the new piece is still loading (it is asked for now), so the
+     *       planters are never left bare between two seasons;</li>
+     *   <li>otherwise nothing when there is no {@code W}, when {@code placing} is false, while the square's own group lists
+     *       anything (the touches come back only after the take-down), when today's fruitless visits are used up
+     *       ({@link #MAX_FRUITLESS_VISITS}), or when the touches of {@code W} are up and were looked at today (a touch that
+     *       went missing comes back at most once a game day);</li>
+     *   <li>else the target when the piece is loaded (otherwise it is asked for now) and a planter has room for it.</li>
+     * </ol>
+     * He stands at the square's standing spot ({@code gather}) nearest the first planter with work (ties: nearer
+     * {@code from}), else at the square's hut block: never in a planter.
+     */
+    public static Target nextTouches(final ServerLevel level, final IColony colony, final DecorLedger ledger, final BuildingTownSquare assigned,
+                                     final long day, final boolean placing, final BlockPos from) {
+        if (assigned == null) {
+            return null;
+        }
+        final CalendarManager.Snapshot now = CalendarManager.current();
+        if (now == null) {
+            return null;
+        }
+        final Target square = centrepiece(level, colony, ledger, assigned);
+        if (square == null || !square.onTownSquare()) {
+            return null;
+        }
+        final BuildingTownSquare building = (BuildingTownSquare) square.building();
+        final int id = colony.getID();
+        final String want = SquareSets.touchPath(building.order(), now);
+        final DecorLedger.Owner owner = DecorLedger.Owner.touches(square.owner().pos());
+        final DecorLedger.GroupView group = ledger.group(id, owner);
+        if (group != null && !group.entries().isEmpty() && (want == null || group.removing() || !group.piece().equals(want))) {
+            if (want != null && placing && !group.removing() && PieceLoader.request(level, square.pack(), want, square.rotation()) == null
+                    && !PieceLoader.missing(square.pack(), want, square.rotation())) {
+                return null;                          // the new season's piece is loading: the old touches stay until one visit can swap them
+            }
+            return touchTarget(level, square, group.entries().keySet().iterator().next(), from);
+        }
+        if (want == null || !placing) {
+            return null;
+        }
+        final DecorLedger.GroupView set = ledger.group(id, square.owner());
+        if (set != null && !set.entries().isEmpty()) {
+            return null;                              // the festival's set (or what is left of it) first: touches after the take-down
+        }
+        if (ledger.fruitless(id, owner, day) >= MAX_FRUITLESS_VISITS) {
+            return null;
+        }
+        if (group != null && want.equals(group.piece()) && group.decoratedDay() >= 0 && group.tendedDay() >= day) {
+            return null;
+        }
+        final TouchPlan plan = touchPlan(level, square, building, ledger, id, owner, want);
+        if (plan == null || plan.waiting() || plan.slots().isEmpty()) {
+            return null;
+        }
+        return touchTarget(level, square, plan.slots().get(0).pos(), from);
+    }
+
+    /**
+     * One visit to the main Town Square's planters, in one tick ({@code target} from {@link #nextTouches}): touches that
+     * are not the wanted ones come down by the exact-state rule (at most {@link #SQUARE_SLICE}; cells that wait are
+     * marked for the sweep), then, while {@code placing} and the square's own group lists nothing, the wanted touch goes
+     * on every free {@code bed} cell by the cell rule (the piece's anchor on the planter's soil cell, the bed cell minus
+     * one in y, the contract of tools/square_hut.py). A bed that is not air, is listed by another group or lies outside
+     * the claim is skipped without a word; a cell an entity stands in stays open (the fruitless count leaves it for the
+     * day). The touches are free (no item taken, none given back, a broken one drops nothing); the visit never counts
+     * against the day's budget, never sets "decorations up", and sends no notice.
+     */
+    public static TouchOutcome touch(final ServerLevel level, final int colony, final Target target, final long day, final DecorLedger ledger,
+                                     final boolean placing) {
+        final CalendarManager.Snapshot now = CalendarManager.current();
+        if (now == null) {
+            return new TouchOutcome(0, 0, 0, "waiting for the calendar");
+        }
+        if (!(target.building() instanceof BuildingTownSquare square) || target.owner().kind() != DecorLedger.Kind.TOUCHES) {
+            return new TouchOutcome(0, 0, 0, "not the planters of a Town Square");
+        }
+        final BlockPos anchor = target.owner().pos();
+        final String why = notFree(level, square, anchor, ledger);
+        if (why != null) {
+            return new TouchOutcome(0, 0, 0, why);    // the sweep takes care of a square that is busy or no longer the main one
+        }
+        final DecorLedger.Owner owner = target.owner();
+        final String want = SquareSets.touchPath(square.order(), now);
+        int removed = 0;
+        final DecorLedger.GroupView old = ledger.group(colony, owner);
+        if (old != null && !old.entries().isEmpty() && (want == null || old.removing() || !old.piece().equals(want))) {
+            DecorPlacer.followLeaves(level, ledger, colony, owner);
+            final DecorPlacer.Removed down = DecorPlacer.remove(level, ledger, colony, owner, DecorPlacer.Stock.FREE, SQUARE_SLICE);
+            removed = down.removed();
+            if (down.waiting() > 0 || down.left() > 0) {
+                ledger.markRemoving(colony, owner);
+                ledger.flush(level);
+                return new TouchOutcome(removed, 0, down.waiting() + down.left(), "touches: " + removed + " taken down, the rest waits");
+            }
+        }
+        final DecorLedger.GroupView set = ledger.group(colony, DecorLedger.Owner.square(anchor));
+        if (want == null || !placing || set != null && !set.entries().isEmpty()) {
+            ledger.flush(level);
+            return new TouchOutcome(removed, 0, 0, "touches: " + removed + " taken down, none wanted now");
+        }
+        DecorPlacer.followLeaves(level, ledger, colony, owner);
+        final TouchPlan plan = touchPlan(level, target, square, ledger, colony, owner, want);
+        if (plan == null || plan.waiting()) {
+            ledger.flush(level);
+            return new TouchOutcome(removed, 0, 0, plan == null ? "loading the touch piece " + want : "waiting for the square's chunks to load");
+        }
+        final DecorLedger.GroupView before = ledger.group(colony, owner);
+        if (plan.slots().isEmpty() && (before == null || before.entries().isEmpty())) {
+            ledger.dropGroup(colony, owner);          // nothing up, no room: no group left behind
+            ledger.flush(level);
+            return new TouchOutcome(removed, 0, 0, "touches: no planter has room");
+        }
+        final int squareLevel = square.getBuildingLevel();
+        ledger.plan(colony, owner, "", squareLevel, want);
+        for (final BlockPos pos : plan.gone()) {
+            ledger.forget(pos);                       // a vanilla touch broken by hand never told the ledger
+        }
+        final DecorPlacer.PlaceResult result = DecorPlacer.place(level, ledger, colony, owner, "", squareLevel, plan.slots(), DecorPlacer.Stock.FREE);
+        final int placed = result.count();
+        final int open = plan.slots().size() - placed;
+        if (placed > 0) {
+            DecorPlacer.settleLeaves(level, ledger, colony, owner);
+            ledger.clearFruitless(colony, owner);
+        } else if (open > 0) {
+            ledger.addFruitless(colony, owner, day);
+        }
+        final DecorLedger.GroupView after = ledger.group(colony, owner);
+        if (after == null || after.entries().isEmpty()) {
+            ledger.dropGroup(colony, owner);
+        } else {
+            if (open == 0) {
+                ledger.setDecorated(colony, owner, day);
+            }
+            ledger.setTended(colony, owner, day);
+        }
+        ledger.flush(level);
+        return new TouchOutcome(removed, placed, open, "touches: " + placed + " placed, " + open + " still open, " + removed + " taken down");
+    }
+
+    /** The touch's slots over every bed of the square ({@code waiting}: a bed's chunk is not loaded); {@code null} while the piece loads. */
+    private record TouchPlan(List<DecorPlacer.Slot> slots, List<BlockPos> gone, boolean waiting) {
+    }
+
+    private static TouchPlan touchPlan(final ServerLevel level, final Target square, final BuildingTownSquare building, final DecorLedger ledger,
+                                       final int colony, final DecorLedger.Owner owner, final String path) {
+        final PieceLoader.Piece piece = PieceLoader.request(level, square.pack(), path, square.rotation());
+        if (piece == null) {
+            return null;
+        }
+        final List<DecorPlacer.Slot> slots = new ArrayList<>();
+        final List<BlockPos> gone = new ArrayList<>();
+        for (final BlockPos bed : bedCells(building)) {
+            // the Q6 contract: the piece's anchor on the planter's soil cell, so its block stands in the bed cell
+            final PieceLoader.SquarePlan plan = PieceLoader.plan(level, piece, bed.below(), building.getBuildingLevel(), ledger, colony, owner, false);
+            if (plan.waiting()) {
+                return new TouchPlan(List.of(), List.of(), true);
+            }
+            slots.addAll(plan.slots());
+            gone.addAll(plan.gone());
+        }
+        return new TouchPlan(List.copyOf(slots), List.copyOf(gone), false);
+    }
+
+    /** The touches' target with its stand: the standable {@code gather} cell nearest {@code work} (ties: nearer {@code from}), else the hut. */
+    private static Target touchTarget(final ServerLevel level, final Target square, final BlockPos work, final BlockPos from) {
+        final BuildingTownSquare building = (BuildingTownSquare) square.building();
+        final List<BlockPos> spots = new ArrayList<>();
+        final List<BlockPos> gather = building.getLocationsFromTag(BuildingTownSquare.TAG_GATHER);
+        if (gather != null) {
+            spots.addAll(gather);
+        }
+        spots.sort(Comparator.comparingDouble((BlockPos p) -> p.distSqr(work)).thenComparingDouble(p -> from == null ? 0 : p.distSqr(from))
+                .thenComparing(p -> p));
+        for (final BlockPos spot : spots) {
+            final BlockPos stand = Gathering.standable(level, spot);
+            if (stand != null) {
+                return Target.touches(square, stand);
+            }
+        }
+        return Target.touches(square, building.getPosition());
     }
 
     // ---------------------------------------------------------------- stock

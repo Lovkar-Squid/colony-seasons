@@ -16,8 +16,9 @@ import java.util.concurrent.ConcurrentHashMap;
  * <p>A set is what the Decorator puts on the square: a centrepiece at the {@code tree} tag (a piece per level, the
  * same files as the festival marker's tree for the Winter Festival) and, from the later chunks on, small pieces at
  * the other tags. Only the Winter Festival ships with the square; every other festival's set comes with that
- * festival's version ([B] owner decision 6). The seasonal touches are in the catalogue, without pieces until the
- * square's blueprints bring them (Q6).</p>
+ * festival's version ([B] owner decision 6). The seasonal touches have no centrepiece: they are one small piece per
+ * in-game season in every planter ({@code bed} tag) of the square, {@link #touchPath} (the pieces came with Q6, the
+ * Decorator places them from Q12 on, as a ledger group of their own).</p>
  *
  * <p>The order ({@link Order}, the square's settings page) with the owner's answers of 20 Nov 2026 [B]:</p>
  * <ul>
@@ -56,7 +57,8 @@ public final class SquareSets {
      * The Winter Festival (and the New Year inside its window): the village spruce in its four sizes, the grand tree at
      * level 5. The files and their levels are the 0.1.0 marker's, unchanged. Slots from section 4.2: the tree, the gift
      * pile, the crate, garlands and strings on the lamp posts (from Q4 the square's own gift pile stands at its {@code gift}
-     * cell and the crate at its {@code launch} cell, {@link #winterFixtures}; the tree keeps the piles of its piece).
+     * cell and the crate at its {@code launch} cell, {@link #winterFixtures}; the tree keeps the piles of its piece). On a
+     * Town Square the tree also gets a foot: one festival trunk in the centrepiece cell itself (Q12, DecorWork.fixtures).
      */
     public static final Set WINTER = new Set("winter_festival", "com.colony_seasons.square.set.winter_festival",
             List.of(SeasonsConfig.WINTER_FESTIVAL, SeasonsConfig.NEW_YEAR),
@@ -64,7 +66,11 @@ public final class SquareSets {
                     "pieces/grand_tree.blueprint"),
             List.of("tree", "gift", "launch", "lamp"));
 
-    /** Between the festivals: small touches in the planters by the in-game season; their pieces come with Q6. */
+    /**
+     * Between the festivals: small touches in the planters by the in-game season ({@link #touchPath}). No centrepiece,
+     * so {@link Set#shipped()} is false and no "Always" order offers it; the touches are not the square's set either
+     * (they are their own ledger group, {@code DecorLedger.Kind.TOUCHES}).
+     */
     public static final Set SEASONAL = new Set("seasonal", "com.colony_seasons.square.set.seasonal", List.of(), List.of(), List.of("bed"));
 
     /**
@@ -211,6 +217,22 @@ public final class SquareSets {
         return bridgeOn && squareLevel >= MARKET_LEVEL && wanted != null && wanted != SEASONAL && DecorPhase.windowOpen(snapshot);
     }
 
+    /** The file of one season's touch: {@code pieces/bed_<season id>.blueprint} (Q6's pieces, tools/square_hut.py). */
+    public static final String TOUCH_PREFIX = "pieces/bed_";
+
+    /**
+     * The touch piece the square's planters want now (0.2.0, Q12, [B] owner answer of 20 Nov 2026: small seasonal touches
+     * between the festivals, the full sets only in festival windows): the in-game season's file when {@link #wanted}
+     * says the seasonal touches, else {@code null} (Bare; a festival window whose set this version ships). {@code null}
+     * also before the calendar's first poll and without a season, so nothing is swapped on a guess. Pure.
+     */
+    public static String touchPath(final Order order, final CalendarManager.Snapshot snapshot) {
+        if (snapshot == null || snapshot.season() == null || snapshot.season().season() == null || wanted(order, snapshot) != SEASONAL) {
+            return null;
+        }
+        return TOUCH_PREFIX + snapshot.season().season().id() + ".blueprint";
+    }
+
     /** [B] owner answer of 20 Nov 2026: the centrepiece's size follows the lower of the square's level and the Workshop's. */
     public static int pieceLevel(final int squareLevel, final int workshopLevel) {
         return Math.min(squareLevel, workshopLevel);
@@ -220,7 +242,7 @@ public final class SquareSets {
      * The tag slots a square of this level has ([A] design 4.2, the counts at most; the square's blueprint says where):
      * the {@code tree} and the {@code gift} from level 1, {@code lamp} posts from 2, {@code bed}s and the {@code launch}
      * from 3, {@code stall}s from 4. Q3 puts the centrepiece on {@code tree}; the other slots are filled by the later
-     * chunks (the gathering, the gift and the crate in Q4, the small pieces with the blueprints in Q6).
+     * chunks (the gathering, the gift and the crate in Q4, the stalls in Q10, the seasonal touches in the beds in Q12).
      */
     public static Map<String, Integer> slots(final int squareLevel) {
         final int level = Math.max(1, Math.min(5, squareLevel));

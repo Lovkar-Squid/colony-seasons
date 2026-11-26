@@ -42,7 +42,8 @@ import java.util.concurrent.atomic.AtomicInteger;
  *   <li>the Town Square (0.2.0, Q2, design 4.6 to 4.8): {@link Squares} names the colony's one centrepiece, the sweep
  *       takes every square group elsewhere down, a work order on the main square takes its group down from the end of
  *       that tick on, in slices ({@link #squareOrder}, and {@link #squareWatch} for an order that came another way), and a
- *       removed square's group goes at once and the marker takes over again;</li>
+ *       removed square's group goes at once and the marker takes over again; the square's seasonal touches (Q12, their
+ *       own group at the same anchor) go by the same rules, in the same slices;</li>
  *   <li>the sweep, every {@link #SWEEP_INTERVAL} ticks per level, at most {@link #SWEEP_BUDGET} cells a pass, only in
  *       loaded chunks and never before MineColonies' colony manager has loaded: groups marked for removal; a
  *       building's group while the building is under construction (an upgrade or repair would clear our blocks in
@@ -338,6 +339,7 @@ public final class DecorEvents {
             return;
         }
         removeGroup(level, ledger, colony, id, DecorLedger.Owner.square(mark.anchor()), Integer.MAX_VALUE);
+        removeGroup(level, ledger, colony, id, DecorLedger.Owner.touches(mark.anchor()), Integer.MAX_VALUE);   // Q12: its planters' touches too
         if (colony != null) {
             Squares.refresh(level, colony, ledger);
         } else {
@@ -347,10 +349,11 @@ public final class DecorEvents {
     }
 
     /**
-     * One slice of a busy main square's take-down: while the stored mark names this hut, the group at its centrepiece
-     * lists entries and the square is busy (a work order on it or inside its box), at most {@link DecorWork#SQUARE_SLICE}
-     * cells come down by the exact-state rule, items to the Workshop. True when entries are left and this slice took
-     * some (it is queued again); a group stuck on unloaded cells stays marked for the sweep.
+     * One slice of a busy main square's take-down: while the stored mark names this hut, the groups at its centrepiece
+     * (its set, and its planters' touches, Q12) list entries and the square is busy (a work order on it or inside its
+     * box), at most {@link DecorWork#SQUARE_SLICE} cells come down by the exact-state rule, the touches first, items to
+     * the Workshop. True when entries are left and this slice took some (it is queued again); a group stuck on unloaded
+     * cells stays marked for the sweep.
      */
     private static boolean orderSlice(final ServerLevel level, final DecorLedger ledger, final Pending pending) {
         final int id = pending.colony();
@@ -359,8 +362,8 @@ public final class DecorEvents {
             return false;
         }
         final DecorLedger.Owner owner = DecorLedger.Owner.square(mark.anchor());
-        final DecorLedger.RoomMark group = ledger.roomMark(id, owner);
-        if (group == null || group.size() == 0) {
+        final DecorLedger.Owner touches = DecorLedger.Owner.touches(mark.anchor());
+        if (size(ledger, id, owner) + size(ledger, id, touches) == 0) {
             return false;
         }
         final IColony colony = colonyOf(level, id);
@@ -368,11 +371,22 @@ public final class DecorEvents {
         if (!(square instanceof BuildingTownSquare) || !DecorWork.busy(colony, square)) {
             return false;
         }
-        final int touched = removeGroup(level, ledger, colony, id, owner, DecorWork.SQUARE_SLICE);
+        int touched = 0;
+        if (size(ledger, id, touches) > 0) {
+            touched += removeGroup(level, ledger, colony, id, touches, DecorWork.SQUARE_SLICE);
+        }
+        if (touched < DecorWork.SQUARE_SLICE && size(ledger, id, owner) > 0) {
+            touched += removeGroup(level, ledger, colony, id, owner, DecorWork.SQUARE_SLICE - touched);
+        }
         squareOrderCells += touched;
         ledger.flush(level);
-        final DecorLedger.RoomMark left = ledger.roomMark(id, owner);
-        return touched > 0 && left != null && left.size() > 0;
+        return touched > 0 && size(ledger, id, owner) + size(ledger, id, touches) > 0;
+    }
+
+    /** The entries a group lists (0 for none), read in place. */
+    private static int size(final DecorLedger ledger, final int id, final DecorLedger.Owner owner) {
+        final DecorLedger.RoomMark group = ledger.roomMark(id, owner);
+        return group == null ? 0 : group.size();
     }
 
     /** Cells a busy square's take-down touched since the server started (the probe reads it). */
@@ -384,8 +398,9 @@ public final class DecorEvents {
 
     /**
      * Every {@link #SQUARE_WATCH} ticks: each colony of the level whose stored main square has a group up at its
-     * centrepiece gets the work-order check of {@link #squareOrder} (it does nothing while the square is free). With no
-     * mark stored this is one map read per colony. Returns how many checks it queued.
+     * centrepiece (its set, or its planters' touches, Q12) gets the work-order check of {@link #squareOrder} (it does
+     * nothing while the square is free). With no mark stored this is one map read per colony. Returns how many checks it
+     * queued.
      */
     public static int squareWatch(final ServerLevel level) {
         if (!managerLoaded()) {
@@ -401,8 +416,7 @@ public final class DecorEvents {
             if (mark == null) {
                 continue;
             }
-            final DecorLedger.RoomMark group = ledger.roomMark(id, DecorLedger.Owner.square(mark.anchor()));
-            if (group != null && group.size() > 0) {
+            if (size(ledger, id, DecorLedger.Owner.square(mark.anchor())) + size(ledger, id, DecorLedger.Owner.touches(mark.anchor())) > 0) {
                 QUEUE.add(new Pending(level.dimension(), id, What.SQUARE_ORDER, null, mark.building()));
                 queued++;
             }
@@ -517,7 +531,9 @@ public final class DecorEvents {
      * A building's group whose building is gone or under construction (a storeroom's Workshop included), or a square
      * group that is not the colony's centrepiece now ({@link Squares.Square#hosts}: the marker when it is the square,
      * the main Town Square's anchor while that square is free; nothing while it is busy). A main square that cannot be
-     * located now keeps every square group as it is. {@code busy} keeps the work-order test of each position for this pass.
+     * located now keeps every square group as it is. The seasonal touches (Q12) go by the same rule, and also when the
+     * centrepiece is not a Town Square (they belong to a Town Square only). {@code busy} keeps the work-order test of each
+     * position for this pass.
      */
     private static boolean ownerGoneOrBusy(final ServerLevel level, final IColony colony, final DecorLedger ledger, final int id,
                                            final DecorLedger.GroupView group, final java.util.Map<BlockPos, Boolean> busy,
@@ -528,6 +544,9 @@ public final class DecorEvents {
         final BlockPos pos = group.owner().pos();
         if (group.owner().kind() == DecorLedger.Kind.SQUARE) {
             return square != null && square.located() && !square.hosts(pos);
+        }
+        if (group.owner().kind() == DecorLedger.Kind.TOUCHES) {
+            return square != null && square.located() && !(square.source() == Squares.Source.BUILDING && square.hosts(pos));
         }
         final IBuilding building = colony.getServerBuildingManager().getBuilding(pos);
         return building == null || busy.computeIfAbsent(pos, p -> DecorWork.busy(colony, building));

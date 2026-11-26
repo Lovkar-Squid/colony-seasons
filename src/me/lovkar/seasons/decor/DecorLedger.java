@@ -74,6 +74,11 @@ public final class DecorLedger extends SavedData {
      * version only adds): {@code marketDay} and {@code marketPaid}, what the festival market's stalls paid on one colony
      * day ({@link MarketMath.PaidDay}); both are written only once something was paid, and a file without them reads as
      * "never paid".</p>
+     *
+     * <p>0.2.0, Q12 adds one group kind without a new version number, by the same rule: {@link Kind#TOUCHES}, the
+     * seasonal touches in the main Town Square's planters. Versions 1, 2 and 3 without it load unchanged. A build that
+     * knows only version 2 (0.1.0) reads a file with touches with its one warning and skips that group (its kind is
+     * unknown there): the touches' few vanilla blocks then stand in the planters unlisted, as plain blocks.</p>
      */
     static final int VERSION = 3;
 
@@ -82,8 +87,11 @@ public final class DecorLedger extends SavedData {
      * Decorator's storeroom inside his Workshop (the Workshop's hut position; S10g2, storage-look 3.3). The storeroom is
      * a group of its own next to the Workshop's outside group at the same position: it is never taken down, never
      * counted against the day's budget, and its {@code festival} is the set that is up ({@code ""} packed).
+     * {@link #TOUCHES} (0.2.0, Q12): the seasonal touches in the planters of the main Town Square, a group of its own at
+     * the same position as the square's group (the centrepiece cell). Like the storeroom it is no "decoration up": the
+     * Decorator's phase, his take-down and the day's budget never see it; it swaps with the in-game season instead.
      */
-    public enum Kind { BUILDING, SQUARE, STOREROOM }
+    public enum Kind { BUILDING, SQUARE, STOREROOM, TOUCHES }
 
     public record Owner(Kind kind, BlockPos pos) {
         public Owner {
@@ -103,9 +111,22 @@ public final class DecorLedger extends SavedData {
             return new Owner(Kind.STOREROOM, hut);
         }
 
-        /** A building's or the square's: the festival decorations outside (not the storeroom). */
+        /** The seasonal touches in the planters of the Town Square whose centrepiece cell is {@code anchor} (Q12). */
+        public static Owner touches(final BlockPos anchor) {
+            return new Owner(Kind.TOUCHES, anchor);
+        }
+
+        /** A building's or the square's: the festival decorations outside (not the storeroom, not the seasonal touches). */
         public boolean outdoor() {
-            return kind != Kind.STOREROOM;
+            return kind == Kind.BUILDING || kind == Kind.SQUARE;
+        }
+
+        /**
+         * May its blocks have collision: the square's set and the touches, both only at a place the player chose (a
+         * festival marker he put down, a Town Square he built; the owner's answer of 20 Nov 2026).
+         */
+        public boolean collides() {
+            return kind == Kind.SQUARE || kind == Kind.TOUCHES;
         }
 
         @Override
@@ -491,8 +512,8 @@ public final class DecorLedger extends SavedData {
 
     /**
      * True when a building's or the square's group lists an entry: the festival decorations are up (storage-look 3.3,
-     * point 2). The storeroom stays listed all year (packed outside the windows), so the Decorator's phase, his
-     * take-down and the sweep's reset of "decorations up" read this one.
+     * point 2). The storeroom stays listed all year (packed outside the windows), and the seasonal touches stand between
+     * the festivals (Q12), so the Decorator's phase, his take-down and the sweep's reset of "decorations up" read this one.
      */
     public boolean hasOutdoorEntries(final int colony) {
         return has(colony, true);
@@ -516,7 +537,7 @@ public final class DecorLedger extends SavedData {
         return count(colony, false);
     }
 
-    /** Entries of the colony's buildings and square (the storeroom left out): the decorations that are up outside. */
+    /** Entries of the colony's buildings and square (the storeroom and the touches left out): the decorations that are up outside. */
     public int countOutdoor(final int colony) {
         return count(colony, true);
     }
