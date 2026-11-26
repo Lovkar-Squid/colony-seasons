@@ -161,12 +161,16 @@ public final class StreetLights {
      * One visit: one more step of the scan, then every open cell it found goes up through {@link DecorPlacer#place} (free,
      * unlit), up to {@link #MAX_LIGHTS} in the group. The group is finished for this window once a whole pass of the scan
      * is done and nothing it found is open; the day's budget is counted once (the group is its own slot) when anything
-     * was placed and he was not tending.
+     * was placed and he was not tending. With the hut's lights kind off ({@code placing} false) nothing goes up: what
+     * stands is left as it is, as with every other kind's switch.
      */
     public static DecorWork.Outcome visit(final ServerLevel level, final int colony, final DecorWork.Target target, final long day,
-                                          final DecorLedger ledger, final boolean tending) {
+                                          final DecorLedger ledger, final boolean tending, final boolean placing) {
         if (!SeasonsConfig.streetLights()) {
             return DecorWork.Outcome.of(0, 0, false, "street lights are switched off");
+        }
+        if (!placing) {
+            return DecorWork.Outcome.of(0, 0, false, "the Workshop's lights are switched off");
         }
         final IColony owner = StreetMarks.colonyOf(level, colony);
         if (owner == null) {

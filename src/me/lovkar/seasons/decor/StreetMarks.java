@@ -161,8 +161,13 @@ public final class StreetMarks {
      * garland's two posts still marked in a line. {@code null} when it keeps them, else the lang key.
      */
     static String placeRule(final ServerLevel level, final IColony colony, final DecorLedger ledger, final Mark mark) {
+        return placeRule(level, colony, ledger, mark, buildingBoxes(colony));
+    }
+
+    /** {@link #placeRule(ServerLevel, IColony, DecorLedger, Mark)} with the colony's building boxes read once by the caller. */
+    static String placeRule(final ServerLevel level, final IColony colony, final DecorLedger ledger, final Mark mark,
+                            final List<DoorFinder.Box> boxes) {
         final List<BlockPos> cells = StreetPieces.cells(mark);
-        final List<DoorFinder.Box> boxes = buildingBoxes(colony);
         for (final BlockPos cell : cells) {
             if (inside(boxes, cell)) {
                 return "com.colony_seasons.wand.refused.building";

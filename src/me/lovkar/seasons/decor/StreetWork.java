@@ -77,13 +77,14 @@ public final class StreetWork {
             return List.of();
         }
         final Season season = season();
+        final List<DoorFinder.Box> boxes = StreetMarks.buildingBoxes(colony);
         final List<DecorWork.Target> found = new ArrayList<>();
         for (final StreetMarks.Mark mark : marks) {
             if (done(ledger, id, mark, season) || ledger.fruitless(id, DecorLedger.Owner.street(mark.pos()), day) >= DecorWork.MAX_FRUITLESS_VISITS) {
                 continue;
             }
             if (!level.hasChunkAt(mark.pos()) || mark.type() == StreetMarks.Type.PLANTER && season == null
-                    || StreetMarks.placeRule(level, colony, ledger, mark) != null) {
+                    || StreetMarks.placeRule(level, colony, ledger, mark, boxes) != null) {
                 continue;
             }
             found.add(target(level, mark, from));

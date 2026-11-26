@@ -817,7 +817,7 @@ public final class DecorWork {
             return StreetWork.visit(level, colony, target, day, ledger, false);
         }
         if (target.owner().kind() == DecorLedger.Kind.LIGHTS) {
-            return StreetLights.visit(level, colony, target, day, ledger, false);
+            return StreetLights.visit(level, colony, target, day, ledger, false, stock.kinds().lights());
         }
         if (target.owner().kind() == DecorLedger.Kind.SQUARE) {
             return square(level, colony, target, hutLevel, stock, day, ledger, false);
@@ -837,7 +837,7 @@ public final class DecorWork {
             return StreetWork.visit(level, colony, target, day, ledger, true);
         }
         if (target.owner().kind() == DecorLedger.Kind.LIGHTS) {
-            return StreetLights.visit(level, colony, target, day, ledger, true);
+            return StreetLights.visit(level, colony, target, day, ledger, true, stock.kinds().lights());
         }
         return target.owner().kind() == DecorLedger.Kind.SQUARE
                 ? square(level, colony, target, hutLevel, stock, day, ledger, true)

@@ -1288,6 +1288,9 @@ public class CsWand {
                 DecorWork.decorate(level, colonyId, DecorWork.Target.building(b), 3, DecorPlacer.Stock.FREE, day(), ledger);
             }
             check("the lights kind off: no target", StreetLights.next(level, colony, ledger, new DecorKinds(true, true, false, true), day()) == null, "");
+            final DecorWork.Outcome off = DecorWork.decorate(level, colonyId, StreetLights.target(level, colony, ledger), 3,
+                    DecorPlacer.Stock.withKinds(DecorPlacer.Stock.FREE, new DecorKinds(true, true, false, true)), day(), ledger);
+            check("the lights kind off: a visit puts nothing up", off.placed() == 0 && ledger.group(colonyId, StreetLights.owner(colony)) == null, off.status());
             DecorWork.Target target = null;
             int calls = 0;
             while (calls < 200) {
@@ -1377,6 +1380,9 @@ public class CsWand {
             level.destroyBlock(one, true, owner);
             check("broken: forgotten, nothing dropped", ledger.at(one) == null && level.getEntitiesOfClass(ItemEntity.class, new AABB(one).inflate(2)).isEmpty(), "");
             nextMorning();
+            final DecorWork.Outcome off = DecorWork.tend(level, colonyId, StreetLights.target(level, colony, ledger), 3,
+                    DecorPlacer.Stock.withKinds(DecorPlacer.Stock.FREE, new DecorKinds(true, true, false, true)), day(), ledger);
+            check("with the Workshop's lights kind off tending puts nothing back", off.placed() == 0 && level.getBlockState(one).isAir(), off.status());
             tendAll(10);
             check("the next day's tending put it back", level.getBlockState(one).is(SeasonsBlocks.STREET_LIGHTS.get()) && ledger.at(one) != null, "");
         });

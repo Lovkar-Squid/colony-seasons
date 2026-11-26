@@ -45,7 +45,8 @@ bash tools/probe.sh csconfig seeded       # a config file with a non-default val
                                          # of 0.1.0-beta.1 (showParticles still in it) loads, keeps showClothes, loses the old key
 bash tools/probe.sh csclient              # the client config is registered, not loaded on a server, answers its defaults; the season packet clamps a bad id
                                          # Q5: the Town Square's pages and the Calendar page read back their empty packets through their views, and no
-                                         # window class of the client package has been loaded (asked of the class loader, with a positive control)
+                                         # window class of the client package has been loaded (asked of the class loader, with a positive control);
+                                         # Q11: nor the wand's outline view (client/WandMarks), and the marks' packet reads back without it
 ```
 
 ```bash

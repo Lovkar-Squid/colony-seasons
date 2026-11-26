@@ -137,6 +137,15 @@ public class CsClient {
             }
         }
         check("Q5: no window class of the client package was loaded on the dedicated server", loaded.isEmpty(), String.valueOf(loaded));
+        // Q11: the wand's outline is drawn by a client class the dedicated server never loads (its packet names it in a lambda)
+        check("Q11: the wand's client view (client/WandMarks) was not loaded on the dedicated server",
+                find.invoke(loader, "me.lovkar.seasons.client.WandMarks") == null, "");
+        final net.minecraft.network.RegistryFriendlyByteBuf marks = buffer(server);
+        final me.lovkar.seasons.network.StreetMarksPayload sent = new me.lovkar.seasons.network.StreetMarksPayload(3,
+                List.of(new me.lovkar.seasons.network.StreetMarksPayload.Entry(net.minecraft.core.BlockPos.ZERO, "garland", new net.minecraft.core.BlockPos(0, 0, 4))));
+        me.lovkar.seasons.network.StreetMarksPayload.STREAM_CODEC.encode(marks, sent);
+        check("Q11: the marks' packet reads back on a server without loading the client view", me.lovkar.seasons.network.StreetMarksPayload.STREAM_CODEC
+                .decode(marks).equals(sent) && find.invoke(loader, "me.lovkar.seasons.client.WandMarks") == null, "");
         check("Q5: the check can see a loaded class (this view is one)", find.invoke(loader, SquareInfoModuleView.class.getName()) != null, "");
     }
 
