@@ -557,6 +557,22 @@ ledger groups and the collision rule the owner approved for player-chosen places
 per colony, pieces for snowmen and lantern posts, probe) adds roughly 3 to 4 points; the look of the new pieces goes into
 the 0.2.0 picture round.
 
+## Q11 as built (the marking wand)
+
+- The wand is an item; its mode (what goes on the next spot) is kept on the wand and cycled by a right-click in the air, so
+  there is no window. A right-click on a block marks the cell in front of the clicked face; a garland takes two clicks on two
+  marked posts; a shift-right-click removes a mark. Its holder sees the colony's marks as outlines (the mod has no particles).
+- The marks are the colony's record in the decoration ledger (`marks`; the format stays 3, keys and kinds only added); every
+  mark is a group of kind `STREET` at its first cell, and all marks of a colony share one slot of the day's budget. The
+  thin street lights are one more group, `LIGHTS`, at the colony's centre.
+- The pieces are free, as the 0.1.0 decorations that are no kit's; they have collision at the spot the player chose (the
+  owner's answer for player-chosen places) and are not solid. A mark is refused inside any building's box, the Town
+  Square's included, and within 5 blocks of the festival marker (the tree).
+- The planter stands only in the festival windows, as the other street pieces; its block follows the in-game season (the
+  Town Square's touches). The lantern posts and the street lights come on with the tree's lighting, or by hand.
+- The server switch is `decorator.streetLights` (the brief's `decor.streetLights`: the section is `decorator`), off by
+  default.
+
 ## Owner answers, pictures round (20 Nov 2026) [B]
 
 - Look A, village plaza; size 21 x 21 at every level; hut block A, the notice board; name Town Square.
