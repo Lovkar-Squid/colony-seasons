@@ -86,6 +86,23 @@ build chunk.
   or "closed until the next festival". No compile dependency: `check_nodeps.py` finds no reference in any built class.
   Probe `cstradepost` (modes `without`, `with`, `restart.sh`: save, mid, and gone with the jar taken out of the world);
   `MarketMathTest` and `check_market.py` in `checks.sh`.
+- **Q12, seasonal touches in the planters and the tree's foot.** Between the festivals the square's Decorator puts
+  the in-game season's touch in every planter (`bed` tag) of the main Town Square: flowering azalea leaves in spring,
+  azalea leaves in summer, a pumpkin in autumn, spruce boughs in winter (Q6's `pieces/bed_<season>.blueprint`, the
+  piece's anchor on the planter's soil cell), and swaps them in one visit when the in-game season changes. In a
+  festival window whose set this version ships (the Winter Festival), under Bare, and for any work order on the square
+  they come down first, and they come back once the square's own set lists nothing (after the window's take-down);
+  "Always Winter Festival" keeps them between the windows, as the full sets come only in festival windows. They are a
+  ledger group of their own (kind `TOUCHES`, the format stays 3, the kind is only added): never "decorations up", no
+  phase, take-down, tending or day's budget of theirs, no notice; a filled bed is skipped without a word. The touches
+  are free (no item taken, a broken one drops nothing and comes back the next game day at most once). A world opened
+  with 0.1.0 skips their group with its one warning and keeps the few blocks as plain blocks in the planters. The
+  Decorator looks at the planters in every phase every 600 ticks and at once when the season or the windows change
+  (state `TOUCHING`). The Winter Festival's tree on a Town Square gets its foot: one `festival_trunk` in the `tree` cell
+  itself, the first cell up and down with the tree (a spruce log paid and given back like every trunk cell), not under
+  Bare and not at the festival marker; a centre cell the player or snow filled never refuses the tree, the foot follows
+  on a later tending visit. Probe `cssquarelife` extended (a level 3 square in a colony of its own, the Decorator's own
+  AI included) and its restart, `csdecorgate square`; renders in `docs/renders/q12/` (`tools/render_q12.sh`).
 
 ## 0.1.0-beta.1 - unreleased - seasons and festivals for MineColonies
 
