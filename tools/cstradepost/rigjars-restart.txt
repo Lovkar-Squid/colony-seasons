@@ -1,0 +1,2 @@
+# Trade Post for MineColonies 1.06.012 next to the mod (copied there by prepare.sh)
+%REPO%/tools/out/mctradepost-1.06.012-1.21.1.jar

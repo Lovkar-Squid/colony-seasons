@@ -48,9 +48,12 @@ public class SquareInfoModuleView extends AbstractBuildingModuleView {
         for (int i = 0; i < adds; i++) {
             added.add(new SquareInfoModule.AddedRow(buf.readUtf(), buf.readVarInt()));
         }
+        final int marketState = buf.readVarInt();
+        final int marketPaid = buf.readVarInt();
+        final int marketCap = buf.readVarInt();
         info = new SquareInfoModule.Info(level, maxLevel, order, standing, mainPos, mainLevel, wantedSet, upSet, state, changeKind,
                 changeSet, changeDate, festival, festivalDays, daysUntilNext, decorator, decoratorHere, List.copyOf(missing),
-                nextLevel, List.copyOf(added));
+                nextLevel, List.copyOf(added), marketState, marketPaid, marketCap);
     }
 
     /** What the last packet said (an empty page before the first one). */

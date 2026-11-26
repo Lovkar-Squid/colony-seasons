@@ -21,14 +21,19 @@ if [ -z "$version" ]; then echo "no version in resources/META-INF/neoforge.mods.
 
 powershell -NoProfile -ExecutionPolicy Bypass -File "$RIG_DIR/build-addon.ps1" -Repo "$repo" -Probe "$probe"
 
+# an optional tools/<probe>/rigjars-restart.txt lists extra jars for the restart run only; the probe's prepare.sh makes them
+# first (as `prepare.sh restart`; cstradepost: the Trade Post jar, which dropjars.txt takes out again before its last phase)
+if [ -f "tools/$probe/rigjars-restart.txt" ] && [ -f "tools/$probe/prepare.sh" ]; then bash "tools/$probe/prepare.sh" restart; fi
 jars="$repo/colony_seasons-$version.jar,$RIG_DIR/probes/$probe.jar"
-if [ -f "tools/$probe/rigjars.txt" ]; then
-  while IFS= read -r line || [ -n "$line" ]; do
-    line="${line%$'\r'}"
-    case "$line" in ''|'#'*) continue ;; esac
-    jars="$jars,${line//%REPO%/$repo}"
-  done < "tools/$probe/rigjars.txt"
-fi
+for list in "tools/$probe/rigjars.txt" "tools/$probe/rigjars-restart.txt"; do
+  if [ -f "$list" ]; then
+    while IFS= read -r line || [ -n "$line" ]; do
+      line="${line%$'\r'}"
+      case "$line" in ''|'#'*) continue ;; esac
+      jars="$jars,${line//%REPO%/$repo}"
+    done < "$list"
+  fi
+done
 
 # a probe with more than two phases names them in tools/<probe>/phases.txt (one line: mode words, comma-separated)
 phases="restart-save,restart-load"
@@ -40,7 +45,22 @@ if [ -d "tools/$probe/rigconfig-restart" ]; then
   args+=(-Config "$repo/tools/$probe/rigconfig-restart")
 fi
 
+# an optional tools/<probe>/dropjars.txt: lines "<phase> <jar name>", the jar is deleted from the rig's mods before that phase
+if [ -f "tools/$probe/dropjars.txt" ]; then
+  drops=""
+  while IFS= read -r line || [ -n "$line" ]; do
+    line="${line%$'\r'}"
+    case "$line" in ''|'#'*) continue ;; esac
+    drops="${drops:+$drops,}${line%% *}=${line#* }"
+  done < "tools/$probe/dropjars.txt"
+  if [ -n "$drops" ]; then args+=(-Drop "$drops"); fi
+fi
+
 # a config file left in the rig by an earlier run must not leak into this one
 rm -f "$RUN_RIG_DIR/rig/config/colony_seasons-server.toml"
 
-powershell -NoProfile -ExecutionPolicy Bypass -File "$repo/tools/rig/run-rig-keep.ps1" "${args[@]}"
+rc=0
+powershell -NoProfile -ExecutionPolicy Bypass -File "$repo/tools/rig/run-rig-keep.ps1" "${args[@]}" || rc=$?
+# an optional cleanup.sh runs after the rig, whatever the result, and the rig's exit code is kept
+if [ -f "tools/$probe/cleanup.sh" ]; then bash "tools/$probe/cleanup.sh" restart || true; fi
+exit "$rc"

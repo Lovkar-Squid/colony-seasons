@@ -28,12 +28,15 @@ step "packets"     python -I tools/check_packets.py
 step "windows"     python -I tools/check_windows.py
 step "links"       python -I tools/check_links.py
 step "0.1.0 reader" python -I tools/check_reader.py
-step "script syntax" bash -c 'for f in tools/packboot.sh tools/probe.sh tools/restart.sh tools/build.sh; do bash -n "$f" || exit 1; done'
+step "market prices" python -I tools/check_market.py
+step "script syntax" bash -c 'for f in tools/packboot.sh tools/probe.sh tools/restart.sh tools/build.sh tools/cstradepost/prepare.sh tools/cstradepost/cleanup.sh; do bash -n "$f" || exit 1; done'
 
 version="$(sed -n 's/^version="\([^"]*\)".*/\1/p' resources/META-INF/neoforge.mods.toml | head -1)"
 jar="colony_seasons-$version.jar"
 if [ -f "$jar" ]; then
   step "jar reads sequentially" "$JDK_BIN/java.exe" -Xshare:off tools/JarCheck.java "$jar"
+  step "no Trade Post reference" python -I tools/check_nodeps.py
+  step "market arithmetic" "$JDK_BIN/java.exe" -Xshare:off -cp "$jar" tools/unit/MarketMathTest.java
 else
   echo "== jar reads sequentially"
   echo "!! FAILED: $jar not found (run bash tools/build.sh first)"

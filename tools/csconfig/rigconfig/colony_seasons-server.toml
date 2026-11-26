@@ -47,3 +47,6 @@
 
 [links]
 	showWelcome = false
+
+[compat]
+	tradePostBridge = false

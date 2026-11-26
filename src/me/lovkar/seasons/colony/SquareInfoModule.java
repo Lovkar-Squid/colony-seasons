@@ -58,18 +58,27 @@ public class SquareInfoModule extends AbstractBuildingModule implements ITicking
      * {@link SquareStatus.State} id; {@code changeSet} and {@code changeDate} ("MM-DD") belong to {@code changeKind};
      * {@code festival} is the festival that is on (or the next, then {@code daysUntilNext} is 0 or more), as on the
      * Calendar page; {@code decorator} is his name or "", {@code decoratorHere} whether he is listed on this square (else
-     * on another one, working the main square); {@code nextLevel} is 0 at the highest level this version has.
+     * on another one, working the main square); {@code nextLevel} is 0 at the highest level this version has;
+     * {@code marketState}, {@code marketPaid} and {@code marketCap} are the festival market's line (Q10): one of the
+     * {@code MARKET_} states and what the stalls paid today of what they may pay, in Trade Post's points.
      */
     public record Info(int level, int maxLevel, String order, int standing, BlockPos mainPos, int mainLevel, String wantedSet,
                        String upSet, int state, int changeKind, String changeSet, String changeDate, String festival,
                        boolean festivalDays, int daysUntilNext, String decorator, boolean decoratorHere,
-                       List<MissingRow> missing, int nextLevel, List<AddedRow> added) {
+                       List<MissingRow> missing, int nextLevel, List<AddedRow> added, int marketState, int marketPaid,
+                       int marketCap) {
     }
+
+    /** {@link Info#marketState}: no market line (Trade Post is not in play), or the market is closed, has no goods, or is open (Q10). */
+    public static final int MARKET_HIDDEN = 0;
+    public static final int MARKET_CLOSED = 1;
+    public static final int MARKET_NO_GOODS = 2;
+    public static final int MARKET_OPEN = 3;
 
     /** A page before its first packet: no level, no square. */
     public static Info empty() {
         return new Info(0, 0, SquareSets.Order.FOLLOW.key(), SquareStatus.Standing.NONE.ordinal(), BlockPos.ZERO, 0, "", "",
-                SquareStatus.State.NOT_BUILT.ordinal(), CHANGE_NONE, "", "", "", false, -1, "", false, List.of(), 0, List.of());
+                SquareStatus.State.NOT_BUILT.ordinal(), CHANGE_NONE, "", "", "", false, -1, "", false, List.of(), 0, List.of(), MARKET_HIDDEN, 0, 0);
     }
 
     @Override
@@ -126,6 +135,10 @@ public class SquareInfoModule extends AbstractBuildingModule implements ITicking
             buf.writeUtf(row.tag());
             buf.writeVarInt(row.count());
         }
+        // the festival market's line (Q10), last: a state and what was paid today of the cap
+        buf.writeVarInt(info.marketState());
+        buf.writeVarInt(info.marketPaid());
+        buf.writeVarInt(info.marketCap());
     }
 
     /** Reads everything from the colony, the ledger and the calendar. Safe before the first calendar poll and without a colony. */
@@ -173,12 +186,13 @@ public class SquareInfoModule extends AbstractBuildingModule implements ITicking
             }
         }
 
+        final me.lovkar.seasons.decor.MarketStalls.Line market = me.lovkar.seasons.decor.MarketStalls.line(square);
         final SquareStatus.Worker worker = status.worker();
         return new Info(status.level(), max, status.order().key(), status.main().standing().ordinal(), status.main().pos(),
                 status.main().level(), status.wanted() == null ? "" : status.wanted().id(),
                 status.up() == null ? "" : status.up().id(), status.state().ordinal(), Integer.parseInt(change[0]), change[1],
                 change[2], festival, days, until, worker == null ? "" : worker.name(), worker != null && worker.here(),
-                List.copyOf(missing), nextLevel, List.copyOf(added));
+                List.copyOf(missing), nextLevel, List.copyOf(added), market.state(), market.paid(), market.cap());
     }
 
     /**

@@ -1,0 +1,11 @@
+{
+  "replace": false,
+  "values": {
+    "colony_seasons:wreath": 45,
+    "colony_seasons:garland": 13,
+    "colony_seasons:lantern_string": 25,
+    "colony_seasons:fairy_lights": 99,
+    "colony_seasons:tree_star": 486,
+    "colony_seasons:ornament_leaves": 28
+  }
+}

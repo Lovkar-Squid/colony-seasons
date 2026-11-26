@@ -153,6 +153,16 @@ public class TownSquareInfoWindow extends AbstractModuleWindow<SquareInfoModuleV
                     : "com.colony_seasons.gui.square.info.decorator_elsewhere", info.decorator()));
         }
 
+        // the festival market (Q10): only while Trade Post is in play (the server sends no state then)
+        switch (info.marketState()) {
+            case SquareInfoModule.MARKET_OPEN -> out.add(Component.translatable("com.colony_seasons.gui.square.info.market.open",
+                    String.format(Locale.ROOT, "%,d", info.marketPaid()), String.format(Locale.ROOT, "%,d", info.marketCap())));
+            case SquareInfoModule.MARKET_NO_GOODS -> out.add(Component.translatable("com.colony_seasons.gui.square.info.market.nostock"));
+            case SquareInfoModule.MARKET_CLOSED -> out.add(Component.translatable("com.colony_seasons.gui.square.info.market.closed"));
+            default -> {
+            }
+        }
+
         if (info.missing().isEmpty()) {
             out.add(Component.translatable("com.colony_seasons.gui.square.info.missing_none"));
         } else {
