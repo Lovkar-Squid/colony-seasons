@@ -12,6 +12,7 @@ import me.lovkar.seasons.SeasonsConfig;
 import me.lovkar.seasons.block.FestivalMarkerBlock;
 import me.lovkar.seasons.calendar.CalendarManager;
 import me.lovkar.seasons.colony.BuildingDecorator;
+import me.lovkar.seasons.colony.BuildingTownSquare;
 import me.lovkar.seasons.festival.Gathering;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -162,9 +163,13 @@ public final class DecorWork {
         return false;
     }
 
-    /** The colony's buildings in the Decorator's order: town hall, then by distance to {@code from}, ties by position. */
+    /**
+     * The colony's buildings in the Decorator's order: town hall, then by distance to {@code from}, ties by position. A
+     * Town Square is not one of them (0.2.0: it has no doors, and its decorations are the square's own, design 4.1).
+     */
     public static List<IBuilding> buildingsInOrder(final IColony colony, final BlockPos from) {
         final List<IBuilding> all = new ArrayList<>(colony.getServerBuildingManager().getBuildings().values());
+        all.removeIf(b -> b instanceof BuildingTownSquare);
         final IBuilding hall = colony.getServerBuildingManager().getTownHall();
         all.sort(Comparator.comparing((IBuilding b) -> b != hall)
                 .thenComparingDouble(b -> b.getPosition().distSqr(from))

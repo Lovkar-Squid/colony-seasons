@@ -1,0 +1,259 @@
+{
+  "credit": "Colony Seasons - Lovkar & Claude",
+  "parent": "block/block",
+  "render_type": "minecraft:cutout",
+  "ambientocclusion": false,
+  "textures": {
+    "post": "minecraft:block/stripped_spruce_log",
+    "board": "minecraft:block/spruce_planks",
+    "notes": "colony_seasons:block/townsquare_notes",
+    "roof": "minecraft:block/dark_oak_planks",
+    "base": "minecraft:block/stone_bricks",
+    "particle": "minecraft:block/stripped_spruce_log"
+  },
+  "elements": [
+    {
+      "name": "foot",
+      "from": [
+        0,
+        0,
+        3
+      ],
+      "to": [
+        16,
+        2,
+        13
+      ],
+      "faces": {
+        "north": {
+          "texture": "#base"
+        },
+        "south": {
+          "texture": "#base"
+        },
+        "east": {
+          "texture": "#base"
+        },
+        "west": {
+          "texture": "#base"
+        },
+        "up": {
+          "texture": "#base"
+        },
+        "down": {
+          "texture": "#base"
+        }
+      }
+    },
+    {
+      "name": "post left",
+      "from": [
+        1,
+        2,
+        7
+      ],
+      "to": [
+        3,
+        22,
+        9
+      ],
+      "faces": {
+        "north": {
+          "texture": "#post"
+        },
+        "south": {
+          "texture": "#post"
+        },
+        "east": {
+          "texture": "#post"
+        },
+        "west": {
+          "texture": "#post"
+        },
+        "up": {
+          "texture": "#post"
+        },
+        "down": {
+          "texture": "#post"
+        }
+      }
+    },
+    {
+      "name": "post right",
+      "from": [
+        13,
+        2,
+        7
+      ],
+      "to": [
+        15,
+        22,
+        9
+      ],
+      "faces": {
+        "north": {
+          "texture": "#post"
+        },
+        "south": {
+          "texture": "#post"
+        },
+        "east": {
+          "texture": "#post"
+        },
+        "west": {
+          "texture": "#post"
+        },
+        "up": {
+          "texture": "#post"
+        },
+        "down": {
+          "texture": "#post"
+        }
+      }
+    },
+    {
+      "name": "board",
+      "from": [
+        2,
+        8,
+        7.25
+      ],
+      "to": [
+        14,
+        20,
+        8.75
+      ],
+      "faces": {
+        "north": {
+          "texture": "#board",
+          "uv": [
+            2,
+            2,
+            14,
+            14
+          ]
+        },
+        "south": {
+          "texture": "#board",
+          "uv": [
+            2,
+            2,
+            14,
+            14
+          ]
+        },
+        "east": {
+          "texture": "#board"
+        },
+        "west": {
+          "texture": "#board"
+        },
+        "up": {
+          "texture": "#board"
+        },
+        "down": {
+          "texture": "#board"
+        }
+      }
+    },
+    {
+      "name": "notes",
+      "from": [
+        2,
+        8,
+        7.2
+      ],
+      "to": [
+        14,
+        20,
+        8.8
+      ],
+      "faces": {
+        "north": {
+          "texture": "#notes",
+          "uv": [
+            2,
+            2,
+            14,
+            14
+          ]
+        },
+        "south": {
+          "texture": "#notes",
+          "uv": [
+            2,
+            2,
+            14,
+            14
+          ]
+        }
+      }
+    },
+    {
+      "name": "roof",
+      "from": [
+        -1,
+        21,
+        4
+      ],
+      "to": [
+        17,
+        23,
+        12
+      ],
+      "faces": {
+        "north": {
+          "texture": "#roof"
+        },
+        "south": {
+          "texture": "#roof"
+        },
+        "east": {
+          "texture": "#roof"
+        },
+        "west": {
+          "texture": "#roof"
+        },
+        "up": {
+          "texture": "#roof"
+        },
+        "down": {
+          "texture": "#roof"
+        }
+      }
+    },
+    {
+      "name": "ridge",
+      "from": [
+        0,
+        23,
+        5.5
+      ],
+      "to": [
+        16,
+        24.5,
+        10.5
+      ],
+      "faces": {
+        "north": {
+          "texture": "#roof"
+        },
+        "south": {
+          "texture": "#roof"
+        },
+        "east": {
+          "texture": "#roof"
+        },
+        "west": {
+          "texture": "#roof"
+        },
+        "up": {
+          "texture": "#roof"
+        },
+        "down": {
+          "texture": "#roof"
+        }
+      }
+    }
+  ]
+}

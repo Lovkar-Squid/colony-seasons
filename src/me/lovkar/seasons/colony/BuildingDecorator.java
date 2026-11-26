@@ -110,8 +110,13 @@ public class BuildingDecorator extends AbstractBuilding {
 
     /** The look name in a blueprint path, {@link #DEFAULT_LOOK} for none. */
     public static String lookOf(final String path) {
+        return lookOf(path, DEFAULT_LOOK);
+    }
+
+    /** The look name in a blueprint path, {@code fallback} for none (the Town Square has its own). */
+    public static String lookOf(final String path, final String fallback) {
         if (path == null || path.isBlank()) {
-            return DEFAULT_LOOK;
+            return fallback;
         }
         String name = path.replace('\\', '/');
         name = name.substring(name.lastIndexOf('/') + 1);
@@ -123,7 +128,7 @@ public class BuildingDecorator extends AbstractBuilding {
             end--;
         }
         name = name.substring(0, end);
-        return name.isEmpty() ? DEFAULT_LOOK : name;
+        return name.isEmpty() ? fallback : name;
     }
 
     @Override

@@ -208,6 +208,31 @@ bash tools/restart.sh csstoreroom  # a check stopped half done in a forced windo
                                    # restart the ledger equals the world and the next check ends at the festival set
 ```
 
+The Town Square (0.2.0, Q1). `cssquare` builds a colony with a town hall, two Workshops pasted with the command a player
+types, a lumberjack's hut and two Decorators; every hire and fire is MineColonies' `HireFireMessage` and every hiring mode
+its `BuildingHiringModeMessage`, built from bytes and run through the server handler with the owner standing near the
+building, and the probe runs MineColonies' building colony tick itself, as `cshire` does. The square's tags are checked
+against `tools/cssquare/res/cssquare/square_tags.json`, which `build_pack.py` writes.
+
+```bash
+bash tools/probe.sh cssquare     # the hut block, item, building and module registered, our block-entity type for both huts; eight
+                                 # squares pasted (four turned, four mirrored): every tag through getLocationsFromTag turned with the
+                                 # building, air in the world (a `sit` tag on its bench's stair), solid ground under `tree`, the same
+                                 # after safeUpdateTEDataFromSchematic; two squares placed through MineColonies' survival placement
+                                 # handler with the hut item (level 0: nobody assigned, no auto-hire; a second square is not stopped)
+                                 # and built by a finished BUILD order (21 x 20 x 21, claim radius 0 then 1, the box claimed, nothing
+                                 # unclaimed); the Decorator assigned by the module and by the window's hire and fire while he stays
+                                 # employed at his Workshop (the same job, the Workshop lists him), refusals (a lumberjack, a jobless
+                                 # citizen, a full square, a second square), the job's assignTo, a Workshop upgrade; hiring modes
+                                 # MANUAL, AUTO, DEFAULT with the town hall's setting off and on, two squares and two Decorators;
+                                 # pruning after a removal, a fire at the Workshop and a new job (gone from the list at once, the
+                                 # id dropped at one colony tick or before the next assignment); the view read from the module's
+                                 # packet; the square left out of the Decorator's buildings; a square broken; its tags with its
+                                 # chunk unloaded (empty once the block entity goes; the rig keeps it, finding H2) and back after
+bash tools/restart.sh cssquare   # a square with its Decorator on MANUAL and a square whose Decorator was removed without a colony
+                                 # tick, read back before any colony tick (the first kept, the second pruned when the save was read)
+```
+
 Each finding that goes to the owner instead of a fix is a `NOTE FINDING H<n> owner:ask|fyi` line. `tools/restart.sh` runs the phases a
 probe lists in its `phases.txt` instead of `restart-save,restart-load`.
 
@@ -321,6 +346,15 @@ run (`tools/nbt.py` is a small NBT writer, so the scripts need no packages and r
   a barrel and never hung, hung pieces beside a whole wall block, both sets, the walk with either set placed; the
   barrels into the blueprint's air and none above a rack or behind a window, `workshop(level, barrels=False)`) after a
   self-test that plants each fault once, and writes `tools/csspots/res/csspots/spots.json` for the `csspots` probe.
+- `tools/square_hut.py` (0.2.0, Q1): the Town Square, look A "Village plaza", `square/townsquare1.blueprint`: one
+  placeholder level 21 x 21 (box y 0..19, so the grand tree fits) with every tag of design 4.1 (`tree` at the centre,
+  `gift`, `launch`, 8 `gather`, 2 `sit` on the benches' seats, 4 `lamp` over fence posts, 4 `bed` over a planter, 2
+  `stall`) and the notice board as its hut block at (2, 1, 8); Q6 draws the five real levels on the same box and cells.
+  `build_pack.py` checks it (`check_square` after a self-test: the anchor and its name tag only, the box, the tag counts,
+  tags on air except `sit`, standing room, solid ground under `tree`, the 11 x 11 column over it empty, the hut block
+  reachable from the south entrance) and writes `tools/cssquare/res/cssquare/square_tags.json`.
+  `python -I tools/gen_square_hut.py` writes the hut block's blockstate, block and item models and its notes texture (our
+  own pixels over vanilla wood, a PNG writer of its own); `--check` is a step of `checks.sh`.
 - `tools/tree_pieces.py`: the tree pieces the Decorator places at the festival marker, `pieces/village_spruce_small`,
   `village_spruce_full`, `village_spruce_rich` (tree A) and `grand_tree` (tree B) of `design/src/trees.py`. A piece is
   drawn facing north; its anchor is the marker's cell and stays air; tags `gift_pile`, `firework_crate`, `star`

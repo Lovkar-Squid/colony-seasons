@@ -9,6 +9,8 @@ the rig's basemods/); the Minecraft client assets jar comes from tools/paths.py.
 
   resources/blueprints/colony_seasons/colony_seasons/pack.json         the pack ("Colony Seasons", its own pack)
   .../decorator/workshop1..5.blueprint                                  the Decorator's hut (tools/decorator_hut.py)
+  .../square/townsquare1.blueprint                                      the Town Square (0.2.0, tools/square_hut.py;
+                                                                        Q1: one placeholder level with every tag)
   .../pieces/village_spruce_small|full|rich.blueprint, grand_tree.blueprint   the tree pieces (tools/tree_pieces.py)
   tools/cspaste/res/cspaste/manifest.json                               what the paste probe expects to read back
   tools/csspots/res/csspots/spots.json                                  the storeroom's spot tags per level (S10g1),
@@ -16,6 +18,8 @@ the rig's basemods/); the Minecraft client assets jar comes from tools/paths.py.
   tools/csstoreroom/res/csstoreroom/sets.json                           the storeroom's two sets per level with their
                                                                         facings (S10g2, decorator_hut.storeroom_set),
                                                                         what the csstoreroom probe's placed room must be
+  tools/cssquare/res/cssquare/square_tags.json                          the Town Square's tags per level, relative to
+                                                                        its hut block, for the cssquare probe (Q1)
 
 The icon (colony_seasons.png next to pack.json) is drawn by tools/render_s5.py; this script only checks it is there.
 Checks, each printed, then ALL OK or PROBLEMS: every block id exists (client jar, our blockstates, the mod jars) with
@@ -27,7 +31,10 @@ picked designs only where decorator_hut.DESIGN_CHANGES / tree_pieces.DESIGN_CHAN
 12 of them); the storeroom's spot tags (S10g1, docs/storage-look-design.md 3.1 and 3.5: in air inside the walls, nothing
 above a rack, nothing behind a window, packed pieces standing on a barrel and never hung, hung pieces on a wall face,
 the walk and the ladder clear with either set placed; the storeroom barrels into air, none above a rack or behind a
-window; after a self-test of each rule); the piece contract (air
+window; after a self-test of each rule); the Town Square (Q1, check_square: the notice board as the anchor, one 21 x 21
+box, the tags of design 4.1 in their counts on air cells (`sit` on a bench's seat), standing room at the standing
+tags, solid ground under `tree`, nothing in the 11 x 11 column over it, no tag on the anchor, the hut block reachable;
+after a self-test of each rule); the piece contract (air
 anchor, tags, the trunk a column of colony_seasons:festival_trunk and no log block in a piece, open sky over the
 crate); and a read-back of every written file.
 """
@@ -44,6 +51,7 @@ sys.path.insert(0, TOOLS)
 import decorator_hut as dh  # noqa: E402
 import nbt  # noqa: E402
 import paths  # noqa: E402
+import square_hut as sq  # noqa: E402
 import tree_pieces as tp  # noqa: E402
 import voxel  # noqa: E402
 from floatcheck import attachment, components, floating  # noqa: E402
@@ -54,7 +62,9 @@ PACK_DIR = paths.res("blueprints", "colony_seasons", "colony_seasons")
 ICON = "colony_seasons.png"
 HUT_FOLDER = "decorator"
 PIECE_FOLDER = "pieces"
+SQUARE_FOLDER = "square"
 BUILDING_TYPE = "colony_seasons:decorator"         # DecoratorSetup.BUILDING_ID
+SQUARE_TYPE = "colony_seasons:townsquare"          # TownSquareSetup.BUILDING_ID
 BE_TYPE = "colony_seasons:colonybuilding"          # DecoratorSetup.BUILDING_BE
 MARKER_BE = "colony_seasons:festival_marker"       # the piece's anchor holds what the marker cell holds: the tags
 HUT_MODS = ("structurize", "minecolonies", "colony_seasons")
@@ -72,6 +82,7 @@ NS = "colony_seasons"
 TRUNK = f"{NS}:festival_trunk"                    # the trunk of every tree piece: a spruce log to look at, in no log tag (S10c)
 
 problems = []
+NL = chr(10)
 
 
 def problem(msg):
@@ -183,6 +194,21 @@ def hut_entity(file_name):
 
 def piece_entity():
     return {"id": MARKER_BE}
+
+
+def square_entity(file_name):
+    return {"id": BE_TYPE, "type": SQUARE_TYPE, "version": nbt.Int(2), "pack": PACK_NAME,
+            "path": f"{SQUARE_FOLDER}/{file_name}"}
+
+
+def square_files():
+    out = []
+    for lv in sq.LEVELS:
+        s = sq.square(lv)
+        fn = f"{s.name}.blueprint"
+        root = s.blueprint_nbt(fn, PACK_NAME, f"{SQUARE_FOLDER}/{fn}", square_entity(fn), HUT_MODS, box=sq.BOX)
+        out.append((f"{SQUARE_FOLDER}/{fn}", s, root, sq.BOX))
+    return out
 
 
 def hut_files():
@@ -533,6 +559,154 @@ def sets_text():
     return text
 
 
+SQUARE_TAGS = os.path.join(TOOLS, "cssquare", "res", "cssquare", "square_tags.json")
+STANDING_TAGS = ("gift", "launch", "gather", "stall")
+
+
+def square_problems(s):
+    """The rules of docs/town-square-design.md 4.1 and the Q1 brief on one level of the Town Square `s`
+    (square_hut's frame: the `tree` cell at (0, 1, 0)). Returns a list of problems (empty when all hold)."""
+    out = []
+    a = s.anchor
+    if a != sq.HUT_SPOT or s.get(*a) != sq.HUT:
+        out.append(f"the anchor {a} is not the hut block {sq.HUT} at {sq.HUT_SPOT}")
+    if s.tags.get(a) != ["name=" + sq.LOOK_LABEL]:
+        out.append(f"the anchor's tags {s.tags.get(a)} are not just name={sq.LOOK_LABEL} (no square tag on the anchor: "
+                   f"MineColonies reads the anchor's tags for its allowed jobs)")
+    (bx0, by0, bz0), (bx1, by1, bz1) = sq.BOX
+    if (bx1 - bx0 + 1, bz1 - bz0 + 1) != (21, 21):
+        out.append(f"the box {sq.BOX} is not 21 x 21")
+    (x0, y0, z0), (x1, y1, z1) = s.bounds()
+    if x0 < bx0 or y0 < by0 or z0 < bz0 or x1 > bx1 or y1 > by1 or z1 > bz1:
+        out.append(f"blocks {s.bounds()} reach outside the box {sq.BOX}")
+    found = {}
+    cells = {}
+    for pos, names in s.tags.items():
+        x, y, z = pos
+        if not (bx0 <= x <= bx1 and by0 <= y <= by1 and bz0 <= z <= bz1):
+            out.append(f"{pos}: tags {names} outside the box")
+        for name in names:
+            if name.startswith("name="):
+                continue
+            if name not in sq.TAG_COUNTS:
+                out.append(f"{pos}: unknown tag {name}")
+                continue
+            if pos in cells:
+                out.append(f"{pos}: two square tags on one cell ({cells[pos]}, {name})")
+            cells[pos] = name
+            found.setdefault(name, []).append(pos)
+    for name, (lo, hi) in sq.TAG_COUNTS.items():
+        n = len(found.get(name, []))
+        if not lo <= n <= hi:
+            out.append(f"tag {name}: {n} cells, not {lo} to {hi}")
+    for pos, name in sorted(cells.items()):
+        block = s.get(*pos)
+        if name in sq.SEAT_TAGS:
+            if block is None or not voxel.parse_state(block)[0].endswith("_stairs") or "half=top" in block:
+                out.append(f"{name} {pos}: not on a seat (a bottom stair), but {block}")
+        elif block is not None:
+            out.append(f"{name} {pos}: not air ({block})")
+        if name in STANDING_TAGS and not standable(s, *pos):
+            out.append(f"{name} {pos}: no room to stand (solid ground, feet and head free)")
+    trees = found.get("tree", [])
+    if trees:
+        tx, ty, tz = trees[0]
+        if (tx, ty, tz) != sq.TREE:
+            out.append(f"the tree tag {trees[0]} is not the square's centre {sq.TREE}")
+        under = s.get(tx, ty - 1, tz)
+        if under is None or under.startswith("structurize:"):
+            out.append(f"the cell under the tree tag is {under}, not a solid block of the square")
+        blocked = sorted(p for p in s.blocks if abs(p[0] - tx) <= sq.TREE_HALF and abs(p[2] - tz) <= sq.TREE_HALF and p[1] >= ty)
+        if blocked:
+            out.append(f"{len(blocked)} blocks in the {2 * sq.TREE_HALF + 1} x {2 * sq.TREE_HALF + 1} column over the tree, "
+                       f"e.g. {blocked[0]} {s.get(*blocked[0])}")
+        if by1 < ty + 17:
+            out.append(f"the box top y {by1} does not hold the grand tree (18 high from y {ty})")
+    if not standable(s, *sq.ENTRANCE):
+        out.append(f"nowhere to stand at the entrance {sq.ENTRANCE}")
+    elif not next_to(walk(s, [sq.ENTRANCE]), a):
+        out.append(f"the hut block {a} cannot be reached from the entrance {sq.ENTRANCE}")
+    return out
+
+
+def selftest_square():
+    """Each fault planted once into a copy of level 1 must be found."""
+    ok = True
+
+    def planted(edit, want):
+        nonlocal ok
+        s = sq.square(1)
+        s.tags = {p: list(n) for p, n in s.tags.items()}
+        edit(s)
+        found = square_problems(s)
+        if not any(want in f for f in found):
+            problem(f"square self-test: '{want}' was not reported: {found[:3]}")
+            ok = False
+
+    def wall(s):
+        for x in range(-sq.HALF, sq.HALF + 1):
+            for y in (1, 2, 3):
+                s.set(x, y, 9, "minecraft:stone_bricks")
+
+    planted(lambda s: s.set(3, 9, -2, "minecraft:stone"), "column over the tree")
+    planted(lambda s: s.tags[sq.HUT_SPOT].append("gather"), "no square tag on the anchor")
+    planted(lambda s: s.set(*sq.GATHER[0], "minecraft:stone"), "not air")
+    planted(lambda s: s.set(0, 0, 0, None), "the cell under the tree tag")
+    planted(lambda s: s.tags.pop(sq.GIFT), "tag gift: 0 cells")
+    planted(lambda s: s.tags.setdefault(sq.GIFT, []).append("lamp"), "two square tags on one cell")
+    planted(lambda s: s.tags[(4, 1, -7)].remove("sit"), "tag sit: 1 cells")
+    planted(lambda s: s.tags.setdefault((0, 1, -3), []).append("sit"), "not on a seat")
+    planted(lambda s: s.tags.setdefault((0, 1, 9), []).append("tinsel"), "unknown tag tinsel")
+    planted(lambda s: s.set(sq.GATHER[1][0], 2, sq.GATHER[1][2], "minecraft:stone"), "no room to stand")
+    planted(wall, "cannot be reached from the entrance")
+    return ok
+
+
+def check_square(label, s):
+    ok = True
+    for p in square_problems(s):
+        problem(f"{label}: {p}")
+        ok = False
+    counts = {n: sum(1 for ts in s.tags.values() for t in ts if t == n) for n in sq.TAG_COUNTS}
+    return ok, ", ".join(f"{n} {c}" for n, c in counts.items())
+
+
+def square_tags_json():
+    """What the cssquare probe expects from a pasted or built square: per level every tag's cells, the box, the `tree`
+    cell and the seat tags, all relative to the hut block and unturned (the probe turns them with the building)."""
+    levels = {}
+    for lv in sq.LEVELS:
+        s = sq.square(lv)
+        ax, ay, az = s.anchor
+        tags = {}
+        for (x, y, z), names in sorted(s.tags.items()):
+            for n in names:
+                if n in sq.TAG_COUNTS:
+                    tags.setdefault(n, []).append([x - ax, y - ay, z - az])
+        levels[str(lv)] = {n: sorted(tags.get(n, [])) for n in sq.TAG_COUNTS}
+    ax, ay, az = sq.HUT_SPOT
+    (x0, y0, z0), (x1, y1, z1) = sq.BOX
+    tx, ty, tz = sq.TREE
+    return {"tags": list(sq.TAG_COUNTS), "seat": list(sq.SEAT_TAGS), "standing": list(STANDING_TAGS),
+            "box": [[x0 - ax, y0 - ay, z0 - az], [x1 - ax, y1 - ay, z1 - az]],
+            "tree": [tx - ax, ty - ay, tz - az], "treeHalf": sq.TREE_HALF, "levels": levels}
+
+
+def square_tags_text():
+    """square_tags_json() as written: one tag to a line."""
+    d = square_tags_json()
+    lines = ["{"] + [f" {json.dumps(k)}: {json.dumps(v)}," for k, v in d.items() if k != "levels"] + [' "levels": {']
+    for i, (lv, tags) in enumerate(d["levels"].items()):
+        lines.append(f"  {json.dumps(lv)}: {{")
+        lines += [f"   {json.dumps(n)}: {json.dumps(c)}" + ("," if j < len(tags) - 1 else "") for j, (n, c) in enumerate(tags.items())]
+        lines.append("  }" + ("," if i < len(d["levels"]) - 1 else ""))
+    lines += [" }", "}"]
+    text = NL.join(lines) + NL
+    if json.loads(text) != d:
+        raise ValueError("square_tags_text does not read back as square_tags_json")
+    return text
+
+
 def check_piece(label, s):
     ok = True
     a = s.anchor
@@ -658,9 +832,12 @@ def manifest_entry(path, s, root, box):
             continue
         counts[n] = counts.get(n, 0) + 1
     ours = sorted([[x - ax, y - ay, z - az, b] for (x, y, z), b in s.blocks.items() if b.startswith(NS + ":")])
+    kind = "hut" if path.startswith(HUT_FOLDER + "/") else "square" if path.startswith(SQUARE_FOLDER + "/") else "piece"
+    building = {"hut": (BUILDING_TYPE, HUT_FOLDER), "square": (SQUARE_TYPE, SQUARE_FOLDER)}.get(kind)
     return {
         "path": path,
-        "kind": "hut" if path.startswith(HUT_FOLDER + "/") else "piece",
+        "kind": kind,
+        **({"buildingType": building[0], "folder": building[1]} if building else {}),
         "size": [int(root["size_x"]), int(root["size_y"]), int(root["size_z"])],
         "anchor": [ax - x0, ay - y0, az - z0],
         "anchorBlock": s.get(*s.anchor) or "minecraft:air",
@@ -684,7 +861,7 @@ def main(argv):
         problem(f"the Structurize and MineColonies jars are not both in {mods_dir}: {mod_jars}")
     states = Blockstates(mod_jars)
 
-    files = hut_files() + piece_files()
+    files = hut_files() + square_files() + piece_files()
     written = {}
     manifest = {"pack": PACK_NAME, "files": []}
     for path, s, root, box in files:
@@ -694,6 +871,11 @@ def main(argv):
             level = int(re.search(r"(\d)\.blueprint$", path).group(1))
             ok = check_common(label, s) and ok
             r = check_hut(label, s, level)
+            info = r[1]
+            ok = r[0] and ok
+        elif path.startswith(SQUARE_FOLDER + "/"):
+            ok = check_common(label, s) and ok
+            r = check_square(label, s)
             info = r[1]
             ok = r[0] and ok
         else:
@@ -715,6 +897,8 @@ def main(argv):
         print(f"{label:38s} {r if r else 'PROBLEMS'}")
     storage_ok, rack_counts = check_storage()
     print(f"{'storage room (S10e)':38s} racks at levels 1 to 5: {rack_counts}  {'ok' if storage_ok else 'PROBLEMS'}")
+    square_ok = selftest_square()
+    print(f"{'town square self-test (Q1)':38s} {'ok' if square_ok else 'PROBLEMS'}")
     spots_ok, spot_counts = check_spots()
     print(f"{'storeroom spots (S10g1)':38s} packed / hung at levels 1 to 5: "
           f"{' '.join(f'{p}/{h}' for p, h in spot_counts)}  {'ok' if spots_ok else 'PROBLEMS'}")
@@ -724,7 +908,8 @@ def main(argv):
     targets = {os.path.join(PACK_DIR, "pack.json"): pack_json().encode("utf-8"),
                MANIFEST: manifest_text.encode("utf-8"),
                SPOTS: spots_text().encode("utf-8"),
-               SETS: sets_text().encode("utf-8")}
+               SETS: sets_text().encode("utf-8"),
+               SQUARE_TAGS: square_tags_text().encode("utf-8")}
     for path, root in written.items():
         buf = io.BytesIO()
         with gzip.GzipFile(filename="", mode="wb", fileobj=buf, mtime=0) as g:

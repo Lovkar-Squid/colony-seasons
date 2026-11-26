@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "colony_seasons:block/blockhuttownsquare"
+    },
+    "facing=east": {
+      "model": "colony_seasons:block/blockhuttownsquare",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "colony_seasons:block/blockhuttownsquare",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "colony_seasons:block/blockhuttownsquare",
+      "y": 270
+    }
+  }
+}
