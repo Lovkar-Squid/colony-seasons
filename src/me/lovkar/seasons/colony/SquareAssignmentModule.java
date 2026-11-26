@@ -36,9 +36,10 @@ import java.util.Set;
  *       Workshop ({@link JobDecorator#assignTo} answers true for this module without moving him).</li>
  *   <li>[B] It takes only a Decorator: MineColonies' HireFireMessage does no job check of its own.</li>
  *   <li>[B] Pruning is ours: MineColonies' citizen removal cleans only its own assigned-citizen modules. A citizen who
- *       died, or is no longer a Decorator, is dropped at the next colony tick and when the save is read (the
- *       citizens and their jobs are read before the buildings). A dead citizen is already left out of
- *       {@link #getAssignedCitizen()} before that.</li>
+ *       died, or is no longer a Decorator, is dropped at the next colony tick, when the save is read (the
+ *       citizens and their jobs are read before the buildings) and before another citizen is assigned. Both are
+ *       already left out of {@link #getAssignedCitizen()} before that, so MineColonies never counts anyone but a
+ *       Decorator as the square's.</li>
  * </ul>
  * One Decorator a square ({@link #MAX}); a Decorator serves at most one square. Auto-hire (hiring mode, default
  * DEFAULT: the town hall's setting) takes the colony's lowest-id Decorator who works at a Workshop and is on no square.
@@ -75,7 +76,10 @@ public class SquareAssignmentModule extends AbstractBuildingModule
         return List.copyOf(ids);
     }
 
-    /** The assigned citizens who still exist; never changes anything (a dead citizen's id waits for the next prune). */
+    /**
+     * The assigned citizens who still exist and are still Decorators; never changes anything (the id of a dead or
+     * re-jobbed citizen waits for the next prune).
+     */
     @Override
     public List<ICitizenData> getAssignedCitizen() {
         final ICitizenManager manager = citizens();
@@ -85,7 +89,7 @@ public class SquareAssignmentModule extends AbstractBuildingModule
         }
         for (final int id : ids) {
             final ICitizenData citizen = manager.getCivilian(id);
-            if (citizen != null) {
+            if (citizen != null && citizen.getJob() instanceof JobDecorator) {
                 out.add(citizen);
             }
         }
@@ -159,13 +163,15 @@ public class SquareAssignmentModule extends AbstractBuildingModule
     /**
      * Assigns a Decorator to this square. His job and his Workshop stay as they are (nothing here calls
      * {@code job.assignTo}, {@code onRemoval} or sets a work building). A refusal marks the module dirty, so the window,
-     * which listed him in its own copy first, gets the true list again.
+     * which listed him in its own copy first, gets the true list again. The ids of the dead and the re-jobbed go first,
+     * so one of them who is a Decorator again before the next colony tick cannot come back as a second Decorator here.
      */
     @Override
     public boolean assignCitizen(final ICitizenData citizen) {
         if (hasAssignedCitizen(citizen)) {
             return true;
         }
+        prune();
         if (refusal(citizen) != null) {
             markDirty();
             return false;

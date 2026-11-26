@@ -1118,6 +1118,9 @@ public class CsSquare {
             check("set up: S1 takes the Decorator", s1.assignment().assignCitizen(d), "");
             fireAt(ws, d);
             check("prune: fired at the Workshop, he has no job", d.getJob() == null, jobName(d.getJob()));
+            check("prune: the jobless citizen is no longer the square's at once (module and building), his id waits for the colony tick",
+                    s1.assignment().getAssignedCitizen().isEmpty() && !s1.assignment().hasAssignedCitizen(d) && !s1.getAllAssignedCitizen().contains(d)
+                            && s1.assignment().assignedIds().contains(d.getId()), s1.assignment().assignedIds().toString());
             colonyTick();
             check("prune: after one colony tick the square has dropped him", s1.assignment().assignedIds().isEmpty(), s1.assignment().assignedIds().toString());
             hireAt(ws, d);
@@ -1132,11 +1135,20 @@ public class CsSquare {
             fireAt(ws, d);
             hireAt(lumber, d);
             check("prune: he is the lumberjack now", "lumberjack".equals(jobName(d.getJob())) && d.getWorkBuilding() == lumber, jobName(d.getJob()));
+            check("prune: the lumberjack is no longer the square's at once (module and building), his id waits for the colony tick",
+                    s1.assignment().getAssignedCitizen().isEmpty() && !s1.assignment().hasAssignedCitizen(d) && !s1.getAllAssignedCitizen().contains(d)
+                            && s1.assignment().assignedIds().contains(d.getId()), s1.assignment().assignedIds().toString());
+            // while his id waits, the square takes the other Decorator: the waiting id goes first, so never two
+            empty(s2);
+            check("prune: the square takes another Decorator while the lumberjack's id waits, and drops that id first",
+                    s1.assignment().assignCitizen(d2) && s1.assignment().assignedIds().equals(List.of(d2.getId())), s1.assignment().assignedIds().toString());
             colonyTick();
-            check("prune: after one colony tick the square has dropped the lumberjack", s1.assignment().assignedIds().isEmpty(), s1.assignment().assignedIds().toString());
+            check("prune: after one colony tick the square holds no lumberjack", !s1.assignment().assignedIds().contains(d.getId()), s1.assignment().assignedIds().toString());
             fireAt(lumber, d);
             hireAt(ws, d);
             linked("back at his Workshop", d, ws, null, null);
+            checkEq("prune: the square still has the other Decorator, and only him", s1.assignment().assignedIds(), List.of(d2.getId()));
+            fireAt(s1, d2);
             hireAt(lumber, lumberjack);
             check("set up: the lumberjack is back at his hut", "lumberjack".equals(jobName(lumberjack.getJob())) && lumberjack.getWorkBuilding() == lumber,
                     jobName(lumberjack.getJob()));
@@ -1170,7 +1182,10 @@ public class CsSquare {
         unloadSteps();
     }
 
-    /** Point 5: with the square's chunk unloaded its tags read empty; loaded again, they are back. */
+    /**
+     * Point 5: the square's chunk unloaded. Its tags read empty once its block entity is gone; while MineColonies still
+     * holds the block entity they keep their right cells (what the rig shows: finding H2). Loaded again, they are back.
+     */
     private void unloadSteps() {
         final BuildingTownSquare[] target = new BuildingTownSquare[1];
         final RotationMirror[] rm = new RotationMirror[1];

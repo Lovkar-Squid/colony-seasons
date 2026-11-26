@@ -10,7 +10,8 @@ build chunk.
 
 - **Q1, the Town Square building and its Decorator.** New hut `colony_seasons:townsquare` (the notice board,
   one placeholder level 21 x 21 with every square tag); one Decorator is assigned to it by window or auto-hire
-  and stays employed at his Workshop; dead or re-jobbed Decorators drop off within one colony tick and on load;
+  and stays employed at his Workshop; dead or re-jobbed Decorators drop off at once (their saved ids within one
+  colony tick and on load);
   probe `cssquare` with a restart. Nothing is decorated on the square yet.
 
 ## 0.1.0-beta.1 - unreleased - seasons and festivals for MineColonies

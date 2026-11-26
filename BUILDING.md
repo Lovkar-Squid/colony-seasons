@@ -225,9 +225,10 @@ bash tools/probe.sh cssquare     # the hut block, item, building and module regi
                                  # employed at his Workshop (the same job, the Workshop lists him), refusals (a lumberjack, a jobless
                                  # citizen, a full square, a second square), the job's assignTo, a Workshop upgrade; hiring modes
                                  # MANUAL, AUTO, DEFAULT with the town hall's setting off and on, two squares and two Decorators;
-                                 # pruning after a removal, a fire at the Workshop and a new job (one colony tick); the view read
-                                 # from the module's packet; the square left out of the Decorator's buildings; a square broken;
-                                 # its tags empty while its chunk is unloaded and back after
+                                 # pruning after a removal, a fire at the Workshop and a new job (gone from the list at once, the
+                                 # id dropped at one colony tick or before the next assignment); the view read from the module's
+                                 # packet; the square left out of the Decorator's buildings; a square broken; its tags with its
+                                 # chunk unloaded (empty once the block entity goes; the rig keeps it, finding H2) and back after
 bash tools/restart.sh cssquare   # a square with its Decorator on MANUAL and a square whose Decorator was removed without a colony
                                  # tick, read back before any colony tick (the first kept, the second pruned when the save was read)
 ```
