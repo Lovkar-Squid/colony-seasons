@@ -1675,13 +1675,18 @@ public class CsDecorGate {
         final DecorWork.Outcome o = decorateFully(target, 5, DecorPlacer.Stock.FREE);
         final DecorLedger.GroupView group = ledger.group(colonyId, target.owner());
         final Map<BlockPos, BlockState> got = relCells(target.owner());
-        // Q4: the square's own gift pile at its gift cell (from square level 1) is a fixture of the square, not of the tree
+        // Q4: the square's own gift pile at its gift cell (from square level 1) is a fixture of the square, not of the tree;
+        // Q12: so is the tree's foot, a festival trunk in the tree cell itself (the marker's own cell at the festival marker)
         final List<PieceLoader.PieceCell> fixtures = DecorWork.fixtures(target, 1);
         final List<BlockPos> giftCells = townSquare.getLocationsFromTag(BuildingTownSquare.TAG_GIFT);
-        check(at + ": Q4: the square's gift pile stands at its gift cell, which turns with the square", fixtures.size() == 1
+        check(at + ": Q4: the square's gift pile stands at its gift cell, which turns with the square", fixtures.size() == 2
                 && fixtures.get(0).giftPile() && giftCells.size() == 1 && anchor.offset(fixtures.get(0).rel()).equals(giftCells.get(0))
                 && got.get(fixtures.get(0).rel()) != null && got.get(fixtures.get(0).rel()).is(SeasonsBlocks.GIFT_PILE.get())
                 && level.getBlockState(giftCells.get(0)).is(SeasonsBlocks.GIFT_PILE.get()), fixtures + ", " + giftCells);
+        check(at + ": Q12: the tree's foot, a festival trunk in the tree cell, listed in the square's group, under the tree's own trunk",
+                fixtures.size() == 2 && fixtures.get(1).rel().equals(BlockPos.ZERO) && fixtures.get(1).trunk() && got.get(BlockPos.ZERO) != null
+                        && got.get(BlockPos.ZERO).is(SeasonsBlocks.FESTIVAL_TRUNK.get()) && level.getBlockState(anchor).is(SeasonsBlocks.FESTIVAL_TRUNK.get())
+                        && got.get(BlockPos.ZERO.above()) != null, String.valueOf(level.getBlockState(anchor)));
         for (final PieceLoader.PieceCell fixture : fixtures) {
             got.remove(fixture.rel());
         }
