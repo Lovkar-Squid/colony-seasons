@@ -292,9 +292,17 @@ public class SquareAssignmentModule extends AbstractBuildingModule
         buf.writeVarInt(main.level());
     }
 
-    /** The colony's main square as this square's page shows it (reads only; {@link SquareStatus.Main#NONE} without a building). */
+    /**
+     * The colony's main square as this square's page shows it (reads only; {@link SquareStatus.Main#NONE} without a
+     * building). Never throws: it runs on the colony tick, where a throw would stop the huts after this one, and in the
+     * packet writer; a failed reading keeps the last one.
+     */
     private SquareStatus.Main main() {
-        return getBuilding() instanceof BuildingTownSquare square ? SquareStatus.mainOf(square) : SquareStatus.Main.NONE;
+        try {
+            return getBuilding() instanceof BuildingTownSquare square ? SquareStatus.mainOf(square) : SquareStatus.Main.NONE;
+        } catch (final RuntimeException unread) {
+            return lastMain != null ? lastMain : SquareStatus.Main.NONE;
+        }
     }
 
     /** Every Town Square of the colony whose module lists {@code citizen}, lowest building position first. */
