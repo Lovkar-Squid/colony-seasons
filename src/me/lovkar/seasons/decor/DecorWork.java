@@ -69,6 +69,11 @@ import java.util.Set;
  * changes, and take it down when a festival set wants the square or the order is Bare. They are a ledger group of their
  * own ({@link DecorLedger.Kind#TOUCHES}), never "decorations up": no phase, no take-down, no budget, no notice; they
  * cost nothing and come back only once the square's own group lists nothing (after the window's take-down).</p>
+ *
+ * <p>The street (0.2.0, Q11): the spots the player marked with the Decorator's wand are offered right after the square,
+ * before the other buildings, all of them on one slot of the day's budget, and the street lights on fences
+ * ({@code decorator.streetLights}) after the buildings; the work itself is {@link StreetWork}'s and {@link StreetLights}',
+ * this class only hands them their targets, visits and take-downs.</p>
  */
 public final class DecorWork {
 
@@ -259,6 +264,8 @@ public final class DecorWork {
         if (square != null) {
             order.add(square);
         }
+        // Q11: the spots marked with the wand that are not done, nearest first, one slot of the day's budget for all of them
+        order.addAll(StreetWork.open(level, colony, ledger, from, day));
         for (final IBuilding b : buildings) {
             if (b != hall) {
                 order.add(Target.building(b));
@@ -275,9 +282,12 @@ public final class DecorWork {
                 continue;                             // left for the rest of today (S10c): the next one, back tomorrow
             }
             // counted today already (also when its group was dropped since, as a work order does): no second slot
-            final boolean chargedToday = ledger.chargedOn(id, target.owner(), day);
+            final boolean chargedToday = ledger.chargedOn(id, target.owner().budgetKey(), day);
             if (!chargedToday && !budgetLeft) {
                 continue;
+            }
+            if (target.owner().kind() == DecorLedger.Kind.STREET) {
+                return target;                        // StreetWork.open offers only marks with work
             }
             if (target.building() != null && (target.building().getBuildingLevel() < 1 || busy(colony, target.building()))) {
                 continue;
@@ -301,6 +311,11 @@ public final class DecorWork {
             if (anyInStock(plan.slots(), stock)) {
                 return target;
             }
+        }
+        // Q11: the street lights on fences, last (the switch, the lights kind and the window are StreetLights.next's to check)
+        final Target lights = StreetLights.next(level, colony, ledger, stock.kinds(), day);
+        if (lights != null && (budgetLeft || ledger.chargedOn(id, lights.owner(), day))) {
+            return lights;
         }
         return null;
     }
@@ -777,6 +792,14 @@ public final class DecorWork {
         if (owner.kind() == DecorLedger.Kind.STOREROOM || owner.kind() == DecorLedger.Kind.TOUCHES) {
             return null;
         }
+        if (owner.kind() == DecorLedger.Kind.STREET) {
+            // Q11: the mark's target while the mark exists
+            final StreetMarks.Mark mark = ledger.markAt(colony.getID(), owner.pos());
+            return mark == null ? null : StreetWork.target(level, mark, null);
+        }
+        if (owner.kind() == DecorLedger.Kind.LIGHTS) {
+            return StreetLights.target(level, colony, ledger);   // null while the switch is off
+        }
         if (owner.kind() == DecorLedger.Kind.SQUARE) {
             final Target square = centrepiece(level, colony, ledger, assigned);
             return square != null && square.owner().equals(owner) ? square : null;
@@ -790,6 +813,12 @@ public final class DecorWork {
     /** One decorating visit. */
     public static Outcome decorate(final ServerLevel level, final int colony, final Target target, final int hutLevel,
                                    final DecorPlacer.Stock stock, final long day, final DecorLedger ledger) {
+        if (target.owner().kind() == DecorLedger.Kind.STREET) {
+            return StreetWork.visit(level, colony, target, day, ledger, false);
+        }
+        if (target.owner().kind() == DecorLedger.Kind.LIGHTS) {
+            return StreetLights.visit(level, colony, target, day, ledger, false);
+        }
         if (target.owner().kind() == DecorLedger.Kind.SQUARE) {
             return square(level, colony, target, hutLevel, stock, day, ledger, false);
         }
@@ -804,6 +833,12 @@ public final class DecorWork {
      */
     public static Outcome tend(final ServerLevel level, final int colony, final Target target, final int hutLevel,
                                final DecorPlacer.Stock stock, final long day, final DecorLedger ledger) {
+        if (target.owner().kind() == DecorLedger.Kind.STREET) {
+            return StreetWork.visit(level, colony, target, day, ledger, true);
+        }
+        if (target.owner().kind() == DecorLedger.Kind.LIGHTS) {
+            return StreetLights.visit(level, colony, target, day, ledger, true);
+        }
         return target.owner().kind() == DecorLedger.Kind.SQUARE
                 ? square(level, colony, target, hutLevel, stock, day, ledger, true)
                 : building(level, colony, target, hutLevel, stock, day, ledger, true);
@@ -1024,7 +1059,8 @@ public final class DecorWork {
      * One take-down visit to a group by the removal rule: at most {@link #SQUARE_SLICE} cells (the S4 hand-off: the grand
      * tree is taken down in slices like it is put up), the rest stays listed for his next visits, and the group counts
      * once against the day's budget however many visits it takes. A group with cells in unloaded chunks is also marked
-     * for the sweep.
+     * for the sweep. A mark's group (Q11) counts on the one slot all marks share, and its visit takes down the other marks'
+     * groups within {@link StreetWork#STREET_REACH} too, in the same slice ({@link StreetWork#takeDown}).
      */
     public static DecorPlacer.Removed takeDown(final ServerLevel level, final int colony, final DecorLedger.Owner owner,
                                                final DecorPlacer.Stock sink, final long day, final DecorLedger ledger) {
@@ -1033,7 +1069,12 @@ public final class DecorWork {
             return DecorPlacer.Removed.NONE;
         }
         if (!group.entries().isEmpty()) {
-            ledger.charge(colony, owner, day);
+            ledger.charge(colony, owner.budgetKey(), day);
+        }
+        if (owner.kind() == DecorLedger.Kind.STREET) {
+            final DecorPlacer.Removed street = StreetWork.takeDown(level, colony, owner, sink, ledger);
+            ledger.flush(level);
+            return street;
         }
         final DecorPlacer.Removed removed = DecorPlacer.remove(level, ledger, colony, owner, sink, SQUARE_SLICE);
         if (removed.waiting() > 0) {

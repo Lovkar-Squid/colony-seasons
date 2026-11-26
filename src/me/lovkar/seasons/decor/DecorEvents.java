@@ -52,8 +52,10 @@ import java.util.concurrent.atomic.AtomicInteger;
  *       of a Workshop (S10g2, storage-look 3.3 point 4) has rules of its own ({@link #roomGoes}): it stays packed all
  *       year with nobody's help, so only a festival set is cleared after the window, and only when that Workshop has
  *       no worker;</li>
- *   <li>a colony MineColonies no longer has (deleted): its marker is taken off at once, and its record here and its
- *       festival state are dropped once it lists no entry (S9, H12: a new colony may get its id).</li>
+ *   <li>a colony MineColonies no longer has (deleted): its marker and its wand's marks (Q11) are taken off at once, and
+ *       its record here and its festival state are dropped once it lists no entry (S9, H12: a new colony may get its id);</li>
+ *   <li>the street (0.2.0, Q11): a marked spot's group goes when its mark was removed, when its cell left the claim or
+ *       a building's box covers it now; the street lights' group goes when {@code decorator.streetLights} is off.</li>
  * </ul>
  * Events only enqueue; the queue is drained with {@code poll()} and never iterated.
  */
@@ -428,6 +430,7 @@ public final class DecorEvents {
         QUEUE.clear();
         MANAGER_LOADS.set(0);
         PieceLoader.clear();
+        StreetLights.clear();
     }
 
     private static void onLevelTick(final LevelTickEvent.Post event) {
@@ -519,6 +522,7 @@ public final class DecorEvents {
         }
         ledger.clearSquareMark(id);
         ledger.clearMarket(id);                       // Q10: nor the festival market's paid day (a later colony day of the old one would block it)
+        ledger.clearMarks(id);                        // Q11: nor the wand's marks (a new colony with the same id starts with none)
         if (ledger.hasEntries(id)) {
             return false;
         }
@@ -547,6 +551,12 @@ public final class DecorEvents {
         }
         if (group.owner().kind() == DecorLedger.Kind.TOUCHES) {
             return square != null && square.located() && !(square.source() == Squares.Source.BUILDING && square.hosts(pos));
+        }
+        if (group.owner().kind() == DecorLedger.Kind.STREET) {
+            return StreetWork.gone(level, colony, ledger, pos);     // Q11: the mark gone, its cell out of the claim or in a building
+        }
+        if (group.owner().kind() == DecorLedger.Kind.LIGHTS) {
+            return !me.lovkar.seasons.SeasonsConfig.streetLights();   // Q11: the switch turned off
         }
         final IBuilding building = colony.getServerBuildingManager().getBuilding(pos);
         return building == null || busy.computeIfAbsent(pos, p -> DecorWork.busy(colony, building));

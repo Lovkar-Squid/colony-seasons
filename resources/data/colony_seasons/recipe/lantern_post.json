@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "group": "colony_seasons:decorations",
+  "pattern": [
+    "PL",
+    "PF"
+  ],
+  "key": {
+    "P": {
+      "item": "minecraft:polished_blackstone"
+    },
+    "L": {
+      "item": "minecraft:lantern"
+    },
+    "F": {
+      "item": "minecraft:spruce_leaves"
+    }
+  },
+  "result": {
+    "id": "colony_seasons:lantern_post",
+    "count": 1
+  }
+}

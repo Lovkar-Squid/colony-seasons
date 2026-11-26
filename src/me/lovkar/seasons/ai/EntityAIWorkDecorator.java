@@ -704,8 +704,9 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
     }
 
     /**
-     * Decorating: the next building (town hall, then the square, then the nearest) while the day's budget lasts, then
-     * tending. While the window is open this is also where he goes on festival days, after the Hosting stub.
+     * Decorating: the next building (town hall, then the square, then the spots marked with the wand (Q11, one slot of
+     * the day's budget for all of them), then the nearest, then the street lights when switched on) while the day's
+     * budget lasts, then tending. While the window is open this is also where he goes on festival days, after the Hosting stub.
      */
     private IAIState decorating() {
         job.recordVisit(DecoratorState.DECORATING);

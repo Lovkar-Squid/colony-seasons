@@ -49,8 +49,9 @@ import java.util.function.Predicate;
  * (flags 18) and read back. A cell that reads back as another state of the same block keeps its entry with that
  * state; one that reads back as anything else is forgotten and its item refunded. Nothing
  * with collision is placed for a building; only the square's group and its seasonal touches (Q12) may have it, at a
- * player's festival marker or on a Town Square the player built (the owner's answer of 20 Nov 2026), and never into a
- * cell where an entity stands (S10c: the cell waits for a later visit).</p>
+ * player's festival marker or on a Town Square the player built (the owner's answer of 20 Nov 2026), and the pieces at
+ * a spot the player marked with the Decorator's wand (Q11, {@link DecorLedger.Owner#collides}), and never into a cell
+ * where an entity stands (S10c: the cell waits for a later visit). The street lights (Q11) never may.</p>
  *
  * <p>Removing, per entry: a cell in an unloaded chunk waits; a cell whose state equals the record exactly is
  * forgotten first, then set to air with no drops, and its item handed back if it was paid for. One exception, the

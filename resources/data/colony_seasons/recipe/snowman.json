@@ -1,0 +1,28 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "group": "colony_seasons:decorations",
+  "pattern": [
+    "CKC",
+    "SBS",
+    " B "
+  ],
+  "key": {
+    "C": {
+      "item": "minecraft:coal"
+    },
+    "K": {
+      "item": "minecraft:carrot"
+    },
+    "S": {
+      "item": "minecraft:stick"
+    },
+    "B": {
+      "item": "minecraft:snow_block"
+    }
+  },
+  "result": {
+    "id": "colony_seasons:snowman",
+    "count": 1
+  }
+}

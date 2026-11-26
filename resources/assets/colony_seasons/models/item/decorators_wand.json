@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/handheld",
+  "textures": {
+    "layer0": "colony_seasons:item/decorators_wand"
+  }
+}

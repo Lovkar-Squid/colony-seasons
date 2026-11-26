@@ -1,0 +1,18 @@
+{
+  "variants": {
+    "axis=x,lit=false": {
+      "model": "colony_seasons:block/street_lights"
+    },
+    "axis=z,lit=false": {
+      "model": "colony_seasons:block/street_lights",
+      "y": 90
+    },
+    "axis=x,lit=true": {
+      "model": "colony_seasons:block/street_lights_lit"
+    },
+    "axis=z,lit=true": {
+      "model": "colony_seasons:block/street_lights_lit",
+      "y": 90
+    }
+  }
+}

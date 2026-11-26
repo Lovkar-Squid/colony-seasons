@@ -25,6 +25,9 @@ PLACEABLE = {
     "festival_trunk": "FestivalTrunkBlock",
     # the storeroom's dressing in the Workshop (S10g2): no item, placed for free
     "storage_box": "StorageBoxBlock", "storage_coil": "StorageCoilBlock",
+    # the street pieces on the spots marked with the Decorator's wand and the street lights (0.2.0, Q11)
+    "snowman": "SnowmanBlock", "snowman_b": "SnowmanBlock", "lantern_post": "LanternPostBlock",
+    "street_garland": "StreetGarlandBlock", "street_lights": "StreetLightsBlock",
 }
 EXTENDS = re.compile(r"class\s+(\w+)\s+extends\s+(\w+)")
 
