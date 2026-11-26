@@ -15,7 +15,9 @@ import com.minecolonies.api.colony.buildings.IBuilding;
 import com.minecolonies.api.colony.buildings.modules.ITickingModule;
 import com.minecolonies.api.colony.workorders.WorkOrderType;
 import com.minecolonies.api.tileentities.AbstractTileEntityColonyBuilding;
+import com.minecolonies.core.colony.buildings.modules.SettingsModule;
 import com.minecolonies.core.colony.buildings.modules.WorkerBuildingModule;
+import com.minecolonies.core.colony.buildings.modules.settings.StringSetting;
 import com.minecolonies.core.colony.workorders.WorkOrderBuilding;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import me.lovkar.seasons.ColonySeasons;
@@ -28,6 +30,8 @@ import me.lovkar.seasons.block.WallDecorationBlock;
 import me.lovkar.seasons.calendar.CalendarManager;
 import me.lovkar.seasons.calendar.DateSource;
 import me.lovkar.seasons.colony.BuildingDecorator;
+import me.lovkar.seasons.colony.BuildingTownSquare;
+import me.lovkar.seasons.colony.SquareModules;
 import me.lovkar.seasons.colony.DecoratorInfoModule;
 import me.lovkar.seasons.colony.DecoratorInfoModuleView;
 import me.lovkar.seasons.colony.DecoratorModules;
@@ -41,6 +45,8 @@ import me.lovkar.seasons.decor.DecorPlanner;
 import me.lovkar.seasons.decor.DecorWork;
 import me.lovkar.seasons.decor.DoorFinder;
 import me.lovkar.seasons.decor.PieceLoader;
+import me.lovkar.seasons.decor.SquareSets;
+import me.lovkar.seasons.decor.Squares;
 import net.minecraft.commands.CommandSource;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -114,7 +120,8 @@ import java.util.function.Predicate;
  *       garland row, a house across the claim edge), SQUARE (the probe's own test piece in its own pack, see
  *       make_piece.py: the [V] position formula in four facings, level skips, the 10 % rule and the Workshop's
  *       Calendar page saying that the tree has no room (S10i), a missing piece, the
- *       large star switched on, a festival marker broken), LIFECYCLE (a real colony: a swapped block, a light switched,
+ *       large star switched on, a festival marker broken; Q3: the Town Square pasted in eight rotations against the
+ *       marker's tree, its order and an order this version does not know), LIFECYCLE (a real colony: a swapped block, a light switched,
  *       a work order, the Builder's CLEAR_NON_SOLIDS, a hut level up, BuildingRemovedModEvent, decor list and remove,
  *       the Decorator's AI decorating, tending and taking down by himself, the hut destroyed in the window and the
  *       sweep after it);</li>
@@ -1412,6 +1419,386 @@ public class CsDecorGate {
             }
         });
         planGrassOnPlanter();
+        planTownSquare();
+    }
+
+    // ================================================================ SQUARE on a Town Square (0.2.0, Q3)
+
+    /** The Town Square's one blueprint level in this build, and its plot (the low corner of its 21 x 21 box). */
+    private static final String SQUARE_FILE = "square/townsquare1.blueprint";
+    private static final BlockPos SQUARE_PLOT = new BlockPos(-42, 0, 18);
+    /** A later version's order this one does not know, as such a version would store it. */
+    private static final String LATER_ORDER = "com.colony_seasons.square.order.always_night_of_lanterns";
+
+    private BuildingTownSquare townSquare;
+    private BlockPos squareTree;
+    private Map<BlockPos, BlockState> squareGround;
+
+    /** A pasted Town Square: its box (the hut at the anchor) and the world cell of its blueprint's tree tag, turned. */
+    private record SquarePaste(DoorFinder.Box box, BlockPos tree) {
+    }
+
+    /** The square's blueprint pasted turned by {@code rm} with its box's low corner at {@code plot} (Structurize's creative handler). */
+    private SquarePaste pasteSquare(final BlockPos plot, final RotationMirror rm) {
+        try {
+            final Blueprint blueprint = StructurePacks.getBlueprintFuture(PieceLoader.PACK, SQUARE_FILE, level.registryAccess()).get(60, TimeUnit.SECONDS);
+            if (blueprint == null) {
+                check("Q3: the square's blueprint loads", false, SQUARE_FILE);
+                return null;
+            }
+            blueprint.setRotationMirror(rm, level);
+            final BlockPos anchor = plot.offset(blueprint.getPrimaryBlockOffset());
+            BlockPos tree = null;
+            for (final Map.Entry<BlockPos, List<String>> t : com.ldtteam.structurize.blueprints.v1.BlueprintTagUtils.getBlueprintTags(blueprint).entrySet()) {
+                if (t.getValue().contains(BuildingTownSquare.TAG_TREE) && (tree == null || t.getKey().compareTo(tree) < 0)) {
+                    tree = t.getKey();
+                }
+            }
+            final CreativeStructureHandler handler = new CreativeStructureHandler(level, anchor, blueprint, rm, true);
+            final StructurePlacer placer = new StructurePlacer(handler);
+            int rounds = 0;
+            while (rounds++ < 4000) {
+                final StructurePhasePlacementResult result = placer.executeStructureStep(level, null, placer.getIterator().getProgressPos(),
+                        StructurePlacer.Operation.BLOCK_PLACEMENT, () -> placer.getIterator().increment((info, at, h) -> false), false);
+                if (result.getIteratorPos().equals(AbstractBlueprintIterator.NULL_POS)) {
+                    break;
+                }
+            }
+            final BlockPos max = plot.offset(blueprint.getSizeX() - 1, blueprint.getSizeY() - 1, blueprint.getSizeZ() - 1);
+            blueprint.setRotationMirror(RotationMirror.NONE, level);
+            return new SquarePaste(new DoorFinder.Box(plot, max, anchor), tree == null ? null : anchor.offset(tree));
+        } catch (final Exception unreadable) {
+            check("Q3: the square's blueprint pastes", false, unreadable.getClass().getSimpleName().replace("Exception", ""));
+            return null;
+        }
+    }
+
+    /** A box round a cell, {@code r} blocks to each side, from one below to 14 above. */
+    private static DoorFinder.Box around(final BlockPos at, final int r) {
+        return new DoorFinder.Box(at.offset(-r, -1, -r), at.offset(r, 14, r), at);
+    }
+
+    private void restore(final Map<BlockPos, BlockState> snap) {
+        for (final Map.Entry<BlockPos, BlockState> e : snap.entrySet()) {
+            if (level.getBlockState(e.getKey()) != e.getValue()) {
+                level.setBlock(e.getKey(), e.getValue(), Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE | Block.UPDATE_SUPPRESS_DROPS);
+            }
+        }
+    }
+
+    /** A square group's cells relative to its anchor, as the ledger lists them. */
+    private Map<BlockPos, BlockState> relCells(final DecorLedger.Owner owner) {
+        final Map<BlockPos, BlockState> out = new java.util.TreeMap<>();
+        final DecorLedger.GroupView group = ledger.group(colonyId, owner);
+        if (group != null) {
+            for (final Map.Entry<BlockPos, DecorLedger.Entry> e : group.entries().entrySet()) {
+                out.put(e.getKey().subtract(owner.pos()), e.getValue().state());
+            }
+        }
+        return out;
+    }
+
+    /** Visits until the group is complete or nothing more goes up; the last outcome. */
+    private DecorWork.Outcome decorateFully(final DecorWork.Target target, final int hutLevel, final DecorPlacer.Stock stock) {
+        DecorWork.Outcome o;
+        int rounds = 0;
+        do {
+            o = DecorWork.decorate(level, colonyId, target, hutLevel, stock, day(), ledger);
+        } while (!o.complete() && o.placed() > 0 && ++rounds < 20);
+        return o;
+    }
+
+    private void order(final SquareSets.Order order) {
+        townSquare.settings().getSetting(BuildingTownSquare.ORDER).set(order.key());
+    }
+
+    /**
+     * Chunk Q3 (docs/town-square-design.md 4.2 to 4.4, 4.6): the Winter Festival's tree on a real Town Square. The real
+     * small spruce at a marker in four facings is the reference; then the square's blueprint is pasted in each of the
+     * eight rotations a square can have and registered as the colony's main square, and the Decorator's target on it
+     * (its tree tag, its rotation with the mirror stripped) puts up a tree that equals the marker's of that facing cell
+     * for cell, sized by the lower of the square's level and the Workshop's. On the unturned square: the tree sizes, the
+     * order (Bare takes the set down by the exact-state rule with every item back, Always Winter Festival puts it up
+     * again, no full set outside a festival window, only the square's own Decorator works it), and an order this
+     * version does not know reads as Follow the calendar (MineColonies itself would read it by position).
+     */
+    private void planTownSquare() {
+        final Map<Direction, Map<BlockPos, BlockState>> atMarker = new HashMap<>();
+        step(new Step("town square: the small spruce at a marker in four facings (the reference), the test piece mirrored", 400, true) {
+            @Override
+            boolean tick() {
+                boolean all = true;
+                for (final Direction facing : FACINGS) {
+                    all &= PieceLoader.request(level, PieceLoader.PACK, PieceLoader.pathFor(1), facing) != null;
+                }
+                for (final RotationMirror rm : RotationMirror.MIRRORED) {
+                    all &= PieceLoader.request(level, TEST_PACK, PieceLoader.pathFor(5), rm) != null;
+                }
+                return all;
+            }
+
+            @Override
+            void end(final boolean done) {
+                check("Q3: the real small spruce loads in four facings, the test piece in four mirrored rotations", done, "");
+                if (!done) {
+                    return;
+                }
+                // [V] design 4.6, for the record: would a mirrored piece survive? (the build strips the mirror either way)
+                int survive = 0;
+                for (final RotationMirror rm : RotationMirror.MIRRORED) {
+                    final PieceLoader.Piece p = PieceLoader.request(level, TEST_PACK, PieceLoader.pathFor(5), rm);
+                    int stars = 0;
+                    for (final PieceLoader.PieceCell cell : p.cells()) {
+                        stars += cell.star() && cell.state().is(SeasonsBlocks.LARGE_STAR.get()) ? 1 : 0;
+                    }
+                    survive += stars == 1 && p.cells().size() == TEST_PIECE.size() ? 1 : 0;
+                }
+                note("[V] Q3: the mirrored test piece keeps its star tag on the star in {} of 4 mirrored rotations; a Town Square strips the mirror", survive);
+                nextMorning();                        // a new game day: the day's building budget is free again
+                for (final Direction facing : FACINGS) {
+                    // in the middle of the square's plot, before any square stands there (a full run's earlier steps leave
+                    // the ground elsewhere uneven, so a reference there lost cells)
+                    final BlockPos m = new BlockPos(SQUARE_PLOT.getX() + 10, ground + 1, SQUARE_PLOT.getZ() + 10);
+                    final Map<BlockPos, BlockState> snap = snapshot(around(m, 8));
+                    marker(m.getX(), m.getZ(), facing);
+                    final DecorWork.Target target = DecorWork.Target.square(m, facing, PieceLoader.PACK);
+                    final DecorWork.Outcome o = decorateFully(target, 1, DecorPlacer.Stock.FREE);
+                    atMarker.put(facing, relCells(target.owner()));
+                    check("Q3: the reference, the small spruce at a marker facing " + facing, o.complete() && !atMarker.get(facing).isEmpty(),
+                            atMarker.get(facing).size() + " cells, " + o.status());
+                    DecorPlacer.remove(level, ledger, colonyId, target.owner(), DecorPlacer.Stock.FREE);
+                    level.setBlock(m, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+                    check("Q3: the reference comes down to the snapshot (" + facing + ")", changed(snap).isEmpty(), changed(snap).size() + " cells differ");
+                }
+                checkEq("Q3: the four facings differ (the check sees the turn)", new HashSet<>(atMarker.values()).size(), 4);
+                final java.util.Set<Integer> counts = new HashSet<>();
+                atMarker.values().forEach(cells -> counts.add(cells.size()));
+                check("Q3: the reference is whole in every facing (the same number of cells, none blocked)", counts.size() == 1, String.valueOf(counts));
+                squareGround = snapshot(new DoorFinder.Box(SQUARE_PLOT.offset(-1, ground - 2, -1), SQUARE_PLOT.offset(22, ground + 22, 22), SQUARE_PLOT));
+            }
+        });
+        for (final RotationMirror rm : RotationMirror.values()) {
+            step(new Step("town square " + rm + ": pasted and registered", 1) {
+                @Override
+                void start() {
+                    townSquare = null;
+                    squareTree = null;
+                    final SquarePaste p = pasteSquare(SQUARE_PLOT.offset(0, ground, 0), rm);
+                    if (p == null) {
+                        return;
+                    }
+                    squareTree = p.tree();
+                    final BlockEntity be = level.getBlockEntity(p.box().hut());
+                    IBuilding building = colony.getServerBuildingManager().getBuilding(p.box().hut());
+                    if (building == null && be instanceof AbstractTileEntityColonyBuilding te) {
+                        building = colony.getServerBuildingManager().addNewBuilding(te, level);
+                    }
+                    if (!(building instanceof BuildingTownSquare square)) {
+                        check("Q3 " + rm + ": the pasted square registers as a Town Square", false, String.valueOf(building));
+                        return;
+                    }
+                    note("Q3 {}: the registered square's rotation before it is set: {}", rm, square.getRotationMirror());
+                    square.setRotationMirror(rm);
+                    square.setCorners(p.box().min(), p.box().max());
+                    square.setBuildingLevel(1);
+                    square.setStructurePack(PieceLoader.PACK);
+                    square.setBlueprintPath(SQUARE_FILE);
+                    square.assignment().setHiringMode(com.minecolonies.api.colony.buildings.HiringMode.MANUAL);
+                    square.markDirty();
+                    townSquare = square;
+                }
+            });
+            step(new Step("town square " + rm + ": the tree on its tree tag", 200) {
+                @Override
+                boolean tick() {
+                    return townSquare == null || Squares.treeCell(townSquare) != null;
+                }
+
+                @Override
+                void end(final boolean done) {
+                    if (townSquare == null) {
+                        check("Q3 " + rm + ": a Town Square to decorate", false, "");
+                        return;
+                    }
+                    townSquareSet(rm, atMarker);
+                    if (rm == RotationMirror.NONE) {
+                        orders();
+                    }
+                    // the square goes: its hut, its plaza, the colony's mark
+                    final BlockPos hut = townSquare.getPosition();
+                    final DecorLedger.Owner owner = DecorLedger.Owner.square(squareTree);
+                    DecorPlacer.remove(level, ledger, colonyId, owner, DecorPlacer.Stock.FREE);
+                    townSquare.destroy();
+                    restore(squareGround);
+                    Squares.refresh(level, colony, ledger);
+                    check("Q3 " + rm + ": the square is gone, its mark with it, nothing listed", colony.getServerBuildingManager().getBuilding(hut) == null
+                            && ledger.squareMark(colonyId) == null && ledger.group(colonyId, owner) == null, "");
+                    townSquare = null;
+                }
+            });
+        }
+    }
+
+    /** The tree on the registered square turned by {@code rm}, against the marker's of the same facing. */
+    private void townSquareSet(final RotationMirror rm, final Map<Direction, Map<BlockPos, BlockState>> atMarker) {
+        final String at = "Q3 " + rm;
+        final BlockPos anchor = Squares.treeCell(townSquare);
+        checkEq(at + ": the square's tree cell is its blueprint's tree tag, turned with the square", anchor, squareTree);
+        final Squares.Square main = Squares.refresh(level, colony, ledger);
+        check(at + ": the square is the colony's main one, located and free", main.source() == Squares.Source.BUILDING
+                && townSquare.getPosition().equals(main.building()) && main.located() && !main.busy() && Objects.equals(main.anchor(), anchor), String.valueOf(main));
+        check(at + ": [B] nobody but the square's own Decorator gets it: no target without the square",
+                DecorWork.centrepiece(level, colony, ledger, null) == null, "");
+        final DecorWork.Target target = DecorWork.centrepiece(level, colony, ledger, townSquare);
+        final RotationMirror turn = PieceLoader.forSquare(rm);
+        check(at + ": the target is the tree cell, turned by the square's rotation with the mirror stripped", target != null
+                && target.owner().equals(DecorLedger.Owner.square(anchor)) && target.rotation() == turn && !turn.isMirrored()
+                && turn.rotation() == rm.rotation() && target.onTownSquare(), String.valueOf(target));
+        if (target == null) {
+            return;
+        }
+        final Map<BlockPos, BlockState> snap = snapshot(around(anchor, 8));
+        // the Workshop at level 5, the square at 1: the lower of the two sizes the tree
+        final DecorWork.Outcome o = decorateFully(target, 5, DecorPlacer.Stock.FREE);
+        final DecorLedger.GroupView group = ledger.group(colonyId, target.owner());
+        final Map<BlockPos, BlockState> got = relCells(target.owner());
+        final Map<BlockPos, BlockState> want = atMarker.get(PieceLoader.facing(turn));
+        check(at + ": the tree on the square equals the marker's facing " + PieceLoader.facing(turn) + " cell for cell", o.complete()
+                && want != null && got.equals(want), got.size() + " cells, " + (want == null ? 0 : want.size()) + " at the marker, " + o.status());
+        check(at + ": the square's group: the small spruce, level 1 (the square's, lower than the Workshop's 5)", group != null
+                && PieceLoader.pathFor(1).equals(group.piece()) && group.level() == 1, group == null ? "none" : group.piece() + " level " + group.level());
+        invariant(at + " tree");
+        DecorPlacer.remove(level, ledger, colonyId, target.owner(), DecorPlacer.Stock.FREE);
+        check(at + ": taken down, the square is as it was", changed(snap).isEmpty() && ledger.group(colonyId, target.owner()) == null,
+                changed(snap).size() + " cells differ");
+    }
+
+    /** The order on the unturned square, with the set up from stock: sizes, Bare, Always, outside a window, an unknown value. */
+    private void orders() {
+        final BlockPos anchor = Squares.treeCell(townSquare);
+        final DecorWork.Target target = DecorWork.centrepiece(level, colony, ledger, townSquare);
+        if (target == null) {
+            check("Q3 orders: a target on the square", false, "");
+            return;
+        }
+        final DecorLedger.Owner owner = target.owner();
+        // the tree size follows the lower of the square's level and the Workshop's ([B]); this build's square stops at
+        // level 1 (MineColonies keeps a building at its maximum level), so the live square gives the small spruce at
+        // every Workshop level, and the rule itself is checked on the levels the design gives
+        final List<String> live = new ArrayList<>();
+        for (int workshop = 1; workshop <= 5; workshop++) {
+            live.add(DecorWork.piecePath(target, workshop));
+        }
+        checkEq("Q3: [B] on this build's level-1 square the Workshop's levels 1 to 5 all give the small spruce", new HashSet<>(live),
+                Set.of(PieceLoader.pathFor(1)));
+        final List<String> sizes = new ArrayList<>();
+        for (final int[] pair : new int[][] {{1, 5}, {2, 5}, {3, 5}, {5, 3}, {4, 5}, {5, 4}, {5, 5}}) {
+            sizes.add(PieceLoader.pathFor(SquareSets.WINTER, SquareSets.pieceLevel(pair[0], pair[1])).replace("pieces/", "").replace(".blueprint", ""));
+        }
+        checkEq("Q3: [B] the tree size follows the lower of the square's level and the Workshop's (square 1, 2, 3 with Workshop 5; 5 with 3; 4 with 5; 5 with 4; 5 with 5)",
+                sizes, List.of("village_spruce_small", "village_spruce_small", "village_spruce_full", "village_spruce_full", "village_spruce_rich",
+                        "village_spruce_rich", "grand_tree"));
+        checkEq("Q3: the festival marker's tree still follows the Workshop's level alone (0.1.0)",
+                DecorWork.piecePath(DecorWork.Target.square(anchor.offset(40, 0, 0), Direction.NORTH, PieceLoader.PACK), 5), PieceLoader.pathFor(5));
+        checkEq("Q3: a new square follows the calendar", townSquare.order(), SquareSets.Order.FOLLOW);
+        checkEq("Q3: the order's values, in the button's order", SquareSets.orderKeys(), List.of(SquareSets.Order.FOLLOW.key(),
+                SquareSets.Order.ALWAYS_WINTER.key(), SquareSets.Order.BARE.key()));
+        // up from stock (decorations cost items, the config default): every item is counted
+        final Map<BlockPos, BlockState> snap = snapshot(around(anchor, 8));
+        final CountingStock stock = new CountingStock(100000);
+        final DecorWork.Outcome up = decorateFully(target, 5, stock);
+        final Map<BlockPos, BlockState> tree = relCells(owner);
+        check("Q3: following the calendar in the window, the Winter Festival's tree goes up from stock", up.complete() && stock.taken > 0,
+                tree.size() + " cells, " + stock.taken + " items, " + up.status());
+        checkEq("Q3: with the set up there is nothing to do on the square", DecorWork.nextToDecorate(level, colony, 5, anchor, ledger, stock, day(), townSquare), null);
+        // Bare: the next visit takes the set down by the exact-state rule, every item back to his stock
+        order(SquareSets.Order.BARE);
+        checkEq("Q3: the order reads Bare", townSquare.order(), SquareSets.Order.BARE);
+        check("Q3: Bare wants no centrepiece", DecorWork.piecePath(target, 5) == null, "");
+        final DecorWork.Target goes = DecorWork.nextToDecorate(level, colony, 5, anchor, ledger, stock, day(), townSquare);
+        check("Q3: Bare with the set up: the square is his next place to go (to take it down)", goes != null && goes.owner().equals(owner), String.valueOf(goes));
+        final int given0 = stock.given;
+        int rounds = 0;
+        DecorWork.Outcome down;
+        do {
+            down = DecorWork.decorate(level, colonyId, target, 5, stock, day(), ledger);
+        } while (ledger.group(colonyId, owner) != null && ++rounds < 10);
+        check("Q3: Bare: the set comes down to the square as it was, the group gone, every item back",
+                changed(snap).isEmpty() && ledger.group(colonyId, owner) == null && stock.given - given0 == stock.taken,
+                changed(snap).size() + " cells differ, " + (stock.given - given0) + " of " + stock.taken + " items back, " + down.status());
+        final DecorWork.Outcome bare = DecorWork.decorate(level, colonyId, target, 5, stock, day(), ledger);
+        check("Q3: Bare: a visit places nothing, and the square is no place to go", bare.placed() == 0 && changed(snap).isEmpty()
+                && DecorWork.nextToDecorate(level, colony, 5, anchor, ledger, stock, day(), townSquare) == null, bare.status());
+        // Always Winter Festival: up again, the same tree
+        order(SquareSets.Order.ALWAYS_WINTER);
+        final DecorWork.Target back = DecorWork.nextToDecorate(level, colony, 5, anchor, ledger, stock, day(), townSquare);
+        check("Q3: Always Winter Festival: the square is his next place again", back != null && back.owner().equals(owner), String.valueOf(back));
+        final DecorWork.Outcome again = decorateFully(target, 5, stock);
+        checkEq("Q3: Always Winter Festival puts the same tree up again", relCells(owner), tree);
+        check("Q3: ... complete", again.complete(), again.status());
+        // [B] the full sets only in festival windows: outside one, no order but Bare differs, none wants the tree
+        setDate(AFTER);
+        final String always = DecorWork.piecePath(target, 5);
+        order(SquareSets.Order.FOLLOW);
+        final String follow = DecorWork.piecePath(target, 5);
+        final SquareSets.Set between = SquareSets.wanted(SquareSets.Order.FOLLOW, CalendarManager.current());
+        setDate(DECOR_DAY);
+        check("Q3: [B] outside a festival window neither Follow nor Always wants the full set: the seasonal touches (no pieces before Q6)",
+                always == null && follow == null && between == SquareSets.SEASONAL && !between.shipped(), always + ", " + follow + ", " + between);
+        checkEq("Q3: back in the window, Follow wants the small spruce again", DecorWork.piecePath(target, 5), PieceLoader.pathFor(1));
+        DecorPlacer.remove(level, ledger, colonyId, owner, DecorPlacer.Stock.FREE);
+        check("Q3 orders: the square is as it was", changed(snap).isEmpty(), changed(snap).size() + " cells differ");
+        unknownOrder();
+    }
+
+    /**
+     * [V] design section 8 point 9: a stored order this version does not know. MineColonies' own settings module reads a
+     * stored StringSetting by its position in this version's list; the square's reads it by its text, and an unknown
+     * text is Follow the calendar with one log line.
+     */
+    private void unknownOrder() {
+        final net.minecraft.core.HolderLookup.Provider provider = level.registryAccess();
+        final String follow = SquareSets.Order.FOLLOW.key();
+        final String always = SquareSets.Order.ALWAYS_WINTER.key();
+        final String bare = SquareSets.Order.BARE.key();
+        // what a later version that has "Always Night of Lanterns" writes with that order chosen
+        final CompoundTag later = saved(List.of(follow, always, LATER_ORDER, bare), 2);
+        final int unknown0 = SquareSets.unknownReads();
+        final me.lovkar.seasons.colony.SquareSettingsModule ours = SquareModules.settingsModule();
+        ours.deserializeNBT(provider, later);
+        checkEq("Q3: an order this version does not know reads as Follow the calendar", ours.getSetting(BuildingTownSquare.ORDER).getValue(), follow);
+        checkEq("Q3: ... with one log line", SquareSets.unknownReads() - unknown0, 1);
+        final SettingsModule plain = (SettingsModule) new SettingsModule().with(BuildingTownSquare.ORDER, new StringSetting(SquareSets.orderKeys(), 0));
+        plain.deserializeNBT(provider, later);
+        note("[V] Q3: MineColonies' own settings module reads that save as '{}' (by its position in the list)", plain.getSetting(BuildingTownSquare.ORDER).getValue());
+        // a known order saved at another position (a later version listed its orders otherwise): read by its text
+        final CompoundTag moved = saved(List.of(bare, follow, always), 0);
+        final me.lovkar.seasons.colony.SquareSettingsModule ours2 = SquareModules.settingsModule();
+        ours2.deserializeNBT(provider, moved);
+        checkEq("Q3: a known order saved at another position reads by its text", ours2.getSetting(BuildingTownSquare.ORDER).getValue(), bare);
+        // a square of Q1 or Q2 had no settings saved: the default
+        final me.lovkar.seasons.colony.SquareSettingsModule none = SquareModules.settingsModule();
+        none.deserializeNBT(provider, new CompoundTag());
+        checkEq("Q3: a square saved before Q3 follows the calendar", none.getSetting(BuildingTownSquare.ORDER).getValue(), follow);
+        // the building's own module, through the building's order
+        townSquare.settings().deserializeNBT(provider, later);
+        checkEq("Q3: the square itself, loaded from that save, follows the calendar", townSquare.order(), SquareSets.Order.FOLLOW);
+        // what is written is MineColonies' own: our module's save reads back in a plain one
+        order(SquareSets.Order.BARE);
+        final CompoundTag ourSave = new CompoundTag();
+        townSquare.settings().serializeNBT(provider, ourSave);
+        final SettingsModule reader = (SettingsModule) new SettingsModule().with(BuildingTownSquare.ORDER, new StringSetting(SquareSets.orderKeys(), 0));
+        reader.deserializeNBT(provider, ourSave);
+        checkEq("Q3: the square's save is MineColonies' own (a plain settings module reads Bare back)", reader.getSetting(BuildingTownSquare.ORDER).getValue(), bare);
+        order(SquareSets.Order.FOLLOW);
+    }
+
+    /** The settings save of a module whose order button has {@code list} with {@code index} chosen. */
+    private CompoundTag saved(final List<String> list, final int index) {
+        final SettingsModule module = (SettingsModule) new SettingsModule().with(BuildingTownSquare.ORDER, new StringSetting(new ArrayList<>(list), index));
+        final CompoundTag tag = new CompoundTag();
+        module.serializeNBT(level.registryAccess(), tag);
+        return tag;
     }
 
     /**

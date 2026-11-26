@@ -23,6 +23,14 @@ build chunk.
   `cssquarelife` with a restart in the middle of a switch, and its mode `builder` with MineColonies' own Builder
   repairing the square (our decorations are down 2 ticks after a hut-window order and at most about 20 after one
   made another way; his first change in the box comes 900 to 1,300 ticks after the order).
+- **Q3, the square's own tree, its sets and the order.** The Town Square's assigned Decorator puts the Winter
+  Festival's tree on the square's `tree` tag, turned with the square (a mirrored square's mirror is stripped, so the
+  tree equals the marker's cell for cell) and sized by the lower of the square's and the Workshop's level; the square
+  has a settings page with the order (Follow the calendar, Always Winter Festival, Bare), full sets only in festival
+  windows, and a changed order or size takes the old set down first by the exact-state rule, every item back. A saved
+  order this version does not know reads as Follow the calendar with one log line (MineColonies alone would read it by
+  its position). The pieces are keyed by `RotationMirror`; the seasonal touches between festivals are in the set list
+  without pieces until Q6. Probes `csdecorgate square` and `cspaste` extended.
 
 ## 0.1.0-beta.1 - unreleased - seasons and festivals for MineColonies
 

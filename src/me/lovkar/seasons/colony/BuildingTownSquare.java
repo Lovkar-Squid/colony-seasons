@@ -3,12 +3,18 @@ package me.lovkar.seasons.colony;
 import com.ldtteam.structurize.blueprints.v1.Blueprint;
 import com.minecolonies.api.colony.IColony;
 import com.minecolonies.api.colony.buildings.IBuilding;
+import com.minecolonies.api.colony.buildings.modules.settings.ISettingKey;
 import com.minecolonies.api.colony.workorders.WorkOrderType;
 import com.minecolonies.core.colony.buildings.AbstractBuilding;
+import com.minecolonies.core.colony.buildings.modules.settings.SettingKey;
+import com.minecolonies.core.colony.buildings.modules.settings.StringSetting;
+import me.lovkar.seasons.ColonySeasons;
 import me.lovkar.seasons.decor.DecorEvents;
 import me.lovkar.seasons.decor.DecorLedger;
+import me.lovkar.seasons.decor.SquareSets;
 import me.lovkar.seasons.decor.Squares;
 import net.minecraft.core.BlockPos;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -19,9 +25,10 @@ import java.util.List;
  * The Town Square, {@code colony_seasons:townsquare} (0.2.0, docs/town-square-design.md 4.1): a building the player
  * places and the Builder builds, which the Decorator decorates while he stays employed at his Workshop. It has no
  * worker module; one Decorator is assigned to it through {@link SquareModules#DECORATOR}. Chunk Q1 builds the shell and
- * the assignment only: nothing is placed on the square yet, and {@code DecorWork.buildingsInOrder} leaves it out of
- * the Decorator's buildings (it has no doors). Chunk Q2 makes it the colony's centrepiece ({@code decor.Squares}): a
- * work order on it takes its group down first, and its removal or completed upgrade runs the resolver again.
+ * the assignment; {@code DecorWork.buildingsInOrder} leaves it out of the Decorator's buildings (it has no doors).
+ * Chunk Q2 makes it the colony's centrepiece ({@code decor.Squares}): a work order on it takes its group down first,
+ * and its removal or completed upgrade runs the resolver again. Chunk Q3 puts the set its order asks for
+ * ({@link #order}, {@link SquareSettingsModule}) on its {@code tree} tag, worked by its assigned Decorator.
  *
  * <p>Its footprint is 21 x 21 at every level and the tag cells below keep their place at every level ([B] design 4.1),
  * so an upgrade never moves the square's centrepiece. It saves nothing of its own; the decoration ledger keeps which
@@ -51,6 +58,10 @@ public class BuildingTownSquare extends AbstractBuilding {
     public static final String TAG_BED = "bed";
     public static final String TAG_STALL = "stall";
     public static final List<String> TAGS = List.of(TAG_TREE, TAG_GIFT, TAG_LAUNCH, TAG_GATHER, TAG_SIT, TAG_LAMP, TAG_BED, TAG_STALL);
+
+    /** The order the player gives (Q3, design 4.4): a cycling button of {@link SquareSets#orderKeys}, the values lang keys. */
+    public static final ISettingKey<StringSetting> ORDER =
+            new SettingKey<>(StringSetting.class, ResourceLocation.fromNamespaceAndPath(ColonySeasons.MODID, "square_order"));
 
     public BuildingTownSquare(final IColony colony, final BlockPos pos) {
         super(colony, pos);
@@ -87,6 +98,18 @@ public class BuildingTownSquare extends AbstractBuilding {
     /** The square's Decorator module (looked up by its producer, never with getModuleMatching); null if it is somehow missing. */
     public @Nullable SquareAssignmentModule assignment() {
         return getModule(SquareModules.DECORATOR);
+    }
+
+    /** The square's settings module (looked up by its producer); null if it is somehow missing. */
+    public @Nullable SquareSettingsModule settings() {
+        return getModule(SquareModules.SETTINGS);
+    }
+
+    /** The order the player gave: Follow the calendar unless the settings page says otherwise (an unknown value is Follow). */
+    public SquareSets.Order order() {
+        final SquareSettingsModule settings = settings();
+        final StringSetting setting = settings == null ? null : settings.getOptionalSetting(ORDER).orElse(null);
+        return setting == null ? SquareSets.Order.FOLLOW : SquareSets.Order.of(setting.getValue());
     }
 
     /**

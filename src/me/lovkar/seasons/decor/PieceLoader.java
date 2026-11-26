@@ -21,6 +21,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.LeavesBlock;
+import net.minecraft.world.level.block.Mirror;
 import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.ArrayList;
@@ -36,8 +37,10 @@ import java.util.concurrent.ConcurrentHashMap;
  * The square's piece: a Structurize blueprint of our own pack, placed by our own code block by block at the
  * player's festival marker (design 3.5).
  *
- * <p>Contract with the pieces (chunk S5): pack "Colony Seasons"; {@link #pathFor} names the file per hut level; a
- * piece is drawn facing north and the marker's facing turns it; its primary offset is the marker's cell, which is
+ * <p>Contract with the pieces (chunk S5): pack "Colony Seasons"; {@link #pathFor(SquareSets.Set, int)} names the file
+ * per set and level (0.2.0, Q3: the Winter Festival keeps the files of 0.1.0); a piece is drawn facing north and the
+ * marker's facing turns it, or on a Town Square the square's own rotation ({@link #forSquare}: its mirror stripped, so
+ * the square's set equals the marker's cell for cell); its primary offset is the marker's cell, which is
  * air in the piece (the marker is never replaced); position tags {@code gift_pile} (skipped below hut level 2),
  * {@code firework_crate} (below level 3) and {@code star}; trunk cells are our {@link FestivalTrunkBlock} (S10c: a
  * spruce log to look at, in no log tag, so MineColonies' Forester never cuts the tree), or a log block of an older or
@@ -48,7 +51,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * callers may turn too. A missing pack or file is one warning and no tree, tried again on a later game day.</p>
  *
  * <p>World position of a cell = marker - primary offset + cell position, both read after {@code setRotationMirror}
- * (design 3.5 [V]; the placing probe proves it in all four facings against an independent rotation).</p>
+ * (design 3.5 [V]; the placing probe proves it in all four facings against an independent rotation). A cached piece is
+ * keyed by pack, path and {@link RotationMirror}; the marker passes {@link #rotation(Direction)}.</p>
  */
 public final class PieceLoader {
 
@@ -71,10 +75,10 @@ public final class PieceLoader {
     }
 
     /**
-     * A piece turned for one facing. {@code tags} says whether the anchor carried position tags; {@code min} and
+     * A piece turned by one rotation. {@code tags} says whether the anchor carried position tags; {@code min} and
      * {@code max} are the corners of its cells, relative to the marker (the square's box, S10c).
      */
-    public record Piece(String pack, String path, Direction facing, List<PieceCell> cells, BlockPos offset, boolean tags,
+    public record Piece(String pack, String path, RotationMirror rotation, List<PieceCell> cells, BlockPos offset, boolean tags,
                         BlockPos min, BlockPos max) {
     }
 
@@ -89,7 +93,7 @@ public final class PieceLoader {
         public static final SquarePlan WAITING = new SquarePlan(List.of(), 0, 0, false, false, true, 0, List.of(), Set.of());
     }
 
-    private record Key(String pack, String path, Direction facing) {
+    record Key(String pack, String path, RotationMirror rotation) {
     }
 
     /** null value: loading; MISSING: not there (with the game day it was found missing). */
@@ -103,22 +107,51 @@ public final class PieceLoader {
     private PieceLoader() {
     }
 
-    /** The piece file for a Decorator hut level. */
+    /** The Winter Festival's tree for a level: the festival marker's piece since 0.1.0 (the same files). */
     public static String pathFor(final int hutLevel) {
-        return switch (Math.max(1, Math.min(5, hutLevel))) {
-            case 1, 2 -> "pieces/village_spruce_small.blueprint";
-            case 3 -> "pieces/village_spruce_full.blueprint";
-            case 4 -> "pieces/village_spruce_rich.blueprint";
-            default -> "pieces/grand_tree.blueprint";
-        };
+        return pathFor(SquareSets.WINTER, hutLevel);
     }
 
+    /**
+     * The centrepiece file of a set for a level (clamped to 1..5), or {@code null} when there is no set or the set has
+     * no centrepiece in this version (the seasonal touches).
+     */
+    public static String pathFor(final SquareSets.Set set, final int level) {
+        return set == null ? null : set.centrepiece(level);
+    }
+
+    /** The marker's facing as the rotation its piece is turned by. */
     public static RotationMirror rotation(final Direction facing) {
         return switch (facing) {
             case EAST -> RotationMirror.R90;
             case SOUTH -> RotationMirror.R180;
             case WEST -> RotationMirror.R270;
             default -> RotationMirror.NONE;
+        };
+    }
+
+    /**
+     * The rotation a Town Square's set is turned by: the square's own with its mirror stripped ([V] design 4.6, Q3: the
+     * fallback, taken so the square's set equals the marker's version of that rotation cell for cell; the tree is near
+     * symmetric, and a mirror would only move the gift piles and the crate to the other side).
+     */
+    public static RotationMirror forSquare(final RotationMirror square) {
+        if (square == null) {
+            return RotationMirror.NONE;
+        }
+        return square.isMirrored() ? RotationMirror.of(square.rotation(), Mirror.NONE) : square;
+    }
+
+    /** The facing a rotation turns north to: the inverse of {@link #rotation(Direction)} (a mirror is ignored). */
+    public static Direction facing(final RotationMirror rotation) {
+        if (rotation == null) {
+            return Direction.NORTH;
+        }
+        return switch (rotation.rotation()) {
+            case CLOCKWISE_90 -> Direction.EAST;
+            case CLOCKWISE_180 -> Direction.SOUTH;
+            case COUNTERCLOCKWISE_90 -> Direction.WEST;
+            default -> Direction.NORTH;
         };
     }
 
@@ -131,16 +164,25 @@ public final class PieceLoader {
 
     /** True when the piece is known to be missing (until it is tried again). */
     public static boolean missing(final String pack, final String path, final Direction facing) {
-        final Cached cached = CACHE.get(new Key(pack, path, facing));
+        return missing(pack, path, rotation(facing));
+    }
+
+    public static boolean missing(final String pack, final String path, final RotationMirror rotation) {
+        final Cached cached = CACHE.get(new Key(pack, path, rotation));
         return cached != null && cached.piece() == null;
     }
 
+    /** {@link #request(ServerLevel, String, String, RotationMirror)} for a marker's facing. */
+    public static Piece request(final ServerLevel level, final String pack, final String path, final Direction facing) {
+        return request(level, pack, path, rotation(facing));
+    }
+
     /**
-     * The piece turned for {@code facing}, or {@code null} while it loads or when it is missing (then one warning,
+     * The piece turned by {@code rotation}, or {@code null} while it loads or when it is missing (then one warning,
      * and it is asked for again on a later game day).
      */
-    public static Piece request(final ServerLevel level, final String pack, final String path, final Direction facing) {
-        final Key key = new Key(pack, path, facing);
+    public static Piece request(final ServerLevel level, final String pack, final String path, final RotationMirror rotation) {
+        final Key key = new Key(pack, path, rotation);
         final long day = level.getDayTime() / 24000L;
         final Cached cached = CACHE.get(key);
         if (cached != null) {
@@ -185,12 +227,21 @@ public final class PieceLoader {
         }
     }
 
-    /** The cells of the piece turned for the key's facing, relative to the anchor (the marker's cell). */
+    /**
+     * A piece read at once from a blueprint of the caller's own (it is turned here), as {@link #request} reads it; not
+     * cached. For the probes, which compare it with an independent turn.
+     */
+    public static Piece readNow(final ServerLevel level, final Blueprint blueprint, final String pack, final String path,
+                                final RotationMirror rotation) {
+        return read(level, blueprint, new Key(pack, path, rotation));
+    }
+
+    /** The cells of the piece turned by the key's rotation, relative to the anchor (the marker's cell). */
     static Piece read(final ServerLevel level, final Blueprint blueprint, final Key key) {
         // tags are relative to the anchor in the blueprint's own frame: read them unturned, then turn them ourselves
         blueprint.setRotationMirror(RotationMirror.NONE, level);
         final Map<BlockPos, List<String>> tagMap = tags(blueprint);
-        final RotationMirror turn = rotation(key.facing());
+        final RotationMirror turn = key.rotation();
         final Map<String, Set<BlockPos>> tagged = new HashMap<>();
         for (final Map.Entry<BlockPos, List<String>> e : tagMap.entrySet()) {
             final BlockPos rel = turn.applyToPos(e.getKey());
@@ -228,7 +279,7 @@ public final class PieceLoader {
             y1 = Math.max(y1, rel.getY());
             z1 = Math.max(z1, rel.getZ());
         }
-        return new Piece(key.pack(), key.path(), key.facing(), List.copyOf(cells), offset, !tagMap.isEmpty(),
+        return new Piece(key.pack(), key.path(), key.rotation(), List.copyOf(cells), offset, !tagMap.isEmpty(),
                 new BlockPos(x0, y0, z0), new BlockPos(x1, y1, z1));
     }
 

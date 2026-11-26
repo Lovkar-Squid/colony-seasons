@@ -178,7 +178,7 @@ public final class Squares {
     }
 
     /** The world cell of the square's {@code tree} tag (the lowest of several), or {@code null} when the tag reads empty. */
-    private static BlockPos treeCell(final BuildingTownSquare square) {
+    public static BlockPos treeCell(final BuildingTownSquare square) {
         final List<BlockPos> cells = square.getLocationsFromTag(BuildingTownSquare.TAG_TREE);
         if (cells == null || cells.isEmpty()) {
             return null;
