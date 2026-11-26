@@ -744,6 +744,15 @@ public final class DecorLedger extends SavedData {
         }
     }
 
+    /** Forgets what the festival market paid (a colony that is gone): a new colony with the same id starts with nothing paid. */
+    public void clearMarket(final int colony) {
+        final ColonyRecord record = colonies.get(colony);
+        if (record != null && !record.market.equals(MarketMath.PaidDay.NONE)) {
+            record.market = MarketMath.PaidDay.NONE;
+            setDirty();
+        }
+    }
+
     /** True (and remembered) when the managers have not been told about the square yet on game day {@code day}. */
     public boolean noticeDue(final int colony, final long day) {
         final ColonyRecord record = colonies.get(colony);

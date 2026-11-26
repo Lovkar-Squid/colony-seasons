@@ -2,6 +2,7 @@ package me.lovkar.seasons.decor;
 
 import com.minecolonies.api.colony.ICitizenData;
 import com.minecolonies.api.colony.IColony;
+import com.minecolonies.api.colony.IColonyManager;
 import com.minecolonies.api.colony.buildings.IBuilding;
 import com.minecolonies.api.entity.citizen.AbstractEntityCitizen;
 import com.google.gson.JsonElement;
@@ -109,6 +110,25 @@ public final class MarketStalls {
         rotation = 0;
     }
 
+    /**
+     * At server start ([B] design 7.1): the bridge's self-test on the first loaded colony, when the bridge is active; a
+     * read that throws turns it off before any stall goes up. A colony made later is tested before its first stall
+     * ({@link #wanted}). Nothing is looked at when the bridge is not active.
+     */
+    public static void startTest() {
+        if (!bridge.active()) {
+            return;
+        }
+        try {
+            for (final IColony colony : IColonyManager.getInstance().getAllColonies()) {
+                bridge.selfTest(colony);
+                return;
+            }
+        } catch (final RuntimeException broken) {
+            bridge.fail("the start self-test could not reach the colonies", broken);
+        }
+    }
+
     // ---------------------------------------------------------------- the stalls
 
     /** The stall tag cells of a square, lowest first. */
@@ -124,9 +144,13 @@ public final class MarketStalls {
         return out;
     }
 
-    /** Whether the square holds the festival market's stalls now: the bridge is active and {@link SquareSets#market} says so. */
+    /**
+     * Whether the square holds the festival market's stalls now: the bridge is active, its self-test passed on this
+     * colony (a throwing read turns the bridge off before any stall goes up, [B] design 7.1) and {@link SquareSets#market}
+     * says so.
+     */
     public static boolean wanted(final BuildingTownSquare square, final CalendarManager.Snapshot now) {
-        if (square == null || now == null || !bridge.active()) {
+        if (square == null || now == null || !bridge.active() || !bridge.selfTest(square.getColony())) {
             return false;
         }
         return SquareSets.market(SquareSets.wanted(square.order(), now), now, square.getBuildingLevel(), true);
@@ -195,9 +219,22 @@ public final class MarketStalls {
      * The stalls to plan for a target, as cells relative to the anchor, bottom up: for each stall tag cell whose whole
      * footprint is free (air, or this square's own listed block), in the claim and not in an unloaded chunk (that one
      * makes the plan wait). A stall with a foreign block or outside the claim is left out whole and never counts as
-     * blocked, so the tree's 10 % rule is as it was. Nothing while {@link #wanted} says no.
+     * blocked, so the tree's 10 % rule is as it was. Nothing while {@link #wanted} says no. A throw here turns the bridge
+     * off ([B] design 7.1) and plans no stall, so the tree's own plan goes on.
      */
     public static List<PieceLoader.PieceCell> fixtures(final DecorWork.Target target) {
+        if (!bridge.active()) {
+            return List.of();                         // without Trade Post nothing of the market is looked at
+        }
+        try {
+            return planned(target);
+        } catch (final RuntimeException broken) {
+            bridge.fail("planning the festival market's stalls failed", broken);
+            return List.of();
+        }
+    }
+
+    private static List<PieceLoader.PieceCell> planned(final DecorWork.Target target) {
         if (!(target.building() instanceof BuildingTownSquare square) || !(square.getColony().getWorld() instanceof ServerLevel level)) {
             return List.of();
         }
@@ -377,8 +414,9 @@ public final class MarketStalls {
      * One sale if one fits: a priced good the Workshop holds above its reserve whose price fits under what is left of the
      * day's cap ({@link MarketMath#canSell}), the goods taken in turn. In this order: (1) one good out of the Workshop's
      * own item handler, (2) the price added to the day's paid record and the ledger saved, (3) the colony paid
-     * ({@link TradePostBridge#credit}). If (3) fails or anything throws, the good goes back and the record is taken back
-     * (the bridge has fallen back by then). {@code null} when nothing was sold.
+     * ({@link TradePostBridge#credit}) only once that save went through. If (2) or (3) fails or anything throws, the good
+     * goes back and the record is taken back (after a payment that failed, the bridge has fallen back by then).
+     * {@code null} when nothing was sold.
      *
      * @param day the colony day ({@code colony.getDay()}) the cap and the paid record are counted on
      */
@@ -425,7 +463,8 @@ public final class MarketStalls {
             ledger.addMarketPaid(colony.getID(), day, price);
             added = true;
             ledger.flush(level);
-            if (bridge.credit(colony, price)) {
+            // a ledger the disk refused stays dirty: the record is not safe yet, so nothing is paid (a restart could pay it twice)
+            if (!ledger.isDirty() && bridge.credit(colony, price)) {
                 rotation++;
                 return new Sale(item, price);
             }
@@ -527,8 +566,24 @@ public final class MarketStalls {
         public static final Line HIDDEN = new Line(0, 0, 0);
     }
 
-    /** The market line of one Town Square's info page; reads only, and is {@link Line#HIDDEN} unless the bridge is active and this is the main square of level 4 or more. */
+    /**
+     * The market line of one Town Square's info page; reads only, and is {@link Line#HIDDEN} unless the bridge is active
+     * and this is the main square of level 4 or more. A throw here turns the bridge off ([B] design 7.1) and hides the
+     * line, so the page itself still goes out.
+     */
     public static Line line(final BuildingTownSquare square) {
+        if (!bridge.active()) {
+            return Line.HIDDEN;
+        }
+        try {
+            return lineOf(square);
+        } catch (final RuntimeException broken) {
+            bridge.fail("the market line of a Town Square's info page could not be read", broken);
+            return Line.HIDDEN;
+        }
+    }
+
+    private static Line lineOf(final BuildingTownSquare square) {
         final IColony colony = square == null ? null : square.getColony();
         if (colony == null || !(colony.getWorld() instanceof ServerLevel level) || !bridge.active()
                 || square.getBuildingLevel() < SquareSets.MARKET_LEVEL) {

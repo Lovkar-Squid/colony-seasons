@@ -106,7 +106,7 @@ public class TradePostBridge {
             return true;
         }
         try {
-            colony.getStatisticsManager().getStatTotal(STAT);
+            read(colony);
             tested = true;
             return true;
         } catch (final Throwable failed) {
@@ -141,9 +141,17 @@ public class TradePostBridge {
         return value;
     }
 
-    /** The colony's balance in points (a read; 0 when the bridge is not active). */
+    /** The colony's balance in points (a read; 0 when the bridge is not active; a throw turns the bridge off and answers 0). */
     public int balance(final IColony colony) {
-        return active() && colony != null ? colony.getStatisticsManager().getStatTotal(STAT) : 0;
+        if (!active() || colony == null) {
+            return 0;
+        }
+        try {
+            return read(colony);
+        } catch (final Throwable failed) {
+            fallBack("reading the colony's balance failed (" + describe(failed) + ")", failed);
+            return 0;
+        }
     }
 
     /**
@@ -161,7 +169,7 @@ public class TradePostBridge {
         }
         final int before;
         try {
-            before = colony.getStatisticsManager().getStatTotal(STAT);
+            before = read(colony);
         } catch (final Throwable failed) {
             fallBack("reading the colony's balance failed (" + describe(failed) + ")", failed);
             return false;
@@ -172,7 +180,7 @@ public class TradePostBridge {
         try {
             write(colony, amount);
             colony.markDirty();
-            final long moved = (long) colony.getStatisticsManager().getStatTotal(STAT) - before;
+            final long moved = (long) read(colony) - before;
             if (moved != amount) {
                 fallBack("the balance moved by " + moved + " instead of " + amount + ", so " + STAT + " no longer means what it did", null);
                 return false;
@@ -187,6 +195,11 @@ public class TradePostBridge {
     /** The one write: MineColonies' own statistic, on the colony's day. The probe overrides it to make it throw. */
     protected void write(final IColony colony, final int amount) {
         colony.getStatisticsManager().incrementBy(STAT, amount, colony.getDay());
+    }
+
+    /** The one read: the statistic's total (the self-test, the read-back). The probe overrides it to make it throw. */
+    protected int read(final IColony colony) {
+        return colony.getStatisticsManager().getStatTotal(STAT);
     }
 
     /** A failure somewhere else in the market (a sale that threw): one WARN line, and the bridge is off until the next server start. */

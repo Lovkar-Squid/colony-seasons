@@ -78,8 +78,10 @@ build chunk.
   festival goods only (`data/mctradepost/item_values.json` prices the six kit outputs and nothing else: not the gift,
   the pile, the crate, the marker; `replace` is false). A payment is clamped, made on the server thread, read back (the
   balance must move by exactly the price) and written to the ledger first (`marketDay`, `marketPaid`: keys only added,
-  the format stays 3), so a restart pays nothing twice; if anything fails the good and the record come back and the
-  bridge turns itself off until the next start with one WARN line. Without Trade Post nothing changes: no class of it is
+  the format stays 3), so a restart pays nothing twice (a ledger the disk refuses pays nothing; a deleted colony's paid
+  day is forgotten); if anything fails the good and the record come back and the bridge turns itself off until the next
+  start with one WARN line. The self-test (a read of the balance) runs at server start and before a colony's first
+  stall: a balance it cannot read keeps the market off. Without Trade Post nothing changes: no class of it is
   looked at, no log line, no stall, no money line. The info page shows "Market: X ‡ today of Y ‡", "no goods in stock"
   or "closed until the next festival". No compile dependency: `check_nodeps.py` finds no reference in any built class.
   Probe `cstradepost` (modes `without`, `with`, `restart.sh`: save, mid, and gone with the jar taken out of the world);

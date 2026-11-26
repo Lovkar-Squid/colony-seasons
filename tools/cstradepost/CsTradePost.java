@@ -107,9 +107,10 @@ import java.util.Set;
  *       fixtures, the four stalls stand (every cell air, listed, equal to its state, the vendor's column and the lamp posts'
  *       cells free), one sale pays exactly its price and takes one good, the sales stop at the cap, the next colony day has
  *       a fresh cap and an earlier one sells nothing, every "nothing sold" row of the tick, the switch off, a payment that
- *       throws or does not move the balance (the good and the record come back, one WARN line, the bridge off), a foreign
- *       block on one pad (that stall is left out, the tree stands, the cap is three coins, the stall comes at the next
- *       tending once the block is gone), the window's end (the group gone, every stall item back in the Workshop);</li>
+ *       throws or does not move the balance (the good and the record come back, one WARN line, the bridge off), a balance the
+ *       self-test cannot read (no market wanted, no stall planned), a foreign block on one pad (that stall is left out, the
+ *       tree stands, the cap is three coins, the stall comes at the next tending once the block is gone), the window's end
+ *       (the group gone, every stall item back in the Workshop);</li>
  *   <li>{@code restart-save}, {@code restart-mid}, {@code restart-gone} (tools/restart.sh): sales short of the cap and the
  *       world saved; after the restart the paid record, the balance and the stalls are as they were and selling on stops at
  *       the cap with the two runs together; then the Trade Post jar is taken out (dropjars.txt) and the world loads without
@@ -882,13 +883,19 @@ public class CsTradePost {
                 ledger.addMarketPaid(colonyId, 7, 321);
                 final DecorLedger reloaded = DecorLedger.load(ledger.save(new CompoundTag(), level.registryAccess()), level.registryAccess());
                 checkEq("the market keys survive a save and a load", reloaded.market(colonyId), new MarketMath.PaidDay(7, 321));
-                ledger.addMarketPaid(colonyId, 7, -321);
+                // a colony that is gone forgets its paid day (DecorEvents.gone), so a new one with its id starts with nothing paid
+                ledger.clearMarket(colonyId);
+                checkEq("a cleared record is never paid", ledger.market(colonyId), MarketMath.PaidDay.NONE);
+                checkEq("... and saves no market key", DecorLedger.load(ledger.save(new CompoundTag(), level.registryAccess()), level.registryAccess())
+                        .market(colonyId), MarketMath.PaidDay.NONE);
+                ledger.addMarketPaid(colonyId, 7, 321);
                 final CompoundTag bare = ledger.save(new CompoundTag(), level.registryAccess());
                 for (final net.minecraft.nbt.Tag one : bare.getList("colonies", net.minecraft.nbt.Tag.TAG_COMPOUND)) {
                     ((CompoundTag) one).remove("marketDay");
                     ((CompoundTag) one).remove("marketPaid");
                 }
                 checkEq("a tag without the market keys reads as never paid", DecorLedger.load(bare, level.registryAccess()).market(colonyId), MarketMath.PaidDay.NONE);
+                ledger.clearMarket(colonyId);
                 invariant("without the market");
             }
         });
@@ -1273,6 +1280,19 @@ public class CsTradePost {
                 checkEq("the good is back again", goodsHeld(), goods);
                 checkEq("the paid record is as it was again", paidToday(), (int) paid);
                 checkEq("the balance is as it was again", balance(), cash);
+
+                // the self-test ([B] 7.1): a balance that cannot be read turns the bridge off before any stall is planned
+                final TradePostBridge unreadable = new TradePostBridge(() -> true, () -> true) {
+                    @Override
+                    protected int read(final IColony c) {
+                        throw new IllegalStateException("the probe makes the balance unreadable");
+                    }
+                };
+                MarketStalls.setBridge(unreadable);
+                check("a balance the self-test cannot read: no market is wanted", !MarketStalls.wanted(townSquare, CalendarManager.current()), "");
+                check("... the bridge fell back with one more line, and no stall is planned", unreadable.fellBack() && TradePostBridge.logLines() - lines == 3
+                        && MarketStalls.fixtures(target()).isEmpty(), String.valueOf(TradePostBridge.logLines() - lines));
+                checkEq("... and nothing was sold or paid", snapshotState(), cash + "/" + paid + "/" + goods);
 
                 MarketStalls.setBridge(null);
                 final TradePostBridge real = MarketStalls.bridge();

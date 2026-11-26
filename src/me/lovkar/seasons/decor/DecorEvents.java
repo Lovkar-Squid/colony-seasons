@@ -504,6 +504,7 @@ public final class DecorEvents {
             ledger.unregisterMarker(id, marker);
         }
         ledger.clearSquareMark(id);
+        ledger.clearMarket(id);                       // Q10: nor the festival market's paid day (a later colony day of the old one would block it)
         if (ledger.hasEntries(id)) {
             return false;
         }

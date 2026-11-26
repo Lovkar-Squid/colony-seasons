@@ -196,9 +196,10 @@ bash tools/probe.sh cstradepost with          # Trade Post 1.06.012 next to the 
                                               # its ingredients + 25 %), four stalls up (every cell listed, the vendor's column and the lamp
                                               # cells free, the four fronts), one sale pays exactly its price and takes one good, every "nothing
                                               # sold" row of the tick (no festival day, outside the hours, no Decorator, no buyer, level 3,
-                                              # Bare, the switch off), a payment that throws or does not move the balance, amounts the clamp
-                                              # refuses, the cap at four coins, the next colony day and an earlier one, a foreign block on one
-                                              # pad (three stalls, three coins, the fourth comes at the next tending), the window's end
+                                              # Bare, the switch off), a payment that throws or does not move the balance, a balance the
+                                              # self-test cannot read (no market wanted, no stall planned), amounts the clamp refuses, the cap
+                                              # at four coins, the next colony day and an earlier one, a foreign block on one pad (three
+                                              # stalls, three coins, the fourth comes at the next tending), the window's end
 bash tools/restart.sh cstradepost             # restart-save (sales short of the cap), restart-mid (the record, the balance and the stalls read
                                               # back, selling on stops at the cap with both runs together), restart-gone (the Trade Post jar
                                               # taken out first: the world loads with no error line, the statistic and the ledger's keys stay,
