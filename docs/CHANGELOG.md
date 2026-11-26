@@ -39,6 +39,14 @@ build chunk.
   firework crate at its `launch` cell (from level 3, instead of the tree piece's crate), also under the order Bare
   while the Winter Festival's window is open, so the daily gift and the show never depend on the order. A colony
   with only a festival marker (every 0.1.0 world) behaves as before. Probe `csfestival square`.
+- **Q5, the square's window pages.** The Town Square's hut window has an info page (its level, the order, the set
+  it wants and the set that stands on it with its state, the next change of set, the festival, the Decorator, what
+  the last visit lacked and what the next level adds), next to its Decorator page and the order button; the
+  Decorator page says which square is the colony's main one, and the Workshop's Calendar page has one line about
+  the square (level, set, state; the festival marker; or no square). A Decorator listed on a square that is not the
+  main one works the main square. Nothing on these pages writes the ledger or sends chat. Probes `cssquare`,
+  `cssquarelife`, `csdecorgate`, `csclient` (the pages' views read on a dedicated server, no window class loaded)
+  extended; `check_packets.py` and `check_windows.py` cover the new module and layout.
 
 ## 0.1.0-beta.1 - unreleased - seasons and festivals for MineColonies
 
