@@ -63,8 +63,10 @@ build chunk.
   `cssquarelife builder` (a real UPGRADE 1 to 2 worked by MineColonies' own Builder AI: our group down in 2 ticks,
   before his first stage at about 370 to 390, his first change in the box at about 560 to 580 and his CLEAR_NON_SOLIDS
   at 4450 to 5400 in two runs; the result is level 2's plaza and tags). Renders by day and at night in
-  `docs/renders/q6/` (`tools/render_q6.sh`). The square's info page counts `sit` as bench seats and `bed` as planter
-  spots (level 5: 12 seats on 8 benches, 8 spots in 6 planters).
+  `docs/renders/q6/` (`tools/render_q6.sh`). The square's info page counts `sit` as bench seats, `bed` as planter
+  spots and `lamp` as lamp spots (level 5: 12 seats on 8 benches, 8 spots in 6 planters, 8 lamp spots on 7 posts, as
+  the bandstand's corner post stands in for one). The Builder's UPGRADE case in `cssquarelife builder` has its own
+  bound of 9000 ticks.
 
 ## 0.1.0-beta.1 - unreleased - seasons and festivals for MineColonies
 

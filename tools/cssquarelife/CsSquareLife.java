@@ -1697,6 +1697,11 @@ public class CsSquareLife {
     private static final int WORK_MANAGER_TICK = 20;
     /** The most ticks one work order of the Builder may take here. */
     private static final int BUILDER_TICKS = 6000;
+    /**
+     * The most ticks the Builder's UPGRADE may take here: he builds the next level's solid blocks before CLEAR_NON_SOLIDS,
+     * and runs finished at about 5700 ticks (CLEAR_NON_SOLIDS at 4450 to 5400), too close to {@link #BUILDER_TICKS}.
+     */
+    private static final int BUILDER_UPGRADE_TICKS = 9000;
     /** A cell of the blueprint's air on the paving, where a torch stands: the Builder's CLEAR_NON_SOLIDS takes it. */
     private BlockPos witness;
 
@@ -1937,7 +1942,7 @@ public class CsSquareLife {
      * anchor unchanged, its tags the level's, the plaza the level's blueprint).
      */
     private void builderCase(final String name, final int ourBound, final java.util.function.Supplier<String> make, final int upgradeTo) {
-        steps.add(new Step(name, BUILDER_TICKS) {
+        steps.add(new Step(name, upgradeTo > 0 ? BUILDER_UPGRADE_TICKS : BUILDER_TICKS) {
             BlockPos a1;
             Map<BlockPos, BlockState> cells;
             final Map<BlockPos, BlockState> box = new LinkedHashMap<>();

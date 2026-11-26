@@ -44,7 +44,7 @@ public final class SquareTexts {
         };
     }
 
-    /** A slot tag of the square's blueprint as the thing it holds ("%1$s lamp posts"); an unknown tag is shown as it is. */
+    /** A slot tag of the square's blueprint as the thing it holds ("%1$s lamp spots"); an unknown tag is shown as it is. */
     public static String slotKey(final String tag) {
         return switch (tag) {
             case "tree" -> "com.colony_seasons.gui.square.slot.tree";
