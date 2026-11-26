@@ -60,6 +60,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.AirBlock;
@@ -727,8 +728,8 @@ public class CsSquareLife {
     }
 
     /**
-     * Sets a level this build has no blueprint for (MineColonies' setBuildingLevel refuses a level above the building's
-     * maximum, and this build ships one level): only to make one square outrank another, as a later build's levels will.
+     * Sets a square's level directly, without a work order (and so without its blueprint's blocks): only to make one square
+     * outrank another. The real upgrade is worked in mode builder, by MineColonies' own Builder.
      */
     private void forceLevel(final IBuilding building, final int lv) {
         try {
@@ -1191,15 +1192,8 @@ public class CsSquareLife {
         });
         orderCase("UPGRADE (the work manager)", 3, 7, DecorEvents.SQUARE_WATCH + 3, 0, () -> {
             final WorkOrderBuilding wo = WorkOrderBuilding.create(WorkOrderType.UPGRADE, s1);
-            // this build ships one level: the order to level 2 names level 1's blueprint, or the work manager's claim
-            // check would look for a file that is not there (Q6 brings the five levels)
-            try {
-                final java.lang.reflect.Field path = com.minecolonies.core.colony.workorders.AbstractWorkOrder.class.getDeclaredField("path");
-                path.setAccessible(true);
-                path.set(wo, SQUARE_PATH);
-            } catch (final ReflectiveOperationException unreachable) {
-                check("UPGRADE: the order's path can be set", false, unreachable.getClass().getSimpleName());
-            }
+            // Q6: the five levels are there, so the order to level 2 names level 2's own blueprint (the work manager's claim check finds the file)
+            checkEq("UPGRADE: the order's blueprint is level 2's", wo.getStructurePath(), "square/townsquare2.blueprint");
             colony.getWorkManager().addWorkOrder(wo, false);
             return "level " + wo.getCurrentLevel() + " to " + wo.getTargetLevel() + ", an order that does not come through the square's request: the watch sees it";
         });
@@ -1666,8 +1660,10 @@ public class CsSquareLife {
                     wrong.isEmpty(), cleared + " cleared, " + kept + " kept, " + notes + (wrong.isEmpty() ? "" : ", " + wrong.subList(0, Math.min(3, wrong.size()))));
             note("NOTE FINDING H3 owner:tech point 6: Structurize's placer with MineColonies' CLEAR_NON_SOLIDS skip rule leaves our blocks in "
                     + "structurize:blocksubstitution cells and clears those in air cells ({} and {} of 27). The first build's CLEAR stage and REMOVE's "
-                    + "skipRemoval are read from the bytecode only; the [B] protection is the take-down before every work order, and the real "
-                    + "blueprints (Q6) put the set volumes in substitution cells", cleared, kept);
+                    + "skipRemoval are read from the bytecode only; the [B] protection is the take-down before every work order. The real "
+                    + "blueprints (Q6) keep the tree's 11 x 11 column as air, not substitution cells (design 4.6 [A]): the first build then clears "
+                    + "whatever stands there, and the take-down (proven below and in mode builder with MineColonies' own Builder) keeps our tree "
+                    + "out of every later order's way", cleared, kept);
             final int[] lost = new int[1];
             DecorPlacer.remove(level, ledger(), cid(), sq(a3), DecorWork.sinkOf(colony, lost));
             check("point 6: the rest of the group comes down by the rule, the cleared cells forgotten", ledger().group(cid(), sq(a3)) == null
@@ -1701,6 +1697,11 @@ public class CsSquareLife {
     private static final int WORK_MANAGER_TICK = 20;
     /** The most ticks one work order of the Builder may take here. */
     private static final int BUILDER_TICKS = 6000;
+    /**
+     * The most ticks the Builder's UPGRADE may take here: he builds the next level's solid blocks before CLEAR_NON_SOLIDS,
+     * and runs finished at about 5700 ticks (CLEAR_NON_SOLIDS at 4450 to 5400), too close to {@link #BUILDER_TICKS}.
+     */
+    private static final int BUILDER_UPGRADE_TICKS = 9000;
     /** A cell of the blueprint's air on the paving, where a torch stands: the Builder's CLEAR_NON_SOLIDS takes it. */
     private BlockPos witness;
 
@@ -1766,9 +1767,18 @@ public class CsSquareLife {
             colony.getWorkManager().addWorkOrder(WorkOrderBuilding.create(WorkOrderType.REPAIR, s1), false);
             return "an order that does not come through the square's request; the work manager gives it to the Builder";
         });
-        now("summary", () -> note("NOTE section 8 point 7 (builder): measured with MineColonies' own Builder AI on the square's REPAIR, "
-                + "the order with the least to do before CLEAR_NON_SOLIDS (an UPGRADE first builds the next level's solid blocks; "
-                + "this build ships one level)"));
+        builderCase("builder: UPGRADE 1 to 2 from the hut window's route", 2, () -> {
+            // MineColonies' work manager gives an order to a Builder whose hut is at least the target level (WorkOrder.canBeResolved)
+            builderHut.setBuildingLevel(2);
+            s1.requestUpgrade(owner, builderHut.getPosition());
+            final WorkOrderBuilding wo = orderAt(s1);
+            checkEq("builder: the order is an UPGRADE to level 2 with level 2's blueprint", wo == null ? null
+                    : wo.getWorkOrderType() + " " + wo.getTargetLevel() + " " + wo.getStructurePath(), "UPGRADE 2 square/townsquare2.blueprint");
+            return "the hut window's upgrade, the Builder named";
+        }, 2);
+        now("summary", () -> note("NOTE section 8 point 7 (builder): measured with MineColonies' own Builder AI on the square's REPAIR "
+                + "(the order with the least to do before CLEAR_NON_SOLIDS) and, with the five levels of Q6, on a real UPGRADE 1 to 2, which first "
+                + "builds level 2's solid blocks"));
     }
 
     /** Sets the square's blueprint blocks in the world (not air, not substitution cells, not the hut block): what its build left. */
@@ -1789,9 +1799,14 @@ public class CsSquareLife {
 
     /** Cells where the world differs from the blueprint (not air, not substitution cells, not the hut block). */
     private List<BlockPos> plazaDiff(final BuildingTownSquare square) {
-        final BlockPos origin = square.getPosition().subtract(squareBlueprint.getPrimaryBlockOffset());
+        return plazaDiff(square, squareBlueprint);
+    }
+
+    /** As above against the blueprint of another level. */
+    private List<BlockPos> plazaDiff(final BuildingTownSquare square, final Blueprint blueprint) {
+        final BlockPos origin = square.getPosition().subtract(blueprint.getPrimaryBlockOffset());
         final List<BlockPos> out = new ArrayList<>();
-        for (final com.ldtteam.structurize.util.BlockInfo info : squareBlueprint.getBlockInfoAsList()) {
+        for (final com.ldtteam.structurize.util.BlockInfo info : blueprint.getBlockInfoAsList()) {
             final BlockState state = info.getState();
             final BlockPos at = origin.offset(info.getPos());
             if (state != null && !state.isAir() && !structurizeBlock(state) && !at.equals(square.getPosition()) && level.getBlockState(at) != state) {
@@ -1807,6 +1822,17 @@ public class CsSquareLife {
 
     /** A blueprint air cell one above the paving, outside the tree's 11 x 11 column, on no tag, away from the hut; or null. */
     private BlockPos witnessCell(final BuildingTownSquare square) {
+        return witnessCell(square, null);
+    }
+
+    /** As above, and (when {@code other} is given) a cell that is air in that level's blueprint too, so an upgrade leaves it alone. */
+    private BlockPos witnessCell(final BuildingTownSquare square, final Blueprint other) {
+        final Map<BlockPos, BlockState> there = new HashMap<>();
+        if (other != null) {
+            for (final com.ldtteam.structurize.util.BlockInfo info : other.getBlockInfoAsList()) {
+                there.put(info.getPos(), info.getState());
+            }
+        }
         final BlockPos origin = square.getPosition().subtract(squareBlueprint.getPrimaryBlockOffset());
         final Set<BlockPos> tagged = new java.util.HashSet<>();
         for (final String tag : BuildingTownSquare.TAGS) {
@@ -1818,6 +1844,7 @@ public class CsSquareLife {
             if (info.getState() == null || !(info.getState().getBlock() instanceof AirBlock) || at.getY() != tree.getY()
                     || Math.abs(at.getX() - tree.getX()) <= 5 && Math.abs(at.getZ() - tree.getZ()) <= 5 || tagged.contains(at)
                     || at.distManhattan(square.getPosition()) < 4 || !level.getBlockState(at).isAir()
+                    || other != null && !(there.get(info.getPos()) == null || there.get(info.getPos()).isAir())
                     || !level.getBlockState(at.below()).isFaceSturdy(level, at.below(), Direction.UP)) {
                 continue;
             }
@@ -1863,7 +1890,59 @@ public class CsSquareLife {
      * then the mark is intact, the square free and nothing put up.
      */
     private void builderCase(final String name, final int ourBound, final java.util.function.Supplier<String> make) {
-        steps.add(new Step(name, BUILDER_TICKS) {
+        builderCase(name, ourBound, make, 0);
+    }
+
+    /**
+     * What the Builder needs to build the plaza of {@code bp} over the world: one entry per item, the count of blocks that
+     * differ from the world (not air, not Structurize's placeholder blocks, not the hut block), plus a few spare.
+     */
+    private Map<net.minecraft.world.item.Item, Integer> needFor(final BuildingTownSquare square, final Blueprint bp) {
+        final Map<net.minecraft.world.item.Item, Integer> need = new LinkedHashMap<>();
+        final BlockPos origin = square.getPosition().subtract(bp.getPrimaryBlockOffset());
+        for (final com.ldtteam.structurize.util.BlockInfo info : bp.getBlockInfoAsList()) {
+            final BlockState state = info.getState();
+            final BlockPos at = origin.offset(info.getPos());
+            if (state != null && structurizeBlock(state) && BuiltInRegistries.BLOCK.getKey(state.getBlock()).getPath().equals("blocksolidsubstitution")) {
+                // "a solid block of this terrain": the Builder fills it with the ground's own block, dirt here (it asked for 54 of it)
+                need.merge(Items.DIRT, 1, Integer::sum);
+                continue;
+            }
+            if (state == null || state.isAir() || structurizeBlock(state) || at.equals(square.getPosition()) || level.getBlockState(at) == state) {
+                continue;
+            }
+            need.merge(state.getBlock().asItem(), 1, Integer::sum);
+        }
+        need.replaceAll((item, n) -> Math.min(n + 16, 128));
+        return need;
+    }
+
+    /** Puts the items into the Builder's own inventory (what his AI counts first, before it asks anyone). */
+    private int giveBuilder(final Map<net.minecraft.world.item.Item, Integer> items) {
+        final com.minecolonies.api.inventory.InventoryCitizen inv = builder.getEntity().get().getInventoryCitizen();
+        int given = 0;
+        for (final Map.Entry<net.minecraft.world.item.Item, Integer> e : items.entrySet()) {
+            int left = e.getValue();
+            while (left > 0) {
+                final int n = Math.min(left, e.getKey().getDefaultMaxStackSize());
+                final ItemStack rest = net.neoforged.neoforge.items.ItemHandlerHelper.insertItemStacked(inv, new ItemStack(e.getKey(), n), false);
+                given += n - rest.getCount();
+                left -= n;
+                if (!rest.isEmpty()) {
+                    break;
+                }
+            }
+        }
+        return given;
+    }
+
+    /**
+     * As above; {@code upgradeTo} above 0 makes it the UPGRADE of the hut window's route to that level: the Builder is given
+     * what the level's blocks need, and after the order the building is that level (its blueprint path, the mark and the
+     * anchor unchanged, its tags the level's, the plaza the level's blueprint).
+     */
+    private void builderCase(final String name, final int ourBound, final java.util.function.Supplier<String> make, final int upgradeTo) {
+        steps.add(new Step(name, upgradeTo > 0 ? BUILDER_UPGRADE_TICKS : BUILDER_TICKS) {
             BlockPos a1;
             Map<BlockPos, BlockState> cells;
             final Map<BlockPos, BlockState> box = new LinkedHashMap<>();
@@ -1880,12 +1959,32 @@ public class CsSquareLife {
             int lost;
             int paid;
             final List<String> stages = new ArrayList<>();
+            Blueprint target;
+            boolean toppedUp;
 
             @Override
             void start() {
                 a1 = anchorOf(s1);
                 cells = tree(a1, 3, 7);
                 seed(name, cid(), sq(a1), cells, false);
+                if (upgradeTo > 0) {
+                    target = StructurePacks.getBlueprint(PACK, "square/townsquare" + upgradeTo + ".blueprint", level.registryAccess());
+                    check(name + ": the target level's blueprint loads", target != null, "");
+                    if (target == null) {
+                        finish();
+                        return;
+                    }
+                    witness = witnessCell(s1, target);
+                    check(name + ": a torch cell that is air at both levels", witness != null, String.valueOf(witness));
+                    if (witness == null) {
+                        finish();
+                        return;
+                    }
+                    final Map<net.minecraft.world.item.Item, Integer> need = needFor(s1, target);
+                    final int given = giveBuilder(need);
+                    check(name + ": the Builder is given what the level's blocks need", given == need.values().stream().mapToInt(Integer::intValue).sum(),
+                            given + " items of " + need.size() + " kinds");
+                }
                 level.setBlock(witness, Blocks.TORCH.defaultBlockState(), Block.UPDATE_ALL);
                 before = workshopItems();
                 lost = DecorEvents.lostItems();
@@ -1950,8 +2049,36 @@ public class CsSquareLife {
                 if (orderAt(s1) == null && completed < 0) {
                     completed = at;
                 }
+                if (upgradeTo > 0 && !toppedUp && builderHut instanceof com.minecolonies.core.colony.buildings.AbstractBuildingStructureBuilder sb
+                        && !sb.getNeededResources().isEmpty() && builderState().startsWith("NEEDS_ITEM")) {
+                    // the list the order made itself (the terrain's solid substitution cells want dirt, which the pre-stock did not count): what he lacks
+                    final Map<net.minecraft.world.item.Item, Integer> lacking = new LinkedHashMap<>();
+                    for (final com.minecolonies.core.colony.buildings.utils.BuildingBuilderResource r : sb.getNeededResources().values()) {
+                        if (r.getAvailable() < r.getAmount()) {
+                            lacking.merge(r.getItemStack().getItem(), r.getAmount() - r.getAvailable() + 8, Integer::sum);
+                        }
+                    }
+                    final int given = giveBuilder(lacking);
+                    toppedUp = true;
+                    note("NOTE {}: at {} ticks the Builder lacked {} of the order's own list; given {} items", name, at, lacking.keySet().stream()
+                            .map(i -> BuiltInRegistries.ITEM.getKey(i).getPath()).toList(), at, given);
+                }
                 if (t % 1000 == 0) {
                     note("{}: at {} ticks the builder is {}", name, at, builderState());
+                    if (upgradeTo > 0) {
+                        final List<String> open = new ArrayList<>();
+                        for (final com.minecolonies.api.colony.requestsystem.request.IRequest<?> r : builderHut.getOpenRequests(builder.getId())) {
+                            open.add((r.getRequest() instanceof com.minecolonies.api.colony.requestsystem.requestable.Stack st ? st.getStack() + " count " + st.getCount() + " min " + st.getMinimumCount() : String.valueOf(r.getRequest())) + " " + r.getState());
+                        }
+                        final StringBuilder inv = new StringBuilder();
+                        final com.minecolonies.api.inventory.InventoryCitizen ic = builder.getInventory();
+                        for (int i = 0; i < ic.getSlots(); i++) {
+                            if (!ic.getStackInSlot(i).isEmpty()) {
+                                inv.append(ic.getStackInSlot(i).getCount()).append(' ').append(BuiltInRegistries.ITEM.getKey(ic.getStackInSlot(i).getItem()).getPath()).append(", ");
+                            }
+                        }
+                        note("{}: open requests {}; inventory {}", name, open, inv);
+                    }
                 }
                 return completed >= 0;
             }
@@ -1973,6 +2100,38 @@ public class CsSquareLife {
                 checkEq(name + ": every paid item came back to the Workshop", workshopItems() - before, paid);
                 checkEq(name + ": nothing was lost", DecorEvents.lostItems() - lost, 0);
                 check(name + ": the tree's cells are air", notAir(cells.keySet()).isEmpty(), notAir(cells.keySet()).size() + " not air");
+                if (upgradeTo > 0 && done) {
+                    checkEq(name + ": the building's level after the Builder's upgrade", s1.getBuildingLevel(), upgradeTo);
+                    // MineColonies never rewrites a building's stored path on an upgrade (it names the placed file); the level's file is named by the order
+                    checkEq(name + ": the stored blueprint path is the placed one (MineColonies keeps it through upgrades)", s1.getBlueprintPath(), SQUARE_PATH);
+                    checkEq(name + ": a repair order now names the new level's blueprint", WorkOrderBuilding.create(WorkOrderType.REPAIR, s1).getStructurePath(),
+                            "square/townsquare" + upgradeTo + ".blueprint");
+                    checkEq(name + ": the next upgrade order names the next level's blueprint", WorkOrderBuilding.create(WorkOrderType.UPGRADE, s1).getStructurePath(),
+                            "square/townsquare" + (upgradeTo + 1) + ".blueprint");
+                    checkEq(name + ": the square's mark and anchor are unchanged", ledger().squareMark(cid()), new DecorLedger.SquareMark(s1.getPosition(), a1));
+                    checkEq(name + ": the tree tag is still the same cell", anchorOf(s1), a1);
+                    final Map<String, java.util.Set<BlockPos>> want = new TreeMap<>();
+                    for (final Map.Entry<BlockPos, List<String>> e : com.ldtteam.structurize.blueprints.v1.BlueprintTagUtils.getBlueprintTags(target).entrySet()) {
+                        for (final String tag : e.getValue()) {
+                            if (BuildingTownSquare.TAGS.contains(tag)) {
+                                want.computeIfAbsent(tag, k -> new java.util.TreeSet<>()).add(s1.getPosition().offset(e.getKey()));
+                            }
+                        }
+                    }
+                    final Map<String, java.util.Set<BlockPos>> got = new TreeMap<>();
+                    for (final String tag : BuildingTownSquare.TAGS) {
+                        final java.util.Set<BlockPos> cellsOfTag = new java.util.TreeSet<>(s1.getLocationsFromTag(tag));
+                        if (!cellsOfTag.isEmpty()) {
+                            got.put(tag, cellsOfTag);
+                        }
+                    }
+                    check(name + ": getLocationsFromTag is the level " + upgradeTo + " blueprint's tag cells", got.equals(want),
+                            got.values().stream().mapToInt(java.util.Set::size).sum() + " cells of " + got.keySet() + ", wanted "
+                                    + want.values().stream().mapToInt(java.util.Set::size).sum() + " of " + want.keySet());
+                    final List<BlockPos> differ = plazaDiff(s1, target);
+                    check(name + ": the plaza the Builder left is the level " + upgradeTo + " blueprint's blocks", differ.isEmpty(),
+                            differ.size() + " differ" + (differ.isEmpty() ? "" : ", e.g. " + differ.get(0).toShortString() + " is " + level.getBlockState(differ.get(0))));
+                }
             }
         });
         steps.add(new Step(name + ": after the order", DecorEvents.SQUARE_WATCH + 10) {

@@ -7,6 +7,7 @@ import com.google.gson.JsonParser;
 import com.ldtteam.common.network.PlayMessageType;
 import com.ldtteam.structurize.api.RotationMirror;
 import com.ldtteam.structurize.blueprints.v1.Blueprint;
+import com.ldtteam.structurize.blueprints.v1.BlueprintTagUtils;
 import com.ldtteam.structurize.storage.StructurePacks;
 import com.minecolonies.api.colony.ICitizenData;
 import com.minecolonies.api.colony.IColony;
@@ -619,13 +620,87 @@ public class CsSquare {
         final List<String> names = new ArrayList<>();
         tagFile.getAsJsonArray("tags").forEach(e -> names.add(e.getAsString()));
         checkEq("the tag file's tags are the building's", names, BuildingTownSquare.TAGS);
-        final JsonObject one = tagFile.getAsJsonObject("levels").getAsJsonObject(String.valueOf(BuildingTownSquare.BUILT_LEVELS));
-        check("the tag file has the built level", one != null, "");
-        int cells = 0;
-        for (final String n : BuildingTownSquare.TAGS) {
-            cells += one == null || !one.has(n) ? 0 : one.getAsJsonArray(n).size();
+        final JsonObject levels = tagFile.getAsJsonObject("levels");
+        checkEq("Q6: the tag file has levels 1 to 5", new TreeSet<>(levels.keySet()), new TreeSet<>(List.of("1", "2", "3", "4", "5")));
+        checkEq("Q6: this build ships every level the design gives the square", BuildingTownSquare.BUILT_LEVELS, BuildingTownSquare.MAX_LEVEL);
+        checkEq("Q6: the maximum level is five", BuildingTownSquare.MAX_LEVEL, 5);
+        for (int lv = 1; lv <= BuildingTownSquare.BUILT_LEVELS; lv++) {
+            final JsonObject one = levels.getAsJsonObject(String.valueOf(lv));
+            if (one == null) {
+                check("the tag file has level " + lv, false, "");
+                continue;
+            }
+            final Map<String, Integer> slots = SquareSets.slots(lv);
+            final List<String> wrong = new ArrayList<>();
+            int cells = 0;
+            for (final String n : BuildingTownSquare.TAGS) {
+                final int got = one.has(n) ? one.getAsJsonArray(n).size() : 0;
+                cells += got;
+                // the crate's slot is one cell at every level (the crate itself is gated by the piece's level in the Decorator's code)
+                final int want = n.equals(BuildingTownSquare.TAG_LAUNCH) ? 1 : slots.getOrDefault(n, 0);
+                if (got != want) {
+                    wrong.add(n + " " + got + " wanted " + want);
+                }
+            }
+            check("Q6 level " + lv + ": the tag counts are the table of design 4.2 (SquareSets.slots, the crate's slot at every level)", wrong.isEmpty(),
+                    cells + " cells" + (wrong.isEmpty() ? "" : ", " + wrong));
+            if (lv < BuildingTownSquare.BUILT_LEVELS) {
+                final JsonObject next = levels.getAsJsonObject(String.valueOf(lv + 1));
+                final List<String> gone = new ArrayList<>();
+                for (final String n : BuildingTownSquare.TAGS) {
+                    final Set<BlockPos> up = new TreeSet<>();
+                    if (next.has(n)) {
+                        next.getAsJsonArray(n).forEach(e -> up.add(pos(e)));
+                    }
+                    if (one.has(n)) {
+                        for (final JsonElement e : one.getAsJsonArray(n)) {
+                            if (!up.contains(pos(e))) {
+                                gone.add(n + " " + pos(e).toShortString());
+                            }
+                        }
+                    }
+                }
+                check("Q6: every tag cell of level " + lv + " is still there, with its name, at level " + (lv + 1) + " (a slot never moves; an upgrade only adds)",
+                        gone.isEmpty(), gone.isEmpty() ? "" : gone.size() + " gone, e.g. " + gone.get(0));
+            }
         }
-        check("the tag file names cells", cells >= 15, cells + " cells");
+        for (final String n : List.of(BuildingTownSquare.TAG_TREE, BuildingTownSquare.TAG_GIFT, BuildingTownSquare.TAG_LAUNCH)) {
+            final String one = levels.getAsJsonObject("1").getAsJsonArray(n).toString();
+            boolean same = true;
+            for (int lv = 2; lv <= BuildingTownSquare.BUILT_LEVELS; lv++) {
+                same &= levels.getAsJsonObject(String.valueOf(lv)).getAsJsonArray(n).toString().equals(one);
+            }
+            check("Q6: the " + n + " tag is one cell, the same at every level", same, one);
+        }
+    }
+
+    /** Q6: every blueprint of the five levels loads from the pack, 21 x 20 x 21, with its own level's tags. */
+    private void blueprintsLoad() {
+        for (int lv = 1; lv <= BuildingTownSquare.MAX_LEVEL; lv++) {
+            final String path = "square/townsquare" + lv + ".blueprint";
+            final Blueprint bp = StructurePacks.getBlueprint(PACK, path, level.registryAccess());
+            check("Q6: " + path + " loads from the pack", bp != null, "");
+            if (bp == null) {
+                continue;
+            }
+            check("Q6: " + path + " is 21 x 20 x 21", bp.getSizeX() == 21 && bp.getSizeY() == 20 && bp.getSizeZ() == 21,
+                    bp.getSizeX() + " x " + bp.getSizeY() + " x " + bp.getSizeZ());
+            final Map<String, Integer> counts = new TreeMap<>();
+            for (final List<String> names : BlueprintTagUtils.getBlueprintTags(bp).values()) {
+                for (final String n : names) {
+                    counts.merge(n, 1, Integer::sum);
+                }
+            }
+            final Map<String, Integer> slots = SquareSets.slots(lv);
+            final List<String> wrong = new ArrayList<>();
+            for (final String n : BuildingTownSquare.TAGS) {
+                final int want = n.equals(BuildingTownSquare.TAG_LAUNCH) ? 1 : slots.getOrDefault(n, 0);
+                if (counts.getOrDefault(n, 0) != want) {
+                    wrong.add(n + " " + counts.getOrDefault(n, 0) + " wanted " + want);
+                }
+            }
+            check("Q6: " + path + "'s own tags (read from the blueprint) are the table of design 4.2", wrong.isEmpty(), wrong.isEmpty() ? "" : wrong.toString());
+        }
     }
 
     /** tag -> world cells the file wants for a square whose hut block stands at the building's position, turned. */
@@ -671,8 +746,14 @@ public class CsSquare {
         final Set<String> names = cachedNames(b);
         final Set<String> extra = new TreeSet<>(names);
         BuildingTownSquare.TAGS.forEach(extra::remove);
-        check(at + ": the cached tag map holds the square's tags and the anchor's name only", names.containsAll(BuildingTownSquare.TAGS)
-                && extra.stream().allMatch(n -> n.startsWith("name=")), "others " + extra);
+        final Set<String> present = new TreeSet<>();      // the tags this level has (Q6: level 1 has no lamp, bed or stall)
+        want.forEach((tag, cells) -> {
+            if (!cells.isEmpty()) {
+                present.add(tag);
+            }
+        });
+        check(at + ": the cached tag map holds the square's tags (those this level has) and the anchor's name only", names.containsAll(present)
+                && extra.stream().allMatch(n -> n.startsWith("name=")), "others " + extra + ", missing " + present.stream().filter(n -> !names.contains(n)).toList());
         if (rm != RotationMirror.NONE) {
             check(at + ": the turned cells are not the unturned ones (the check sees the turn)", !expected(b, RotationMirror.NONE).equals(want), "");
         }
@@ -710,10 +791,15 @@ public class CsSquare {
     // ================================================================ step 4: eight squares for the tags
 
     private void tagGroup(final String group, final List<RotationMirror> rms, final boolean breakAfter) {
+        tagGroup(1, group, rms, breakAfter);
+    }
+
+    /** {@code rms.size()} squares of the level pasted at the corners (one orientation each), their tags read as the check says. */
+    private void tagGroup(final int lv, final String group, final List<RotationMirror> rms, final boolean breakAfter) {
         for (int i = 0; i < rms.size(); i++) {
             final RotationMirror rm = rms.get(i);
             final int index = i;
-            paste(group + " " + rm.name(), CORNERS.get(i), SQUARE_CMD, rm, b -> {
+            paste(group + " " + rm.name(), CORNERS.get(i), "square.townsquare" + lv, rm, b -> {
                 if (!(b instanceof BuildingTownSquare square)) {
                     check(group + " " + rm.name() + ": the pasted hut makes a BuildingTownSquare", false, b.getClass().getSimpleName());
                     return;
@@ -729,7 +815,8 @@ public class CsSquare {
                 final RotationMirror rm = rms.get(i);
                 final String at = "tags " + rm.name();
                 checkEq(at + ": the building's rotation and mirror", sq.getRotationMirror(), rm);
-                checkEq(at + ": the pasted square's level", sq.getBuildingLevel(), 1);
+                checkEq(at + ": the pasted square's level", sq.getBuildingLevel(), lv);
+                checkEq(at + ": the pasted square's blueprint path", sq.getBlueprintPath(), "square/townsquare" + lv + ".blueprint");
                 checkEq(at + ": hiring mode", sq.assignment().getHiringMode(), HiringMode.MANUAL);
                 check(at + ": the corners are 21 x 20 x 21", Arrays.equals(size(sq.getCorners()), new int[] {21, 20, 21}),
                         Arrays.toString(size(sq.getCorners())));
@@ -1052,7 +1139,7 @@ public class CsSquare {
         return view.info();
     }
 
-    /** A level this build has no blueprint for (setBuildingLevel refuses one above the maximum): only to make one square outrank the rest, as a later build's levels will. */
+    /** Sets a square's level directly, without ordering the upgrade (the real upgrade is cssquarelife's): only to make one square outrank the rest. */
     private void forceLevel(final IBuilding building, final int lv) {
         try {
             final java.lang.reflect.Field f = com.minecolonies.core.colony.buildings.AbstractSchematicProvider.class.getDeclaredField("buildingLevel");
@@ -1088,7 +1175,7 @@ public class CsSquare {
         now("Q5: the info page in summer, the Decorator at S1", () -> {
             setDate(java.time.LocalDate.of(2026, 7, 15));
             final SquareInfoModule.Info i = infoPage("S1", s1);
-            check("Q5 S1: level 2 (forced) of this build's 1, the order Follow, the main square", i.level() == 2 && i.maxLevel() == 1
+            check("Q5 S1: level 2 (set directly) of this build's 5, the order Follow, the main square", i.level() == 2 && i.maxLevel() == BuildingTownSquare.MAX_LEVEL
                     && i.order().equals(SquareSets.Order.FOLLOW.key()) && i.standing() == SquareStatus.Standing.MAIN.ordinal()
                     && i.mainPos().equals(s1.getPosition()), i.toString());
             check("Q5 S1: in July no set is wanted (the seasonal touches have no pieces yet), nothing is up, nothing to put up",
@@ -1096,8 +1183,9 @@ public class CsSquare {
             check("Q5 S1: the next change is the Winter Festival's set from its decoration window's first day", i.changeKind() == SquareInfoModule.CHANGE_FROM
                     && i.changeSet().equals(SquareSets.WINTER.id()) && i.changeDate().equals(SeasonsConfig.decorFrom(SeasonsConfig.WINTER_FESTIVAL)), i.toString());
             check("Q5 S1: the Decorator is d1 and listed here", i.decorator().equals(d1.getName()) && i.decoratorHere(), i.decorator() + " / " + d1.getName());
-            check("Q5 S1: nothing missing, and this build's one level is the highest (nothing to add)", i.missing().isEmpty() && i.nextLevel() == 0
-                    && i.added().isEmpty(), i.toString());
+            check("Q6 S1: nothing missing, and level 3 is next: the page lists what it adds (the table of design 4.2)", i.missing().isEmpty() && i.nextLevel() == 3
+                    && i.added().equals(SquareInfoModule.addedBy(2, 3).entrySet().stream().map(e -> new SquareInfoModule.AddedRow(e.getKey(), e.getValue())).toList()),
+                    i.toString());
             check("Q5 S1: the festival line looks ahead to the next festival", !i.festival().isEmpty() && i.daysUntilNext() > 0, i.festival() + " in " + i.daysUntilNext());
             final SquareInfoModule.Info other = infoPage("S2", s2);
             check("Q5 S2: not the main square: the page names S1 as the main one, the state is Not main, no Decorator listed",
@@ -1333,7 +1421,7 @@ public class CsSquare {
             s2 = null;
             linked("after the square was broken", d2, workshopOf(d2), null, job);
             note("NOTE section 8: Q1 proves points 1, 2, 3, 4, 5, 8, 10 and 11; 6, 7 and 13 are Q2's (the take-down and the downgrade), 9 is Q3's, "
-                    + "12 is Q4's; point 5's upgrade waits for Q6's levels (this build ships one)");
+                    + "12 is Q4's; point 5's upgrade is cssquarelife's, with the five levels of Q6");
         });
         unloadSteps();
     }
@@ -1471,7 +1559,13 @@ public class CsSquare {
             check("set up: the lumberjack works at his hut", m != null && m.assignCitizen(lumberjack) && lumberjack.getWorkBuilding() == lumber,
                     jobName(lumberjack.getJob()));
         });
+        now("Q6: the five blueprints", this::blueprintsLoad);
         tagGroup("turned", TURNED, true);
+        tagGroup(5, "level 5 turned", TURNED, true);
+        tagGroup(5, "level 5 mirrored", MIRRORED, true);
+        tagGroup(2, "level 2", List.of(RotationMirror.R90, RotationMirror.MIR_R270), true);
+        tagGroup(3, "level 3", List.of(RotationMirror.R180, RotationMirror.MIR_NONE), true);
+        tagGroup(4, "level 4", List.of(RotationMirror.R270, RotationMirror.MIR_R90), true);
         tagGroup("mirrored", MIRRORED, false);
         squareSteps();
         assignSteps();

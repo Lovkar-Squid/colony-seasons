@@ -41,10 +41,10 @@ public class BuildingTownSquare extends AbstractBuilding {
     /** The levels the design gives the square (Q6 draws them). */
     public static final int MAX_LEVEL = 5;
     /**
-     * The levels that have a blueprint in this build: Q1 ships one placeholder level, so a player cannot order an
-     * upgrade to a blueprint that is not there. Q6 sets this to {@link #MAX_LEVEL}.
+     * The levels that have a blueprint in this build: all five (square/townsquare1..5.blueprint, chunk Q6). Q1 shipped one
+     * placeholder level and this was 1, so a player could not order an upgrade to a blueprint that was not there.
      */
-    public static final int BUILT_LEVELS = 1;
+    public static final int BUILT_LEVELS = MAX_LEVEL;
     /** The look the blueprints are named after (square/townsquare1.blueprint); used while no blueprint is known. */
     public static final String DEFAULT_LOOK = "townsquare";
     /** The claim round the hut block at every built level: one chunk (MineColonies gives 2 at levels 4 and 5). */
