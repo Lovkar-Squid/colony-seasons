@@ -13,6 +13,14 @@ build chunk.
   and stays employed at his Workshop; dead or re-jobbed Decorators drop off at once (their saved ids within one
   colony tick and on load);
   probe `cssquare` with a restart. Nothing is decorated on the square yet.
+- **Q2, one centrepiece per colony and the square's lifecycle.** The colony's main Town Square (built, the
+  highest level, a tie kept by the one that has it) takes over from the festival marker: once a square is built
+  the marker's tree comes down by the exact-state rule, its items to the Workshop, the managers are told once that
+  the marker is not used, and the marker stays as the fallback; the square gets its own tree in Q3. Any work order
+  on the main square takes its decorations down at once, a removed square hands back to the marker, a second
+  square is told it is not decorated, a deleted colony loses its mark; the decoration ledger is format 3 (files of
+  0.1.0 load unchanged, 0.1.0 reads a 0.2.0 file); `decor list <colony>` names the centrepiece. Probe
+  `cssquarelife` with a restart in the middle of a switch.
 
 ## 0.1.0-beta.1 - unreleased - seasons and festivals for MineColonies
 

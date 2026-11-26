@@ -1471,14 +1471,35 @@ public class CsSquareLife {
             stockHut(c2[0], "minecolonies:blockhuttownhall", at);
             s5[0] = placeSquare("deleted: S5", c2[0], owner2[0], at.offset(0, 0, -40));
         });
-        now("deleted: S5 built", () -> {
+        now("over the marker: S5 built where the colony's marker and its tree stood", () -> {
             if (s5[0] == null) {
                 finish();
                 return;
             }
+            // design 8 (A8 point 3): the marker stands inside the square's box; the Builder's first build clears the box
+            final BlockPos marker0 = s5[0].getPosition().offset(2, 0, -12);
+            final int noticesBefore = Squares.markerUnusedNotices();
+            placeMarker(c2[0], owner2[0], marker0);
+            checkEq("over the marker: the marker inside the unbuilt square's box is the colony's marker", ledger().marker(id2[0]), marker0);
+            final Map<BlockPos, BlockState> tree0 = tree(marker0, 1, 3);
+            seed("over the marker: the marker's tree", id2[0], sq(marker0), tree0, true);
+            final Squares.Square before = Squares.of(level, c2[0], ledger());
+            check("over the marker: with the square at level 0 the marker has the tree", before.source() == Squares.Source.MARKER && before.hosts(marker0),
+                    show(before));
+            for (final BlockPos p : tree0.keySet()) {
+                level.setBlock(p, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);      // the first build clears the box
+            }
+            level.setBlock(marker0, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+            check("over the marker: the marker's block replaced, it is no longer the colony's marker", ledger().marker(id2[0]) == null
+                    && ledger().markerColony(marker0) == -1, "");
+            DecorEvents.drain(server);
+            check("over the marker: its group went through markerRemoved: no entry is left (no ghost)", ledger().group(id2[0], sq(marker0)) == null
+                    && ledger().count(id2[0]) == 0 && notAir(tree0.keySet()).isEmpty(), ledger().count(id2[0]) + " listed");
             unusedBefore = Squares.markerUnusedNotices();
             finishBuild(s5[0], WorkOrderType.BUILD, 1);
             DecorEvents.drain(server);
+            check("over the marker: S5 built is the main square, and no notice (no marker is registered any more)",
+                    ledger().squareMark(id2[0]) != null && Squares.markerUnusedNotices() == noticesBefore, String.valueOf(ledger().squareMark(id2[0])));
         });
         waitTags("deleted: S5", () -> s5[0]);
         now("deleted: S5 located, a marker and a group, the colony deleted", () -> {

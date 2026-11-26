@@ -233,6 +233,39 @@ bash tools/restart.sh cssquare   # a square with its Decorator on MANUAL and a s
                                  # tick, read back before any colony tick (the first kept, the second pruned when the save was read)
 ```
 
+The square's lifecycle (0.2.0, Q2). `cssquarelife` builds a colony with a town hall, a Builder's hut with a builder and the
+Workshop pasted with the command a player types with its Decorator, both citizens as MineColonies data only (no AI of theirs
+runs, so nobody walks, builds or decorates); the Town Squares are placed through MineColonies' survival placement handler and
+built by what the Builder does when he finishes an order (the order's `onCompleted` with its blueprint, `onUpgradeComplete`,
+the level, MineColonies' construction event). Every work order is MineColonies' own (`requestRepair`, `requestRemoval`, the
+work manager). Decorations are seeded by the probe, each cell listed before its block is set (our trunk, vanilla spruce logs
+and leaves); the date is fixed in July. `tools/cssquarelife/v010/DecorLedger.java` is the decoration ledger of the tag
+`v0.1.0-beta.1` with its package line changed, the 0.1.0 reader of the downgrade check; `tools/check_reader.py` (a step of
+`checks.sh`) compares it with the tag.
+
+```bash
+bash tools/probe.sh cssquarelife     # the ledger's files (no version, version 1, version 2 with a storeroom, version 3 with the square's
+                                     # mark round trip, one mark key alone reads as none) and a version 3 file in the 0.1.0 reader (one
+                                     # warning, every group, the marker and budget; its rule takes the square's group down; it saves 2);
+                                     # the switch: a marker's tree with a cell the player changed and a foreign block, a square at level 0
+                                     # (nothing changes), built (the mark at the end of the tick, one notice, the tree down in sweep slices
+                                     # by the exact-state rule, items in the Workshop, a further pass writes nothing); the Decorator on the
+                                     # square (the Workshop's worker state, his work building and the job counts unchanged); REPAIR,
+                                     # REPAIR with cells the Builder cleared first, UPGRADE through the work manager (the watch) and REMOVE
+                                     # (ticks from the order to an empty group, nothing lost, nothing put up after); the completed removal
+                                     # (back to the marker); a square broken (its group gone the same tick); a second square (one notice,
+                                     # the tie kept, an order on it changes nothing, a higher one moves the tree once); tags that cannot be
+                                     # read (the stored anchor stands in; a higher square that cannot be located changes nothing); a
+                                     # building type that is no longer registered; Structurize's placer with the CLEAR_NON_SOLIDS skip rule
+                                     # over substitution cells; in a second colony a square built where its marker stood (the marker block
+                                     # replaced as the Builder would: its group goes, no ghost entry, no notice), a marker put down after
+                                     # the square (the fallback, one notice), and the colony deleted (its mark and marker off, a new colony
+                                     # inherits neither)
+bash tools/restart.sh cssquarelife   # a switch stopped half way between two of the rig's own sweeps: the ledger file on disk, the mark and
+                                     # marker read back, no second notice, the Decorator's work building; the sweeps finish the tree and
+                                     # the world equals the expectation cell for cell
+```
+
 Each finding that goes to the owner instead of a fix is a `NOTE FINDING H<n> owner:ask|fyi` line. `tools/restart.sh` runs the phases a
 probe lists in its `phases.txt` instead of `restart-save,restart-load`.
 
