@@ -994,6 +994,7 @@ public class CsSquareLife {
             itemsBefore = workshopItems();
             unusedBefore = Squares.markerUnusedNotices();
             refund = refundNow(cid(), sq(m1));
+            ledger().setSquareProblem(cid(), true);            // the tree had no room at the marker this window
             final DecorLedger.SquareMark early = finishBuild(s1, WorkOrderType.BUILD, 1);
             checkEq("switch: during onUpgradeComplete the level is still 0, so nothing is decided there (the resolver waits for the end of the tick)",
                     early, null);
@@ -1008,6 +1009,8 @@ public class CsSquareLife {
             check("switch: the resolver names S1 at its tree cell, located and free", sq.source() == Squares.Source.BUILDING && sq.building().equals(s1.getPosition())
                     && a1.equals(sq.anchor()) && sq.located() && !sq.busy() && sq.hosts(a1) && !sq.hosts(m1), show(sq));
             checkEq("switch: the managers are told once that the marker is not used", Squares.markerUnusedNotices() - unusedBefore, 1);
+            check("switch: the marker's 'no room for the tree' note is cleared (the Workshop window shows it no more)",
+                    !ledger().squareProblem(cid()), "");
             check("switch: the marker stays registered (the fallback), the resolver's marker is none, no square target",
                     m1.equals(ledger().marker(cid())) && Squares.marker(ledger(), cid()) == null && DecorWork.squareTarget(level, ledger(), cid()) == null, "");
             check("switch: the gathering goes to the town hall meanwhile (Q4 brings it to the square)",

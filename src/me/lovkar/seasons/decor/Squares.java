@@ -121,6 +121,7 @@ public final class Squares {
                 final BlockPos marker = ledger.marker(id);
                 if (first && marker != null) {
                     Gathering.markerGone(level, id, marker);
+                    ledger.setSquareProblem(id, false);   // "no room at the marker" belonged to the marker, which is not used now
                     ledger.flush(level);
                     markerUnused(level, id);
                 } else {
