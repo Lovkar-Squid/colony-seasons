@@ -38,6 +38,7 @@ public final class TownSquareSetup {
                     .setBuildingViewProducer(() -> EmptyView::new)
                     .setRegistryName(BUILDING_ID)
                     .addBuildingModuleProducer(SquareModules.DECORATOR)
+                    .addBuildingModuleProducer(SquareModules.SETTINGS)
                     .createBuildingEntry());
 
     private TownSquareSetup() {

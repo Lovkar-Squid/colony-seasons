@@ -1,13 +1,16 @@
 package me.lovkar.seasons.colony;
 
 import com.minecolonies.api.colony.buildings.registry.BuildingEntry;
+import com.minecolonies.core.colony.buildings.modules.settings.StringSetting;
+import com.minecolonies.core.colony.buildings.moduleviews.SettingsModuleView;
+import me.lovkar.seasons.decor.SquareSets;
 
 /**
  * The Town Square's building modules (0.2.0). As for the Workshop's ({@link DecoratorModules}), other code finds a
  * module by the identity of its producer: {@code building.getModule(SquareModules.DECORATOR)}, never
  * {@code getModuleMatching}. Producer keys are global in MineColonies, so the square's start with
- * {@code colony_seasons_}; a key names the module's saved compound and never changes. The settings and info pages come
- * in later chunks (Q3, Q5).
+ * {@code colony_seasons_}; a key names the module's saved compound and never changes. The settings page with the order
+ * came in Q3; the info page comes in Q5.
  */
 public final class SquareModules {
 
@@ -20,6 +23,18 @@ public final class SquareModules {
             new BuildingEntry.ModuleProducer<>("colony_seasons_square_decorator", SquareAssignmentModule::new,
                     () -> SquareAssignmentModuleView::new);
 
+    /**
+     * The square's settings (Q3, docs/town-square-design.md 4.4): the order, one cycling button with Follow the calendar
+     * (the default), Always Winter Festival and Bare. MineColonies' own settings page shows it.
+     */
+    public static final BuildingEntry.ModuleProducer<SquareSettingsModule, SettingsModuleView> SETTINGS =
+            new BuildingEntry.ModuleProducer<>("colony_seasons_square_settings", SquareModules::settingsModule, () -> SettingsModuleView::new);
+
     private SquareModules() {
+    }
+
+    /** A new settings module of the square, its order on the default (what the producer makes; the probe reads saves with it). */
+    public static SquareSettingsModule settingsModule() {
+        return (SquareSettingsModule) new SquareSettingsModule().with(BuildingTownSquare.ORDER, new StringSetting(SquareSets.orderKeys(), 0));
     }
 }

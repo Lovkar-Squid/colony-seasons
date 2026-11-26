@@ -1,5 +1,6 @@
 package me.lovkar.seasons.decor;
 
+import com.ldtteam.structurize.api.RotationMirror;
 import com.minecolonies.api.colony.ICitizenData;
 import com.minecolonies.api.colony.IColony;
 import com.minecolonies.api.colony.buildings.IBuilding;
@@ -73,19 +74,21 @@ public final class DecorWork {
     public static final int STAND_RING = 3;
 
     /**
-     * One place to work on. {@code building} is null for the square and for a probe's pasted house; {@code stand}
-     * is where he walks to; {@code pack} and {@code facing} are the square's.
+     * One place to work on. {@code building} is the building for a building, the Town Square for the square on a
+     * Town Square (0.2.0, Q3), and null for the square at a festival marker and for a probe's pasted house;
+     * {@code stand} is where he walks to; {@code pack} and {@code rotation} are the square's (the marker's facing as a
+     * rotation, or the Town Square's own with its mirror stripped, {@link PieceLoader#forSquare}).
      */
-    public record Target(DecorLedger.Owner owner, DoorFinder.Box box, IBuilding building, BlockPos stand, String pack, Direction facing) {
+    public record Target(DecorLedger.Owner owner, DoorFinder.Box box, IBuilding building, BlockPos stand, String pack, RotationMirror rotation) {
 
         public static Target building(final IBuilding building) {
             final DoorFinder.Box box = DoorFinder.Box.of(building);
-            return new Target(DecorLedger.Owner.building(building.getPosition()), box, building, building.getPosition(), "", Direction.NORTH);
+            return new Target(DecorLedger.Owner.building(building.getPosition()), box, building, building.getPosition(), "", RotationMirror.NONE);
         }
 
         /** A house MineColonies does not know (the placing probe pastes real hut blueprints). */
         public static Target box(final DoorFinder.Box box) {
-            return new Target(DecorLedger.Owner.building(box.hut()), box, null, box.hut(), "", Direction.NORTH);
+            return new Target(DecorLedger.Owner.building(box.hut()), box, null, box.hut(), "", RotationMirror.NONE);
         }
 
         public static Target square(final BlockPos marker, final Direction facing, final String pack) {
@@ -95,7 +98,31 @@ public final class DecorWork {
         /** The square with the place he stands at while he works on it (outside the piece's box, {@link #squareStand}). */
         public static Target square(final BlockPos marker, final Direction facing, final String pack, final BlockPos stand) {
             return new Target(DecorLedger.Owner.square(marker), new DoorFinder.Box(marker, marker, marker), null,
-                    stand == null ? marker : stand.immutable(), pack, facing);
+                    stand == null ? marker : stand.immutable(), pack, PieceLoader.rotation(facing));
+        }
+
+        /**
+         * The centrepiece of a Town Square at its {@code tree} cell ({@code anchor}, the resolver's): the same group key
+         * as the marker's square ({@link DecorLedger.Owner#square}), turned by the square's rotation without its mirror.
+         */
+        public static Target townSquare(final BuildingTownSquare square, final BlockPos anchor) {
+            return new Target(DecorLedger.Owner.square(anchor), new DoorFinder.Box(anchor, anchor, anchor), square, anchor.immutable(),
+                    PieceLoader.PACK, PieceLoader.forSquare(square.getRotationMirror()));
+        }
+
+        /** The marker's facing this target's rotation stands for (a Town Square's: the facing of its rotation). */
+        public Direction facing() {
+            return PieceLoader.facing(rotation);
+        }
+
+        /** The same target with the place he stands at ({@code null}: the anchor). */
+        public Target withStand(final BlockPos at) {
+            return new Target(owner, box, building, at == null ? owner.pos() : at.immutable(), pack, rotation);
+        }
+
+        /** True for the centrepiece of a Town Square (not the festival marker's). */
+        public boolean onTownSquare() {
+            return building instanceof BuildingTownSquare;
         }
     }
 
@@ -185,6 +212,17 @@ public final class DecorWork {
      */
     public static Target nextToDecorate(final ServerLevel level, final IColony colony, final int hutLevel, final BlockPos from,
                                         final DecorLedger ledger, final DecorPlacer.Stock stock, final long day) {
+        return nextToDecorate(level, colony, hutLevel, from, ledger, stock, day, null);
+    }
+
+    /**
+     * {@link #nextToDecorate(ServerLevel, IColony, int, BlockPos, DecorLedger, DecorPlacer.Stock, long)} for a Decorator
+     * who works {@code assigned} (the Town Square whose Decorator module lists him, or {@code null}): the colony's main
+     * Town Square is his only then ([B] design 4.3); the festival marker is open to any Decorator, as in 0.1.0.
+     */
+    public static Target nextToDecorate(final ServerLevel level, final IColony colony, final int hutLevel, final BlockPos from,
+                                        final DecorLedger ledger, final DecorPlacer.Stock stock, final long day,
+                                        final BuildingTownSquare assigned) {
         final int id = colony.getID();
         final boolean costs = SeasonsConfig.needsMaterials();
         final boolean budgetLeft = ledger.budgetUsed(id, day) < quota(hutLevel);
@@ -194,7 +232,7 @@ public final class DecorWork {
         if (hall != null) {
             order.add(Target.building(hall));
         }
-        final Target square = stock.kinds().tree() ? squareTarget(level, ledger, id) : null;
+        final Target square = stock.kinds().tree() ? centrepiece(level, colony, ledger, assigned) : null;
         if (square != null) {
             order.add(square);
         }
@@ -205,8 +243,8 @@ public final class DecorWork {
         }
         for (final Target target : order) {
             final DecorLedger.GroupView group = ledger.group(id, target.owner());
-            final boolean done = group != null && group.decoratedDay() >= 0 && group.level() == hutLevel
-                    && (target.owner().kind() == DecorLedger.Kind.BUILDING || group.piece().equals(PieceLoader.pathFor(hutLevel)));
+            final boolean done = target.owner().kind() == DecorLedger.Kind.SQUARE ? squareDone(group, target, hutLevel)
+                    : group != null && group.decoratedDay() >= 0 && group.level() == hutLevel;
             if (done) {
                 continue;
             }
@@ -252,18 +290,52 @@ public final class DecorWork {
     public static Target withStand(final ServerLevel level, final DecorLedger ledger, final int colony, final Target square,
                                    final int hutLevel, final BlockPos from) {
         final BlockPos marker = square.owner().pos();
-        final AABB box = squareBox(level, ledger, colony, marker, square.facing(), square.pack(), squarePath(ledger, colony, marker, hutLevel));
-        final BlockPos stand = squareStand(level, box, marker, from);
-        return Target.square(marker, square.facing(), square.pack(), stand);
+        final String path = squarePath(ledger, colony, marker, hutLevel > 0 ? piecePath(square, hutLevel) : null);
+        final AABB box = squareBox(level, ledger, colony, marker, square.rotation(), square.pack(), path);
+        return square.withStand(squareStand(level, box, marker, from));
     }
 
     /** The piece path of the colony's square: the one its group was planned for, else the one of this hut level (0: none). */
     public static String squarePath(final DecorLedger ledger, final int colony, final BlockPos marker, final int hutLevel) {
-        final DecorLedger.GroupView group = ledger.group(colony, DecorLedger.Owner.square(marker));
+        return squarePath(ledger, colony, marker, hutLevel > 0 ? PieceLoader.pathFor(hutLevel) : null);
+    }
+
+    /** The piece path of a square group: the one it was planned for, else {@code fallback}. */
+    public static String squarePath(final DecorLedger ledger, final int colony, final BlockPos anchor, final String fallback) {
+        final DecorLedger.GroupView group = ledger.group(colony, DecorLedger.Owner.square(anchor));
         if (group != null && !group.piece().isEmpty()) {
             return group.piece();
         }
-        return hutLevel > 0 ? PieceLoader.pathFor(hutLevel) : null;
+        return fallback;
+    }
+
+    /**
+     * The level the square's centrepiece is sized by: on a Town Square the lower of its level and the Workshop's
+     * ([B] owner answer of 20 Nov 2026), at the festival marker the Workshop's (0.1.0).
+     */
+    public static int pieceLevel(final Target target, final int hutLevel) {
+        return target.building() instanceof BuildingTownSquare square ? SquareSets.pieceLevel(square.getBuildingLevel(), hutLevel) : hutLevel;
+    }
+
+    /**
+     * The centrepiece the square wants now: on a Town Square the one of the set its order asks for
+     * ({@link SquareSets#wanted}, {@code null}: no set now), at the festival marker the Winter Festival's tree of the
+     * Workshop's level (0.1.0).
+     */
+    public static String piecePath(final Target target, final int hutLevel) {
+        if (target.building() instanceof BuildingTownSquare square) {
+            return PieceLoader.pathFor(SquareSets.wanted(square.order(), CalendarManager.current()), pieceLevel(target, hutLevel));
+        }
+        return PieceLoader.pathFor(hutLevel);
+    }
+
+    /** A square group needs no visit: no set wanted and nothing up, or the wanted set of this level decorated. */
+    private static boolean squareDone(final DecorLedger.GroupView group, final Target target, final int hutLevel) {
+        final String path = piecePath(target, hutLevel);
+        if (path == null) {
+            return group == null || group.entries().isEmpty();
+        }
+        return group != null && group.decoratedDay() >= 0 && group.level() == pieceLevel(target, hutLevel) && group.piece().equals(path);
     }
 
     /**
@@ -272,7 +344,12 @@ public final class DecorWork {
      */
     public static AABB squareBox(final ServerLevel level, final DecorLedger ledger, final int colony, final BlockPos marker,
                                  final Direction facing, final String pack, final String path) {
-        final PieceLoader.Piece piece = path == null ? null : PieceLoader.request(level, pack, path, facing);
+        return squareBox(level, ledger, colony, marker, PieceLoader.rotation(facing), pack, path);
+    }
+
+    public static AABB squareBox(final ServerLevel level, final DecorLedger ledger, final int colony, final BlockPos marker,
+                                 final RotationMirror rotation, final String pack, final String path) {
+        final PieceLoader.Piece piece = path == null ? null : PieceLoader.request(level, pack, path, rotation);
         return squareBox(ledger, colony, marker, piece);
     }
 
@@ -365,9 +442,26 @@ public final class DecorWork {
     }
 
     /**
-     * The colony's square, if a marker is registered and still stands (or its chunk is not loaded) and no Town Square is
-     * the colony's main square ({@link Squares#marker}: while one is, the marker is only the fallback). In 0.2.0 Q2
-     * nothing is put up on a Town Square yet; Q3 makes its tag-anchored target here.
+     * The colony's centrepiece as a place to work on now ({@link Squares#of}): the main Town Square while it is located
+     * and free and {@code assigned} is that square ([B] design 4.3: it is worked only by the Decorator its module lists;
+     * a busy square gets nothing, and the marker is not used meanwhile), else the festival marker's square
+     * ({@link #squareTarget}, open to any Decorator), else {@code null}.
+     */
+    public static Target centrepiece(final ServerLevel level, final IColony colony, final DecorLedger ledger, final BuildingTownSquare assigned) {
+        final Squares.Square square = Squares.of(level, colony, ledger);
+        if (square.source() == Squares.Source.BUILDING) {
+            if (!square.located() || square.busy() || assigned == null || !assigned.getPosition().equals(square.building())) {
+                return null;
+            }
+            return Target.townSquare(assigned, square.anchor());
+        }
+        return squareTarget(level, ledger, colony.getID());
+    }
+
+    /**
+     * The festival marker's square, if a marker is registered and still stands (or its chunk is not loaded) and no Town
+     * Square is the colony's main square ({@link Squares#marker}: while one is, the marker is only the fallback). The
+     * Town Square's own target comes from {@link #centrepiece}.
      */
     public static Target squareTarget(final ServerLevel level, final DecorLedger ledger, final int colony) {
         final BlockPos marker = Squares.marker(ledger, colony);
@@ -388,15 +482,18 @@ public final class DecorWork {
     private static boolean squareReady(final ServerLevel level, final DecorLedger ledger, final int colony, final Target target,
                                        final int hutLevel, final DecorPlacer.Stock stock) {
         final DecorLedger.GroupView group = ledger.group(colony, target.owner());
-        final String path = PieceLoader.pathFor(hutLevel);
+        final String path = piecePath(target, hutLevel);
         if (group != null && !group.entries().isEmpty() && !group.piece().isEmpty() && !group.piece().equals(path)) {
-            return true;                              // the old piece comes down first
+            return true;                              // the old piece comes down first (also when no set is wanted now)
         }
-        final PieceLoader.Piece piece = PieceLoader.request(level, target.pack(), path, target.facing());
+        if (path == null) {
+            return false;                             // no set wanted now and nothing up
+        }
+        final PieceLoader.Piece piece = PieceLoader.request(level, target.pack(), path, target.rotation());
         if (piece == null) {
             return false;
         }
-        final PieceLoader.SquarePlan plan = PieceLoader.plan(level, piece, target.owner().pos(), hutLevel, ledger, colony,
+        final PieceLoader.SquarePlan plan = PieceLoader.plan(level, piece, target.owner().pos(), pieceLevel(target, hutLevel), ledger, colony,
                 target.owner(), SeasonsConfig.needsMaterials());
         if (plan.waiting()) {
             return false;
@@ -457,6 +554,12 @@ public final class DecorWork {
 
     /** The next decorated group to tend today (nearest first), or {@code null}. */
     public static Target nextToTend(final ServerLevel level, final IColony colony, final BlockPos from, final DecorLedger ledger, final long day) {
+        return nextToTend(level, colony, from, ledger, day, null);
+    }
+
+    /** {@link #nextToTend(ServerLevel, IColony, BlockPos, DecorLedger, long)} for a Decorator who works {@code assigned} (or none). */
+    public static Target nextToTend(final ServerLevel level, final IColony colony, final BlockPos from, final DecorLedger ledger, final long day,
+                                    final BuildingTownSquare assigned) {
         final int id = colony.getID();
         final List<Target> found = new ArrayList<>();
         for (final DecorLedger.GroupView group : ledger.groups(id)) {
@@ -466,7 +569,7 @@ public final class DecorWork {
             if (group.decoratedDay() < 0 || group.decoratedDay() >= day || group.tendedDay() >= day || group.removing()) {
                 continue;
             }
-            final Target target = targetOf(level, colony, ledger, group.owner());
+            final Target target = targetOf(level, colony, ledger, group.owner(), assigned);
             if (target == null || target.building() != null && busy(colony, target.building())) {
                 continue;
             }
@@ -501,7 +604,7 @@ public final class DecorWork {
                 continue;
             }
             final BlockPos first = group.entries().keySet().iterator().next();
-            found.add(new Target(group.owner(), new DoorFinder.Box(first, first, group.owner().pos()), null, first, "", Direction.NORTH));
+            found.add(new Target(group.owner(), new DoorFinder.Box(first, first, group.owner().pos()), null, first, "", RotationMirror.NONE));
         }
         found.sort(Comparator.comparingDouble((Target t) -> t.owner().pos().distSqr(from)).thenComparing(t -> t.owner().pos()));
         return found.isEmpty() ? null : found.get(0);
@@ -512,11 +615,17 @@ public final class DecorWork {
      * storeroom (it is no place he walks to: {@link StoreroomWork} checks it at the hut).
      */
     public static Target targetOf(final ServerLevel level, final IColony colony, final DecorLedger ledger, final DecorLedger.Owner owner) {
+        return targetOf(level, colony, ledger, owner, null);
+    }
+
+    /** {@link #targetOf(ServerLevel, IColony, DecorLedger, DecorLedger.Owner)}; a Town Square's group only for its Decorator ({@code assigned}). */
+    public static Target targetOf(final ServerLevel level, final IColony colony, final DecorLedger ledger, final DecorLedger.Owner owner,
+                                  final BuildingTownSquare assigned) {
         if (owner.kind() == DecorLedger.Kind.STOREROOM) {
             return null;
         }
         if (owner.kind() == DecorLedger.Kind.SQUARE) {
-            final Target square = squareTarget(level, ledger, colony.getID());
+            final Target square = centrepiece(level, colony, ledger, assigned);
             return square != null && square.owner().equals(owner) ? square : null;
         }
         final IBuilding building = colony.getServerBuildingManager().getBuilding(owner.pos());
@@ -610,36 +719,57 @@ public final class DecorWork {
 
     private static Outcome square(final ServerLevel level, final int colony, final Target target, final int hutLevel,
                                   final DecorPlacer.Stock stock, final long day, final DecorLedger ledger, final boolean tending) {
-        final String path = PieceLoader.pathFor(hutLevel);
+        final boolean onSquare = target.onTownSquare();
+        if (onSquare && CalendarManager.current() == null) {
+            return Outcome.of(0, 0, false, "waiting for the calendar");   // the order's set is not known yet: nothing swapped
+        }
+        final String path = piecePath(target, hutLevel);
+        final int pieceLevel = pieceLevel(target, hutLevel);
         final DecorLedger.GroupView group = ledger.group(colony, target.owner());
         if (group != null && !group.entries().isEmpty() && !group.piece().isEmpty() && !group.piece().equals(path)) {
-            // the hut changed level: the old piece comes down (in slices), the new one goes up on a later visit
+            // the level changed (the hut's, or the square's) or, on a Town Square, the set its order asks for (the order,
+            // a window, the season): the old piece comes down first (in slices, by the exact-state rule, its items to his
+            // stock), the new one goes up on a later visit (design 4.3, Tending)
             final DecorPlacer.Removed removed = DecorPlacer.remove(level, ledger, colony, target.owner(), stock, SQUARE_SLICE);
             tended(ledger, colony, target, day, tending);
             ledger.flush(level);
-            return Outcome.of(0, 1, false, "took the old tree down (" + removed.removed() + " blocks) for a new one");
+            return Outcome.of(0, 1, false, path == null ? "took the square's set down (" + removed.removed() + " blocks): its order wants none now"
+                    : "took the old tree down (" + removed.removed() + " blocks) for a new one");
         }
         // design 3.2 with the owner's answer of 20 Nov 2026: blocks with collision only at a marker the player put down
-        // or on a Town Square the player built (Q3 puts the square's own target here); the marker may have been broken
-        // while he walked here
+        // or on a Town Square the player built (both are the square's group, DecorPlacer's square rule); the marker may
+        // have been broken, or the square taken by a work order, while he walked here
         final BlockPos marker = target.owner().pos();
-        // [B] design 4.8, one centrepiece: a target chosen before a Town Square took over (he was walking here) gets
-        // nothing; while a square is the main one the marker is only the fallback (Squares.marker)
-        final DecorLedger.SquareMark main = ledger.squareMark(colony);
-        if (main != null && !main.anchor().equals(marker)) {
-            return Outcome.of(0, 0, false, "a Town Square is the colony's centrepiece now: nothing at the festival marker");
+        if (onSquare) {
+            final String why = notFree(level, (BuildingTownSquare) target.building(), marker, ledger);
+            if (why != null) {
+                return Outcome.of(0, 0, false, why);
+            }
+        } else {
+            // [B] design 4.8, one centrepiece: a target chosen before a Town Square took over (he was walking here) gets
+            // nothing; while a square is the main one the marker is only the fallback (Squares.marker)
+            final DecorLedger.SquareMark main = ledger.squareMark(colony);
+            if (main != null && !main.anchor().equals(marker)) {
+                return Outcome.of(0, 0, false, "a Town Square is the colony's centrepiece now: nothing at the festival marker");
+            }
+            if (!level.hasChunkAt(marker)) {
+                return Outcome.of(0, 0, false, "waiting for the square's chunks to load");
+            }
+            if (!(level.getBlockState(marker).getBlock() instanceof FestivalMarkerBlock)) {
+                return Outcome.of(0, 0, false, "the festival marker is gone: no tree");
+            }
         }
-        if (!level.hasChunkAt(marker)) {
-            return Outcome.of(0, 0, false, "waiting for the square's chunks to load");
-        }
-        if (!(level.getBlockState(marker).getBlock() instanceof FestivalMarkerBlock)) {
-            return Outcome.of(0, 0, false, "the festival marker is gone: no tree");
+        if (path == null) {
+            // Bare, or between the windows with no seasonal touches in this version: nothing up, nothing to put up
+            tended(ledger, colony, target, day, tending);
+            ledger.flush(level);
+            return Outcome.of(0, 0, false, "the square's order wants no set now");
         }
         // leaves of the tree that re-read their distance (a player broke a log) are still ours: the entries follow first
         DecorPlacer.followLeaves(level, ledger, colony, target.owner());
-        final PieceLoader.Piece piece = PieceLoader.request(level, target.pack(), path, target.facing());
+        final PieceLoader.Piece piece = PieceLoader.request(level, target.pack(), path, target.rotation());
         if (piece == null) {
-            if (!PieceLoader.missing(target.pack(), path, target.facing())) {
+            if (!PieceLoader.missing(target.pack(), path, target.rotation())) {
                 return Outcome.of(0, 0, false, "loading the tree piece");
             }
             // missing for good: he looked, there is nothing to put up today
@@ -649,7 +779,7 @@ public final class DecorWork {
         }
         // nobody stands in the tree while it goes up (S10c): every colonist in its box, the Decorator too, steps out first
         evict(level, squareBox(ledger, colony, marker, piece), marker);
-        final PieceLoader.SquarePlan plan = PieceLoader.plan(level, piece, target.owner().pos(), hutLevel, ledger, colony,
+        final PieceLoader.SquarePlan plan = PieceLoader.plan(level, piece, target.owner().pos(), pieceLevel, ledger, colony,
                 target.owner(), SeasonsConfig.needsMaterials());
         if (plan.waiting()) {
             return Outcome.of(0, 0, false, "waiting for the square's chunks to load");
@@ -657,19 +787,19 @@ public final class DecorWork {
         final String festival = festival();
         final boolean first = group == null || group.entries().isEmpty();
         if (first && !plan.fits()) {
-            ledger.plan(colony, target.owner(), festival, hutLevel, path);
+            ledger.plan(colony, target.owner(), festival, pieceLevel, path);
             ledger.setDecorated(colony, target.owner(), day);
             ledger.setSquareProblem(colony, true);
             if (ledger.noticeDue(colony, day)) {
-                tellManagers(level, colony);
+                tellManagers(level, colony, onSquare);
             }
             tended(ledger, colony, target, day, tending);
             ledger.flush(level);
-            return Outcome.of(0, 0, false, "not enough room at the festival marker (" + plan.blocked() + " of " + plan.cells()
-                    + " cells blocked" + (plan.trunkBlocked() ? ", the trunk among them" : "") + ")");
+            return Outcome.of(0, 0, false, "not enough room " + (onSquare ? "on the Town Square" : "at the festival marker") + " ("
+                    + plan.blocked() + " of " + plan.cells() + " cells blocked" + (plan.trunkBlocked() ? ", the trunk among them" : "") + ")");
         }
         ledger.setSquareProblem(colony, false);
-        ledger.plan(colony, target.owner(), festival, hutLevel, path);
+        ledger.plan(colony, target.owner(), festival, pieceLevel, path);
         // a log or leaf of the piece that went missing never told the ledger (only our own blocks do, from onRemove):
         // its stale entry is forgotten here, so the cell is filled again like any free one (design 4, tending)
         for (final BlockPos pos : plan.gone()) {
@@ -684,7 +814,7 @@ public final class DecorWork {
                 missing.merge(item, 1, Integer::sum);
             }
         }
-        DecorPlacer.PlaceResult result = DecorPlacer.place(level, ledger, colony, target.owner(), festival, hutLevel, slice, stock);
+        DecorPlacer.PlaceResult result = DecorPlacer.place(level, ledger, colony, target.owner(), festival, pieceLevel, slice, stock);
         if (order.size() < plan.slots().size() && result.count() < SQUARE_SLICE) {
             // no cell that costs an item waits for it or for an entity any more: the free ones follow at once, in what
             // is left of the slice (a costed cell the cell rule refuses for good holds nothing back, S10c)
@@ -698,7 +828,7 @@ public final class DecorWork {
             if (holding(level, ledger, colony, costedLeft).isEmpty()) {
                 final List<DecorPlacer.Slot> free = new ArrayList<>(plan.slots());
                 free.removeAll(order);
-                result = result.plus(DecorPlacer.place(level, ledger, colony, target.owner(), festival, hutLevel,
+                result = result.plus(DecorPlacer.place(level, ledger, colony, target.owner(), festival, pieceLevel,
                         free.subList(0, Math.min(SQUARE_SLICE - result.count(), free.size())), stock));
             }
         }
@@ -763,8 +893,37 @@ public final class DecorWork {
 
     /** "Not enough room at the festival marker", to the colony's managers. */
     public static void tellManagers(final ServerLevel level, final int colonyId) {
+        tellManagers(level, colonyId, false);
+    }
+
+    /** The same for a Town Square: the line names the square ([A] design 4.6; its volume is reserved, so it should never fire). */
+    public static void tellManagers(final ServerLevel level, final int colonyId, final boolean townSquare) {
         notices++;
-        toManagers(level, colonyId, "com.colony_seasons.decor.no_room");
+        toManagers(level, colonyId, townSquare ? "com.colony_seasons.decor.no_room_square" : "com.colony_seasons.decor.no_room");
+    }
+
+    /**
+     * Why a visit to a Town Square's centrepiece places nothing now ({@code null}: it may): it must still be the colony's
+     * main square, located at the same tree cell and free of work orders (an order may have opened while he walked
+     * here; the sweep takes its group down then), and the cell's chunk loaded.
+     */
+    static String notFree(final ServerLevel level, final BuildingTownSquare square, final BlockPos anchor, final DecorLedger ledger) {
+        final IColony colony = square.getColony();
+        if (colony == null) {
+            return "the Town Square's colony is gone";
+        }
+        final Squares.Square now = Squares.of(level, colony, ledger);
+        if (now.source() != Squares.Source.BUILDING || !square.getPosition().equals(now.building()) || !now.located()
+                || !anchor.equals(now.anchor())) {
+            return "this Town Square is not the colony's centrepiece now: nothing placed";
+        }
+        if (now.busy()) {
+            return "a work order is open on the Town Square: nothing placed";
+        }
+        if (!level.hasChunkAt(anchor)) {
+            return "waiting for the square's chunks to load";
+        }
+        return null;
     }
 
     /** One chat line (a lang key) to the managers of a colony of this level; nothing when MineColonies cannot send it. */

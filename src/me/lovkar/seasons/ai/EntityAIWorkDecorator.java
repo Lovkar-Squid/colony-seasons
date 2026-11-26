@@ -21,6 +21,7 @@ import me.lovkar.seasons.SeasonsConfig;
 import me.lovkar.seasons.block.FestivalMarkerBlock;
 import me.lovkar.seasons.calendar.CalendarManager;
 import me.lovkar.seasons.colony.BuildingDecorator;
+import me.lovkar.seasons.colony.BuildingTownSquare;
 import me.lovkar.seasons.colony.DecoratorTexts;
 import me.lovkar.seasons.colony.JobDecorator;
 import me.lovkar.seasons.decor.DecorLedger;
@@ -660,10 +661,12 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
         final long day = DecorWork.day(level);
         final int hutLevel = building.getBuildingLevel();
         if (target == null) {
-            target = DecorWork.nextToDecorate(level, building.getColony(), hutLevel, building.getPosition(), ledger, stock(), day);
+            // [B] design 4.3: the colony's Town Square only for the Decorator its module lists (job.findSquare)
+            final BuildingTownSquare mine = job.findSquare();
+            target = DecorWork.nextToDecorate(level, building.getColony(), hutLevel, building.getPosition(), ledger, stock(), day, mine);
             walkAttempts = 0;
             if (target == null) {
-                target = DecorWork.nextToTend(level, building.getColony(), building.getPosition(), ledger, day);
+                target = DecorWork.nextToTend(level, building.getColony(), building.getPosition(), ledger, day, mine);
                 if (target != null) {
                     job.setStatus(DecoratorTexts.TENDING_AT, at(target));
                     return DecoratorState.TENDING;
