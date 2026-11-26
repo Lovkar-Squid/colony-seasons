@@ -10,7 +10,7 @@ import me.lovkar.seasons.decor.SquareSets;
  * module by the identity of its producer: {@code building.getModule(SquareModules.DECORATOR)}, never
  * {@code getModuleMatching}. Producer keys are global in MineColonies, so the square's start with
  * {@code colony_seasons_}; a key names the module's saved compound and never changes. The settings page with the order
- * came in Q3; the info page comes in Q5.
+ * came in Q3; the info page in Q5.
  */
 public final class SquareModules {
 
@@ -29,6 +29,14 @@ public final class SquareModules {
      */
     public static final BuildingEntry.ModuleProducer<SquareSettingsModule, SettingsModuleView> SETTINGS =
             new BuildingEntry.ModuleProducer<>("colony_seasons_square_settings", SquareModules::settingsModule, () -> SettingsModuleView::new);
+
+    /**
+     * The square's info page (Q5, docs/town-square-design.md 4.4): level, order, the set and its state, the next change,
+     * the festival, the Decorator, what is missing and what the next level adds. Server only reads; the view and its
+     * window are reached through the lambda, so a dedicated server never loads a window class.
+     */
+    public static final BuildingEntry.ModuleProducer<SquareInfoModule, SquareInfoModuleView> INFO =
+            new BuildingEntry.ModuleProducer<>("colony_seasons_square_info", SquareInfoModule::new, () -> SquareInfoModuleView::new);
 
     private SquareModules() {
     }

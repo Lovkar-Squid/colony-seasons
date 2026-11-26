@@ -16,10 +16,12 @@ import me.lovkar.seasons.decor.Squares;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.item.Item;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * The Town Square, {@code colony_seasons:townsquare} (0.2.0, docs/town-square-design.md 4.1): a building the player
@@ -63,8 +65,24 @@ public class BuildingTownSquare extends AbstractBuilding {
     public static final ISettingKey<StringSetting> ORDER =
             new SettingKey<>(StringSetting.class, ResourceLocation.fromNamespaceAndPath(ColonySeasons.MODID, "square_order"));
 
+    /**
+     * The vanilla items the Decorator's last visit to this square was short of (never saved: a restart, or his next
+     * complete visit, makes it empty again); the info page's "what is missing" line.
+     */
+    private volatile Map<Item, Integer> missing = Map.of();
+
     public BuildingTownSquare(final IColony colony, final BlockPos pos) {
         super(colony, pos);
+    }
+
+    /** What his last visit lacked ({@link DecorWork}'s square visit notes it); read by the window's info module. */
+    public Map<Item, Integer> missing() {
+        return missing;
+    }
+
+    /** Notes what the last visit lacked; an empty map clears the note. */
+    public void noteMissing(final Map<Item, Integer> lacking) {
+        missing = Map.copyOf(lacking);
     }
 
     /** The stored path, with ".blueprint" (as {@link BuildingDecorator#getBlueprintPath}). */

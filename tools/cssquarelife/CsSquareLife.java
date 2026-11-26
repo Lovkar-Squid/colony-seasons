@@ -1340,6 +1340,25 @@ public class CsSquareLife {
                     && new DecorLedger.SquareMark(s3.getPosition(), a3).equals(ledger().squareMark(cid())) && DecorEvents.sweep(level) == 0
                     && size(sq(a3)) == g3.size(), show(resolve()));
             checkEq("second: S4 built sends no second notice", Squares.secondSquareNotices() - secondBefore, 1);
+            // Q5, the owner item of Q2: a Decorator listed on S4, which is not the main square, works the main square (S3's)
+            final DecorWork.Target viaS4 = DecorWork.centrepiece(level, colony, ledger(), s4);
+            check("second: a Decorator listed on S4 (not the main square) works the main square: S3's tree cell, S3 the building",
+                    viaS4 != null && viaS4.owner().equals(sq(a3)) && viaS4.building() == s3 && viaS4.onTownSquare(), String.valueOf(viaS4));
+            final DecorWork.Target viaS3 = DecorWork.centrepiece(level, colony, ledger(), s3);
+            check("second: the main square's own Decorator gets the same target", viaS3 != null && viaS3.owner().equals(sq(a3)) && viaS3.building() == s3,
+                    String.valueOf(viaS3));
+            checkEq("second: nobody listed on a square gets no target at the square", DecorWork.centrepiece(level, colony, ledger(), null), null);
+            // Q5: the Decorator page of S4 says S3 is the main square, and S4's info page says it is not
+            final net.minecraft.network.RegistryFriendlyByteBuf page = new net.minecraft.network.RegistryFriendlyByteBuf(io.netty.buffer.Unpooled.buffer(), level.registryAccess());
+            s4.assignment().serializeToView(page);
+            final me.lovkar.seasons.colony.SquareAssignmentModuleView pageView = new me.lovkar.seasons.colony.SquareAssignmentModuleView();
+            pageView.deserialize(page);
+            checkEq("second: S4's Decorator page names S3 as the main square", pageView.main(),
+                    new me.lovkar.seasons.colony.SquareStatus.Main(me.lovkar.seasons.colony.SquareStatus.Standing.OTHER, s3.getPosition(), 1));
+            checkEq("second: ... the page was read to its last byte", page.readableBytes(), 0);
+            final me.lovkar.seasons.colony.SquareStatus.Status s4Status = me.lovkar.seasons.colony.SquareStatus.of(s4);
+            check("second: S4's state is Not main, S3's is not (it is the main one)", s4Status.state() == me.lovkar.seasons.colony.SquareStatus.State.NOT_MAIN
+                    && me.lovkar.seasons.colony.SquareStatus.of(s3).state() != me.lovkar.seasons.colony.SquareStatus.State.NOT_MAIN, s4Status.state().toString());
             s4.requestRepair(BlockPos.ZERO);
             check("second: a repair order on S4 is open", orderAt(s4) != null, "");
         });

@@ -74,7 +74,8 @@ def check(repo):
 
 
 # (layout, list id, row text pane id, window class file, its row width constant)
-ROW_RULES = [("gui/decorator_info.xml", "lines", "line", "DecoratorInfoWindow.java", "ROW_WIDTH")]
+ROW_RULES = [("gui/decorator_info.xml", "lines", "line", "DecoratorInfoWindow.java", "ROW_WIDTH"),
+             ("gui/town_square_info.xml", "lines", "line", "TownSquareInfoWindow.java", "ROW_WIDTH")]
 SCROLLBAR = 8
 
 

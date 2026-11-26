@@ -1,9 +1,12 @@
 package me.lovkar.seasons.client;
 
+import com.ldtteam.blockui.controls.Text;
 import com.ldtteam.blockui.views.BOWindow;
 import com.minecolonies.core.client.gui.modules.building.SpecialAssignmentModuleWindow;
 import me.lovkar.seasons.ColonySeasons;
 import me.lovkar.seasons.colony.SquareAssignmentModuleView;
+import me.lovkar.seasons.colony.SquareStatus;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 
 /**
@@ -23,5 +26,19 @@ public class SquareAssignmentWindow extends SpecialAssignmentModuleWindow {
 
     public SquareAssignmentWindow(final SquareAssignmentModuleView view) {
         super(view, LAYOUT);
+        // [A] design 4.3 with the Q2 owner item: the page says which square is the colony's main one
+        final Text main = findPaneOfTypeByID("main", Text.class);
+        if (main != null) {
+            main.setText(mainLine(view.main()));
+        }
+    }
+
+    /** The line about the main square: this one, another one (and where), or none built yet. */
+    static Component mainLine(final SquareStatus.Main main) {
+        return switch (main.standing()) {
+            case MAIN -> Component.translatable("com.colony_seasons.gui.square.main.this");
+            case OTHER -> Component.translatable("com.colony_seasons.gui.square.main.other", main.level(), main.pos().toShortString());
+            case NONE -> Component.translatable("com.colony_seasons.gui.square.main.none");
+        };
     }
 }

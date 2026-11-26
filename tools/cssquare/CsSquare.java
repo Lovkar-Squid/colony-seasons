@@ -40,6 +40,13 @@ import me.lovkar.seasons.colony.DecoratorSetup;
 import me.lovkar.seasons.colony.JobDecorator;
 import me.lovkar.seasons.colony.SquareAssignmentModule;
 import me.lovkar.seasons.colony.SquareAssignmentModuleView;
+import me.lovkar.seasons.colony.SquareInfoModule;
+import me.lovkar.seasons.colony.SquareInfoModuleView;
+import me.lovkar.seasons.colony.SquareStatus;
+import me.lovkar.seasons.colony.DecoratorInfoModule;
+import me.lovkar.seasons.colony.DecoratorInfoModuleView;
+import me.lovkar.seasons.decor.SquareSets;
+import me.lovkar.seasons.SeasonsConfig;
 import me.lovkar.seasons.colony.SquareModules;
 import me.lovkar.seasons.colony.TownSquareSetup;
 import me.lovkar.seasons.decor.DecorPlacer;
@@ -1013,6 +1020,155 @@ public class CsSquare {
         });
     }
 
+    // ================================================================ Q5: the square's window pages
+
+    /** The square's info page as its view reads it from the module's packet (the packet must be read to its last byte). */
+    private SquareInfoModule.Info infoPage(final String what, final BuildingTownSquare square) {
+        final RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), level.registryAccess());
+        square.getModule(SquareModules.INFO).serializeToView(buf);
+        final SquareInfoModuleView view = new SquareInfoModuleView();
+        view.deserialize(buf);
+        check("Q5 " + what + ": the info page's view reads its packet to the last byte", buf.readableBytes() == 0, buf.readableBytes() + " bytes left");
+        return view.info();
+    }
+
+    /** The Decorator page's view as it reads the module's packet. */
+    private SquareAssignmentModuleView decoratorPage(final String what, final BuildingTownSquare square) {
+        final RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), level.registryAccess());
+        square.assignment().serializeToView(buf);
+        final SquareAssignmentModuleView view = new SquareAssignmentModuleView();
+        view.deserialize(buf);
+        check("Q5 " + what + ": the Decorator page's view reads its packet to the last byte", buf.readableBytes() == 0, buf.readableBytes() + " bytes left");
+        return view;
+    }
+
+    /** The Workshop's Calendar page as its view reads it. */
+    private DecoratorInfoModule.Info calendarPage(final BuildingDecorator workshop) {
+        final RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), level.registryAccess());
+        workshop.getModule(DecoratorModules.INFO).serializeToView(buf);
+        final DecoratorInfoModuleView view = new DecoratorInfoModuleView();
+        view.deserialize(buf);
+        check("Q5 calendar: the Calendar page's view reads its packet to the last byte", buf.readableBytes() == 0, buf.readableBytes() + " bytes left");
+        return view.info();
+    }
+
+    /** A level this build has no blueprint for (setBuildingLevel refuses one above the maximum): only to make one square outrank the rest, as a later build's levels will. */
+    private void forceLevel(final IBuilding building, final int lv) {
+        try {
+            final java.lang.reflect.Field f = com.minecolonies.core.colony.buildings.AbstractSchematicProvider.class.getDeclaredField("buildingLevel");
+            f.setAccessible(true);
+            f.setInt(building, lv);
+        } catch (final ReflectiveOperationException unreachable) {
+            check("the level of a square can be set to " + lv, false, unreachable.getClass().getSimpleName());
+        }
+    }
+
+    private void setDate(final java.time.LocalDate date) {
+        CalendarManager.setDateSource(DateSource.fixed(date));
+        CalendarManager.refresh(server);
+    }
+
+    /**
+     * Chunk Q5 (docs/town-square-design.md 4.3 and 4.4): the square's pages as a client reads them. The Decorator
+     * page says which square is the colony's main one; the info page says the level, the order, the set and its state,
+     * the next change, the festival, the Decorator and what the next level adds; the Workshop's Calendar page has one
+     * line about the square.
+     */
+    private void windowSteps() {
+        now("Q5: the Decorator page says which square is the main one", () -> {
+            // the colony holds the pasted tag squares as well: S1 is made the strictly highest one, so it is the main square
+            forceLevel(s1, 2);
+            final SquareStatus.Main mainOfS1 = decoratorPage("S1", s1).main();
+            final SquareStatus.Main mainOfS2 = decoratorPage("S2", s2).main();
+            checkEq("Q5: S1 (level 2, the highest) is the main square, and its page says it is", mainOfS1,
+                    new SquareStatus.Main(SquareStatus.Standing.MAIN, s1.getPosition(), 2));
+            checkEq("Q5: S2's page says another square is the main one: S1, level 2", mainOfS2,
+                    new SquareStatus.Main(SquareStatus.Standing.OTHER, s1.getPosition(), 2));
+        });
+        now("Q5: the info page in summer, the Decorator at S1", () -> {
+            setDate(java.time.LocalDate.of(2026, 7, 15));
+            final SquareInfoModule.Info i = infoPage("S1", s1);
+            check("Q5 S1: level 2 (forced) of this build's 1, the order Follow, the main square", i.level() == 2 && i.maxLevel() == 1
+                    && i.order().equals(SquareSets.Order.FOLLOW.key()) && i.standing() == SquareStatus.Standing.MAIN.ordinal()
+                    && i.mainPos().equals(s1.getPosition()), i.toString());
+            check("Q5 S1: in July no set is wanted (the seasonal touches have no pieces yet), nothing is up, nothing to put up",
+                    i.wantedSet().isEmpty() && i.upSet().isEmpty() && i.state() == SquareStatus.State.NO_SET.ordinal(), i.toString());
+            check("Q5 S1: the next change is the Winter Festival's set from its decoration window's first day", i.changeKind() == SquareInfoModule.CHANGE_FROM
+                    && i.changeSet().equals(SquareSets.WINTER.id()) && i.changeDate().equals(SeasonsConfig.decorFrom(SeasonsConfig.WINTER_FESTIVAL)), i.toString());
+            check("Q5 S1: the Decorator is d1 and listed here", i.decorator().equals(d1.getName()) && i.decoratorHere(), i.decorator() + " / " + d1.getName());
+            check("Q5 S1: nothing missing, and this build's one level is the highest (nothing to add)", i.missing().isEmpty() && i.nextLevel() == 0
+                    && i.added().isEmpty(), i.toString());
+            check("Q5 S1: the festival line looks ahead to the next festival", !i.festival().isEmpty() && i.daysUntilNext() > 0, i.festival() + " in " + i.daysUntilNext());
+            final SquareInfoModule.Info other = infoPage("S2", s2);
+            check("Q5 S2: not the main square: the page names S1 as the main one, the state is Not main, no Decorator listed",
+                    other.standing() == SquareStatus.Standing.OTHER.ordinal() && other.mainPos().equals(s1.getPosition()) && other.mainLevel() == 2
+                            && other.state() == SquareStatus.State.NOT_MAIN.ordinal() && other.decorator().isEmpty(), other.toString());
+        });
+        now("Q5: the info page in the winter window, the order and the Decorator", () -> {
+            setDate(java.time.LocalDate.of(2026, 12, 10));
+            final String open = CalendarManager.current().festivals().decor().get(0);
+            SquareInfoModule.Info i = infoPage("S1 in the window", s1);
+            check("Q5 S1: in the window the Winter Festival's set is wanted and the state is going up (he is listed, nothing stands yet)",
+                    i.wantedSet().equals(SquareSets.WINTER.id()) && i.upSet().isEmpty() && i.state() == SquareStatus.State.GOING_UP.ordinal(), i.toString());
+            check("Q5 S1: the set stays until the open window's last day", i.changeKind() == SquareInfoModule.CHANGE_UNTIL
+                    && i.changeSet().equals(SquareSets.WINTER.id()) && i.changeDate().equals(SeasonsConfig.decorUntil(open)), i.toString());
+            check("Q5 S1: the festival is the one that is on", i.festival().equals(open) || i.festivalDays(), i.festival());
+            // what is missing: the last visit's note, shown as a state while the set is going up
+            s1.noteMissing(Map.of(net.minecraft.world.item.Items.SPRUCE_LOG, 3));
+            i = infoPage("S1 short of logs", s1);
+            check("Q5 S1: short of logs: the state is Waiting for materials and the page lists 3 spruce logs", i.state() == SquareStatus.State.WAITING_MATERIALS.ordinal()
+                    && i.missing().equals(List.of(new SquareInfoModule.MissingRow("minecraft:spruce_log", 3))), i.toString());
+            s1.noteMissing(Map.of());
+            // the Calendar's one line about the square
+            final DecoratorInfoModule.Info calendar = calendarPage(w1);
+            check("Q5 calendar: the line names the main Town Square, level 2, the Winter Festival's set, going up",
+                    calendar.squareKind() == DecoratorInfoModule.SQUARE_BUILDING && calendar.squareLevel() == 2
+                            && calendar.squareSet().equals(SquareSets.WINTER.id()) && calendar.squareState() == SquareStatus.State.GOING_UP.ordinal(), calendar.toString());
+            // no Decorator: assign one on the Decorator page
+            fireAt(s1, d1);
+            i = infoPage("S1 without a Decorator", s1);
+            check("Q5 S1: without a Decorator the page says so and the state is No Decorator", i.decorator().isEmpty() && !i.decoratorHere()
+                    && i.state() == SquareStatus.State.NO_DECORATOR.ordinal(), i.toString());
+            checkEq("Q5 calendar: ... and so does the Calendar's line", calendarPage(w1).squareState(), SquareStatus.State.NO_DECORATOR.ordinal());
+            hireAt(s1, d1);
+            // Bare: no set, no change planned
+            s1.settings().getSetting(BuildingTownSquare.ORDER).set(SquareSets.Order.BARE.key());
+            i = infoPage("S1 Bare", s1);
+            check("Q5 S1: Bare wants no set, plans no change and has nothing to put up", i.order().equals(SquareSets.Order.BARE.key()) && i.wantedSet().isEmpty()
+                    && i.changeKind() == SquareInfoModule.CHANGE_NONE && i.state() == SquareStatus.State.NO_SET.ordinal(), i.toString());
+            s1.settings().getSetting(BuildingTownSquare.ORDER).set(SquareSets.Order.ALWAYS_WINTER.key());
+            i = infoPage("S1 Always", s1);
+            check("Q5 S1: Always Winter Festival wants the Winter Festival's set", i.wantedSet().equals(SquareSets.WINTER.id())
+                    && i.order().equals(SquareSets.Order.ALWAYS_WINTER.key()), i.toString());
+            s1.settings().getSetting(BuildingTownSquare.ORDER).set(SquareSets.Order.FOLLOW.key());
+            setDate(java.time.LocalDate.of(2026, 7, 15));
+            forceLevel(s1, 1);
+        });
+        now("Q5: the state's rules and what a level adds", () -> {
+            final SquareSets.Set winter = SquareSets.WINTER;
+            final SquareSets.Set seasonal = SquareSets.SEASONAL;
+            final SquareStatus.Standing main = SquareStatus.Standing.MAIN;
+            // Facts: built, standing, busy, wanted, up, anyUp, decorated, levelOk, noRoom, decorator, lacks
+            checkEq("Q5 state: not built", SquareStatus.state(new SquareStatus.Facts(false, main, false, winter, null, false, false, true, false, true, false)), SquareStatus.State.NOT_BUILT);
+            checkEq("Q5 state: another square is the main one", SquareStatus.state(new SquareStatus.Facts(true, SquareStatus.Standing.OTHER, false, winter, null, false, false, true, false, true, false)), SquareStatus.State.NOT_MAIN);
+            checkEq("Q5 state: being built", SquareStatus.state(new SquareStatus.Facts(true, main, true, winter, winter, true, true, true, false, true, false)), SquareStatus.State.BEING_BUILT);
+            checkEq("Q5 state: the set stands, the order wants none: coming down", SquareStatus.state(new SquareStatus.Facts(true, main, false, null, winter, true, true, true, false, true, false)), SquareStatus.State.COMING_DOWN);
+            checkEq("Q5 state: a set with no pieces counts as none (the seasonal touches), the old set coming down", SquareStatus.state(new SquareStatus.Facts(true, main, false, seasonal, winter, true, true, true, false, true, false)), SquareStatus.State.COMING_DOWN);
+            checkEq("Q5 state: no set wanted, nothing up", SquareStatus.state(new SquareStatus.Facts(true, main, false, null, null, false, false, true, false, true, false)), SquareStatus.State.NO_SET);
+            checkEq("Q5 state: no room beats the rest", SquareStatus.state(new SquareStatus.Facts(true, main, false, winter, null, false, false, true, true, false, true)), SquareStatus.State.NO_ROOM);
+            checkEq("Q5 state: the wanted set up, decorated, at its size", SquareStatus.state(new SquareStatus.Facts(true, main, false, winter, winter, true, true, true, false, false, true)), SquareStatus.State.UP);
+            checkEq("Q5 state: up but at the wrong size: going up again", SquareStatus.state(new SquareStatus.Facts(true, main, false, winter, winter, true, true, false, false, true, false)), SquareStatus.State.GOING_UP);
+            checkEq("Q5 state: up but not complete yet: going up", SquareStatus.state(new SquareStatus.Facts(true, main, false, winter, winter, true, false, true, false, true, false)), SquareStatus.State.GOING_UP);
+            checkEq("Q5 state: nobody works it", SquareStatus.state(new SquareStatus.Facts(true, main, false, winter, null, false, false, true, false, false, false)), SquareStatus.State.NO_DECORATOR);
+            checkEq("Q5 state: short of materials", SquareStatus.state(new SquareStatus.Facts(true, main, false, winter, null, false, false, true, false, true, true)), SquareStatus.State.WAITING_MATERIALS);
+            checkEq("Q5 state: going up", SquareStatus.state(new SquareStatus.Facts(true, main, false, winter, null, false, false, true, false, true, false)), SquareStatus.State.GOING_UP);
+            checkEq("Q5 level 1 to 2 adds", SquareInfoModule.addedBy(1, 2), Map.of("gather", 4, "lamp", 4));
+            checkEq("Q5 level 2 to 3 adds", SquareInfoModule.addedBy(2, 3), Map.of("gather", 4, "sit", 4, "bed", 4, "launch", 1));
+            checkEq("Q5 level 4 to 5 adds", SquareInfoModule.addedBy(4, 5), Map.of("gather", 8, "sit", 6, "bed", 4, "stall", 2));
+            checkEq("Q5 level 0 to 1 adds everything level 1 has", SquareInfoModule.addedBy(0, 1), SquareSets.slots(1));
+        });
+    }
+
     // ================================================================ step 6: hiring modes
 
     private BuildingDecorator workshopOf(final ICitizenData d) {
@@ -1319,6 +1475,7 @@ public class CsSquare {
         tagGroup("mirrored", MIRRORED, false);
         squareSteps();
         assignSteps();
+        windowSteps();
         hiringSteps();
         pruneSteps();
         endSteps();

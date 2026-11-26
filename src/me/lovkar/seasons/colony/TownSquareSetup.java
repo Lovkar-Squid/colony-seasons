@@ -39,6 +39,7 @@ public final class TownSquareSetup {
                     .setRegistryName(BUILDING_ID)
                     .addBuildingModuleProducer(SquareModules.DECORATOR)
                     .addBuildingModuleProducer(SquareModules.SETTINGS)
+                    .addBuildingModuleProducer(SquareModules.INFO)
                     .createBuildingEntry());
 
     private TownSquareSetup() {

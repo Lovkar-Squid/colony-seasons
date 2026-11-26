@@ -31,7 +31,10 @@ import me.lovkar.seasons.calendar.CalendarManager;
 import me.lovkar.seasons.calendar.DateSource;
 import me.lovkar.seasons.colony.BuildingDecorator;
 import me.lovkar.seasons.colony.BuildingTownSquare;
+import me.lovkar.seasons.colony.SquareInfoModule;
+import me.lovkar.seasons.colony.SquareInfoModuleView;
 import me.lovkar.seasons.colony.SquareModules;
+import me.lovkar.seasons.colony.SquareStatus;
 import me.lovkar.seasons.colony.DecoratorInfoModule;
 import me.lovkar.seasons.colony.DecoratorInfoModuleView;
 import me.lovkar.seasons.colony.DecoratorModules;
@@ -1036,6 +1039,16 @@ public class CsDecorGate {
         return view.info();
     }
 
+    /** Q5: the Town Square's info page as a client gets it (the packet read back to its last byte). */
+    private SquareInfoModule.Info squarePage(final String what) {
+        final RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), level.registryAccess());
+        townSquare.getModule(SquareModules.INFO).serializeToView(buf);
+        final SquareInfoModuleView view = new SquareInfoModuleView();
+        view.deserialize(buf);
+        check("Q5 " + what + ": the info page's packet reads back to its last byte", buf.readableBytes() == 0, buf.readableBytes() + " bytes left");
+        return view.info();
+    }
+
     private void planSquare() {
         final Map<Direction, PieceLoader.Piece> pieces = new HashMap<>();
         step(new Step("square: load the test piece in four facings", 400, true) {
@@ -1720,10 +1733,19 @@ public class CsDecorGate {
         final Map<BlockPos, BlockState> tree = relCells(owner);
         check("Q3: following the calendar in the window, the Winter Festival's tree goes up from stock", up.complete() && stock.taken > 0,
                 tree.size() + " cells, " + stock.taken + " items, " + up.status());
+        final SquareStatus.Status upNow = SquareStatus.of(townSquare);
+        final SquareInfoModule.Info upPage = squarePage("set up");
+        check("Q5: with the Winter Festival's tree up the square's state is Up and the page names the set on it",
+                upNow.state() == SquareStatus.State.UP && upNow.up() == SquareSets.WINTER && upNow.wanted() == SquareSets.WINTER
+                        && upPage.upSet().equals(SquareSets.WINTER.id()) && upPage.state() == SquareStatus.State.UP.ordinal(), upNow + " / " + upPage);
         checkEq("Q3: with the set up there is nothing to do on the square", DecorWork.nextToDecorate(level, colony, 5, anchor, ledger, stock, day(), townSquare), null);
         // Bare: the next visit takes the set down by the exact-state rule, every item back to his stock
         order(SquareSets.Order.BARE);
         checkEq("Q3: the order reads Bare", townSquare.order(), SquareSets.Order.BARE);
+        final SquareInfoModule.Info comingDown = squarePage("Bare with the set up");
+        check("Q5: Bare with the set still up: the state is Coming down, the set is still named, none is wanted",
+                comingDown.state() == SquareStatus.State.COMING_DOWN.ordinal() && comingDown.upSet().equals(SquareSets.WINTER.id())
+                        && comingDown.wantedSet().isEmpty(), comingDown.toString());
         checkEq("Q3: Bare wants no centrepiece; Q4: in the festival's window the square's fixtures still go up",
                 DecorWork.piecePath(target, 5), PieceLoader.FIXTURES_ONLY);
         final DecorWork.Target goes = DecorWork.nextToDecorate(level, colony, 5, anchor, ledger, stock, day(), townSquare);
@@ -1748,8 +1770,14 @@ public class CsDecorGate {
         final DecorWork.Outcome bare2 = DecorWork.decorate(level, colonyId, target, 5, stock, day(), ledger);
         check("Q3: Bare: a further visit places nothing, and the square is no place to go", bare2.placed() == 0
                 && DecorWork.nextToDecorate(level, colony, 5, anchor, ledger, stock, day(), townSquare) == null, bare2.status());
+        checkEq("Q5: Bare with only the fixtures up: nothing to put up, and the gift pile is no set coming down", squarePage("Bare, fixtures").state(),
+                SquareStatus.State.NO_SET.ordinal());
         // Always Winter Festival: up again, the same tree (the fixtures come down first, as any set that changes)
         order(SquareSets.Order.ALWAYS_WINTER);
+        final SquareInfoModule.Info goingUp = squarePage("Always, nothing up");
+        check("Q5: Always Winter Festival with no tree up: the set is wanted and nothing stands (going up, or no Decorator without one)",
+                goingUp.wantedSet().equals(SquareSets.WINTER.id()) && goingUp.upSet().isEmpty()
+                        && (goingUp.state() == SquareStatus.State.GOING_UP.ordinal() || goingUp.state() == SquareStatus.State.NO_DECORATOR.ordinal()), goingUp.toString());
         final DecorWork.Target back = DecorWork.nextToDecorate(level, colony, 5, anchor, ledger, stock, day(), townSquare);
         check("Q3: Always Winter Festival: the square is his next place again", back != null && back.owner().equals(owner), String.valueOf(back));
         DecorWork.decorate(level, colonyId, target, 5, stock, day(), ledger);

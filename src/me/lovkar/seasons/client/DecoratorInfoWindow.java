@@ -12,6 +12,8 @@ import me.lovkar.seasons.calendar.Festival;
 import me.lovkar.seasons.calendar.Season;
 import me.lovkar.seasons.colony.DecoratorInfoModule;
 import me.lovkar.seasons.colony.DecoratorInfoModuleView;
+import me.lovkar.seasons.colony.SquareStatus;
+import me.lovkar.seasons.colony.SquareTexts;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.FormattedText;
@@ -127,8 +129,13 @@ public class DecoratorInfoWindow extends AbstractModuleWindow<DecoratorInfoModul
 
     /** One line as rows no wider than {@link #ROW_WIDTH}, by the client's font; on any failure the line as it is. */
     static List<Component> wrap(final Component line) {
+        return wrap(line, ROW_WIDTH);
+    }
+
+    /** One line as rows no wider than {@code width} font units (the Town Square's page cuts its rows the same way). */
+    static List<Component> wrap(final Component line, final int width) {
         try {
-            final List<FormattedText> parts = Minecraft.getInstance().font.getSplitter().splitLines(line, ROW_WIDTH, Style.EMPTY);
+            final List<FormattedText> parts = Minecraft.getInstance().font.getSplitter().splitLines(line, width, Style.EMPTY);
             if (parts.isEmpty()) {
                 return List.of(line);
             }
@@ -174,6 +181,7 @@ public class DecoratorInfoWindow extends AbstractModuleWindow<DecoratorInfoModul
         }
 
         out.add(Component.translatable("com.colony_seasons.gui.info.now", status(info)));
+        out.add(squareLine(info));
         if (!info.decorateOn()) {
             out.add(Component.translatable("com.colony_seasons.gui.info.decorate_off").withStyle(ChatFormatting.DARK_RED));
         }
@@ -221,6 +229,21 @@ public class DecoratorInfoWindow extends AbstractModuleWindow<DecoratorInfoModul
                 ? Component.translatable("com.colony_seasons.gui.info.effects.food.on", String.format(Locale.ROOT, "%.2f", info.foodFactor()))
                 : Component.translatable("com.colony_seasons.gui.info.effects.food.off"));
         return out;
+    }
+
+    /** The one line about the colony's square (Q5): none, the festival marker, or the main Town Square with its set and state. */
+    static Component squareLine(final DecoratorInfoModule.Info info) {
+        if (info.squareKind() == DecoratorInfoModule.SQUARE_MARKER) {
+            return Component.translatable("com.colony_seasons.gui.info.square.marker");
+        }
+        if (info.squareKind() != DecoratorInfoModule.SQUARE_BUILDING) {
+            return Component.translatable("com.colony_seasons.gui.info.square.none");
+        }
+        final Component state = Component.translatable(SquareTexts.shortStateKey(SquareStatus.State.byOrdinal(info.squareState())));
+        return info.squareSet().isEmpty()
+                ? Component.translatable("com.colony_seasons.gui.info.square.line_noset", info.squareLevel(), state)
+                : Component.translatable("com.colony_seasons.gui.info.square.line", info.squareLevel(),
+                Component.translatable(SquareTexts.setKey(info.squareSet())), state);
     }
 
     /** The status line: the server's key and arguments; an argument that is an item id shows the item's name. */

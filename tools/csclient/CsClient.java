@@ -4,6 +4,13 @@ import io.netty.buffer.Unpooled;
 import me.lovkar.seasons.ColonySeasons;
 import me.lovkar.seasons.SeasonsClientConfig;
 import me.lovkar.seasons.calendar.Season;
+import me.lovkar.seasons.colony.DecoratorInfoModule;
+import me.lovkar.seasons.colony.DecoratorInfoModuleView;
+import me.lovkar.seasons.colony.SquareAssignmentModule;
+import me.lovkar.seasons.colony.SquareAssignmentModuleView;
+import me.lovkar.seasons.colony.SquareInfoModule;
+import me.lovkar.seasons.colony.SquareInfoModuleView;
+import me.lovkar.seasons.colony.SquareStatus;
 import me.lovkar.seasons.network.SeasonStatePayload;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.server.MinecraftServer;
@@ -16,6 +23,11 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
+import java.lang.reflect.Field;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -71,11 +83,79 @@ public class CsClient {
                 final Season want = id < 0 ? Season.SPRING : Season.WINTER;
                 check("season id " + id + " decodes to a real season", odd.season() == want, "got " + odd.season() + ", want " + want);
             }
+            windowPages(server);
         } catch (final Throwable t) {
             check("probe ran to the end", false, t.toString());
         }
         LOGGER.info("[csclient] RESULT csclient: {}", failed ? "FAIL" : "PASS");
         server.halt(false);
+    }
+
+    /** The window classes of the mod's client package: a dedicated server reads the pages' views, and never loads these. */
+    private static final List<String> WINDOW_CLASSES = List.of("me.lovkar.seasons.client.TownSquareInfoWindow",
+            "me.lovkar.seasons.client.SquareAssignmentWindow", "me.lovkar.seasons.client.DecoratorInfoWindow",
+            "me.lovkar.seasons.client.DecoratorStorageWindow");
+
+    /**
+     * Q5: the Town Square's three pages and the Workshop's Calendar page, on a dedicated server: each module writes its
+     * (empty) page, its view reads it to the last byte, and no window class of the client package has been loaded by
+     * any of it (the views name their windows only inside getWindow, typed as BlockUI's base class).
+     */
+    private void windowPages(final MinecraftServer server) throws Throwable {
+        final RegistryFriendlyByteBuf info = buffer(server);
+        new SquareInfoModule().serializeToView(info);
+        final SquareInfoModuleView infoView = new SquareInfoModuleView();
+        infoView.deserialize(info);
+        check("Q5: the square's info page reads back its empty packet to the last byte", info.readableBytes() == 0
+                && infoView.info().equals(SquareInfoModule.empty()), String.valueOf(infoView.info()));
+
+        final RegistryFriendlyByteBuf assignment = buffer(server);
+        new SquareAssignmentModule().serializeToView(assignment);
+        final SquareAssignmentModuleView assignmentView = new SquareAssignmentModuleView();
+        assignmentView.deserialize(assignment);
+        check("Q5: the square's Decorator page reads back its empty packet: no Decorator, no main square", assignment.readableBytes() == 0
+                && assignmentView.getAssignedCitizens().isEmpty() && assignmentView.main().equals(SquareStatus.Main.NONE),
+                assignmentView.main() + ", " + assignment.readableBytes() + " bytes left");
+
+        final RegistryFriendlyByteBuf calendar = buffer(server);
+        new DecoratorInfoModule().serializeToView(calendar);
+        final DecoratorInfoModuleView calendarView = new DecoratorInfoModuleView();
+        calendarView.deserialize(calendar);
+        check("Q5: the Workshop's Calendar page reads back its empty packet: the line says no square", calendar.readableBytes() == 0
+                && calendarView.info().squareKind() == DecoratorInfoModule.SQUARE_NONE, calendar.readableBytes() + " bytes left");
+
+        final ClassLoader loader = SquareInfoModuleView.class.getClassLoader();
+        final MethodHandle find = findLoadedClass();
+        if (find == null) {
+            check("Q5: the JVM lets the probe ask which classes are loaded", false, "no trusted lookup");
+            return;
+        }
+        final List<String> loaded = new ArrayList<>();
+        for (final String name : WINDOW_CLASSES) {
+            if (find.invoke(loader, name) != null) {
+                loaded.add(name);
+            }
+        }
+        check("Q5: no window class of the client package was loaded on the dedicated server", loaded.isEmpty(), String.valueOf(loaded));
+        check("Q5: the check can see a loaded class (this view is one)", find.invoke(loader, SquareInfoModuleView.class.getName()) != null, "");
+    }
+
+    /**
+     * ClassLoader.findLoadedClass(String), reached through the JDK's trusted lookup (read by sun.misc.Unsafe: the JVM
+     * opens java.lang to nobody else, and the rig's start line is not ours to change), or {@code null}. Test code only.
+     */
+    private static MethodHandle findLoadedClass() {
+        try {
+            final Field unsafeField = Class.forName("sun.misc.Unsafe").getDeclaredField("theUnsafe");
+            unsafeField.setAccessible(true);
+            final sun.misc.Unsafe unsafe = (sun.misc.Unsafe) unsafeField.get(null);
+            final Field trusted = MethodHandles.Lookup.class.getDeclaredField("IMPL_LOOKUP");
+            final MethodHandles.Lookup lookup = (MethodHandles.Lookup) unsafe.getObject(unsafe.staticFieldBase(trusted), unsafe.staticFieldOffset(trusted));
+            return lookup.findVirtual(ClassLoader.class, "findLoadedClass", MethodType.methodType(Class.class, String.class));
+        } catch (final Throwable unreachable) {
+            LOGGER.info("[csclient] NOTE no trusted lookup: {}", unreachable.getClass().getSimpleName());
+            return null;
+        }
     }
 
     private static RegistryFriendlyByteBuf buffer(final MinecraftServer server) {

@@ -42,6 +42,8 @@ bash tools/probe.sh csconfig defaults     # every getter equals the hand-written
 bash tools/probe.sh csconfig seeded       # a config file with a non-default value for every key is read back; the client file
                                          # of 0.1.0-beta.1 (showParticles still in it) loads, keeps showClothes, loses the old key
 bash tools/probe.sh csclient              # the client config is registered, not loaded on a server, answers its defaults; the season packet clamps a bad id
+                                         # Q5: the Town Square's pages and the Calendar page read back their empty packets through their views, and no
+                                         # window class of the client package has been loaded (asked of the class loader, with a positive control)
 ```
 
 ```bash
@@ -249,6 +251,10 @@ bash tools/probe.sh cssquare     # the hut block, item, building and module regi
                                  # id dropped at one colony tick or before the next assignment); the view read from the module's
                                  # packet; the square left out of the Decorator's buildings; a square broken; its tags with its
                                  # chunk unloaded (empty once the block entity goes; the rig keeps it, finding H2) and back after
+                                 # Q5: the Decorator page's main-square standing (the main square, another one, none) and the info page
+                                 # read through their views to the last byte, in July and in the winter window (set wanted, state, next
+                                 # change, festival, Decorator listed or none, what the last visit lacked, the order Bare and Always),
+                                 # the Calendar page's square line, the state's rules, and what each level adds
 bash tools/restart.sh cssquare   # a square with its Decorator on MANUAL and a square whose Decorator was removed without a colony
                                  # tick, read back before any colony tick (the first kept, the second pruned when the save was read)
 ```
@@ -274,7 +280,8 @@ bash tools/probe.sh cssquarelife     # the ledger's files (no version, version 1
                                      # REPAIR with cells the Builder cleared first, UPGRADE through the work manager (the watch) and REMOVE
                                      # (ticks from the order to an empty group, nothing lost, nothing put up after); the completed removal
                                      # (back to the marker); a square broken (its group gone the same tick); a second square (one notice,
-                                     # the tie kept, an order on it changes nothing, a higher one moves the tree once); tags that cannot be
+                                     # the tie kept, an order on it changes nothing, a higher one moves the tree once; Q5: a Decorator listed on
+                                     # the second square works the main square, and the second square's pages say which one is the main); tags that cannot be
                                      # read (the stored anchor stands in; a higher square that cannot be located changes nothing); a
                                      # building type that is no longer registered; Structurize's placer with the CLEAR_NON_SOLIDS skip rule
                                      # over substitution cells; in a second colony a square built where its marker stood (the marker block
@@ -301,8 +308,8 @@ the jar and once with it, and reports new ERROR lines naming the mod and crash r
 system temp folder, picks a free port outside Windows' reserved ranges, sets aside jars that cannot load on a dedicated server (and lists
 them), and exits 0 when clean, 1 on a new error or crash, 2 when it cannot run here.
 
-`python -I tools/check_packets.py` (a step of `checks.sh`) reads the Decorator's info module and its view and compares, field
-by field, what the server writes with what the client reads; `tools/check_windows.py` checks that every pane a window class
+`python -I tools/check_packets.py` (a step of `checks.sh`) reads every module and its view (the Decorator's Calendar page, the
+square's Decorator page and info page) and compares, field by field, what the server writes with what the client reads; `tools/check_windows.py` checks that every pane a window class
 asks for is in its BlockUI layout.
 
 `tools/probe.sh <probe> [mode]` builds the mod and the probe, then runs the rig. A probe folder may hold

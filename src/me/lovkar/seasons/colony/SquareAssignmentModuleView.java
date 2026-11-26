@@ -10,6 +10,7 @@ import com.minecolonies.api.colony.jobs.registry.JobEntry;
 import com.minecolonies.core.network.messages.server.colony.building.HireFireMessage;
 import com.minecolonies.core.network.messages.server.colony.building.worker.BuildingHiringModeMessage;
 import me.lovkar.seasons.client.SquareAssignmentWindow;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -31,6 +32,7 @@ public class SquareAssignmentModuleView extends AbstractBuildingModuleView imple
     private final Set<Integer> ids = new LinkedHashSet<>();
     private HiringMode hiringMode = HiringMode.DEFAULT;
     private int max = SquareAssignmentModule.MAX;
+    private SquareStatus.Main main = SquareStatus.Main.NONE;
 
     @Override
     public void deserialize(final @NotNull RegistryFriendlyByteBuf buf) {
@@ -42,6 +44,15 @@ public class SquareAssignmentModuleView extends AbstractBuildingModuleView imple
         final int mode = buf.readInt();
         hiringMode = mode >= 0 && mode < HiringMode.values().length ? HiringMode.values()[mode] : HiringMode.DEFAULT;
         max = buf.readInt();
+        final int standing = buf.readVarInt();
+        final BlockPos pos = buf.readBlockPos();
+        final int level = buf.readVarInt();
+        main = new SquareStatus.Main(SquareStatus.Standing.byOrdinal(standing), pos, level);
+    }
+
+    /** Which square is the colony's main one, as the last packet said (a page not sent yet: none). */
+    public SquareStatus.Main main() {
+        return main;
     }
 
     @Override
