@@ -13,6 +13,8 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelAccessor;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.Mirror;
+import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
@@ -86,6 +88,17 @@ public class LanternPostBlock extends Block {
     protected @NotNull VoxelShape getShape(final @NotNull BlockState state, final @NotNull BlockGetter level,
                                            final @NotNull BlockPos pos, final @NotNull CollisionContext context) {
         return state.getValue(HALF) == DoubleBlockHalf.LOWER ? LOWER : UPPER;
+    }
+
+    /** The crook turns with a blueprint or a structure that is pasted rotated or mirrored, as a directional block does. */
+    @Override
+    protected @NotNull BlockState rotate(final @NotNull BlockState state, final @NotNull Rotation rotation) {
+        return state.setValue(FACING, rotation.rotate(state.getValue(FACING)));
+    }
+
+    @Override
+    protected @NotNull BlockState mirror(final @NotNull BlockState state, final @NotNull Mirror mirror) {
+        return state.rotate(mirror.getRotation(state.getValue(FACING)));
     }
 
     /** Room for the upper half is needed; the crook reaches towards the player; a player's post comes on lit. */

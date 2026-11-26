@@ -500,6 +500,9 @@ public class CsBlocks {
                 && lower.getValue(LargeStarBlock.HALF) == DoubleBlockHalf.LOWER && upper.getValue(LargeStarBlock.HALF) == DoubleBlockHalf.UPPER
                 && lower.getValue(HorizontalDirectionalBlock.FACING) == Direction.WEST && upper.getValue(HorizontalDirectionalBlock.FACING) == Direction.WEST
                 && lower.getValue(Lights.LIT) && upper.getValue(Lights.LIT), lower + " / " + upper);
+        check("lantern_post: the crook turns and mirrors with a pasted blueprint", lower.rotate(net.minecraft.world.level.block.Rotation.CLOCKWISE_90)
+                .getValue(HorizontalDirectionalBlock.FACING) == Direction.NORTH && lower.mirror(net.minecraft.world.level.block.Mirror.FRONT_BACK)
+                .getValue(HorizontalDirectionalBlock.FACING) == Direction.EAST, lower.rotate(net.minecraft.world.level.block.Rotation.CLOCKWISE_90) + "");
         check("lantern_post: collision in both halves, not solid", !lower.getCollisionShape(level, at).isEmpty()
                 && !upper.getCollisionShape(level, at.above()).isEmpty() && !lower.isSolid() && !upper.isSolid(), shape(lower, at) + " / " + shape(upper, at.above()));
         checkEq("lantern_post: the lantern's light in the upper half, the bulbs' in the lower", List.of(upper.getLightEmission(), lower.getLightEmission()),
