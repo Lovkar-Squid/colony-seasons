@@ -67,6 +67,23 @@ build chunk.
   spots and `lamp` as lamp spots (level 5: 12 seats on 8 benches, 8 spots in 6 planters, 8 lamp spots on 7 posts, as
   the bandstand's corner post stands in for one). The Builder's UPGRADE case in `cssquarelife builder` has its own
   bound of 9000 ticks.
+- **Q10, the festival market and its Trade Post bridge.** With Trade Post for MineColonies installed and the server
+  switch `compat.tradePostBridge` on (the default), a Town Square of level 4 or more puts up its stalls (striped
+  awnings: two stripped spruce posts, a counter of slabs and red-white-red wool on each of the 2 or 4 `stall` pads,
+  15 blocks, the vendor's cell free) while a festival set stands, and on festival days, in the gathering hours, colonists
+  at the stalls buy: each sale takes one festival good the Workshop holds above one batch of it and pays the colony that
+  good's price into Trade Post's balance (`current_balance`), one sale per stall every 10 seconds at most. The cap is one
+  Trade Coin per standing stall per colony day, counted in Trade Post's own points (a coin is its `tradeCoinValue`, 1000
+  unless the player changed it, read by reflection): 2,000 points at level 4, 4,000 at level 5. The stalls sell the
+  festival goods only (`data/mctradepost/item_values.json` prices the six kit outputs and nothing else: not the gift,
+  the pile, the crate, the marker; `replace` is false). A payment is clamped, made on the server thread, read back (the
+  balance must move by exactly the price) and written to the ledger first (`marketDay`, `marketPaid`: keys only added,
+  the format stays 3), so a restart pays nothing twice; if anything fails the good and the record come back and the
+  bridge turns itself off until the next start with one WARN line. Without Trade Post nothing changes: no class of it is
+  looked at, no log line, no stall, no money line. The info page shows "Market: X ‡ today of Y ‡", "no goods in stock"
+  or "closed until the next festival". No compile dependency: `check_nodeps.py` finds no reference in any built class.
+  Probe `cstradepost` (modes `without`, `with`, `restart.sh`: save, mid, and gone with the jar taken out of the world);
+  `MarketMathTest` and `check_market.py` in `checks.sh`.
 
 ## 0.1.0-beta.1 - unreleased - seasons and festivals for MineColonies
 

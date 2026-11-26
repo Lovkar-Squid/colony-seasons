@@ -6,6 +6,7 @@
 #   rigjars-<mode>.txt      the same, for -Mode <mode> only (the Serene Seasons stand-in joins only the bridge modes)
 #   modjar-<mode>.txt       one jar run INSTEAD of the mod's jar in that mode (%REPO% as above; csfestival nomixin)
 #   prepare.sh              run as `bash tools/<probe>/prepare.sh <mode>` before the rig starts (builds extra jars)
+#   cleanup.sh              run as `bash tools/<probe>/cleanup.sh <mode>` after the rig, whatever its result; probe.sh keeps the rig's exit code
 #   rigconfig-<mode>/       the config folder for -Mode <mode>
 #   rigconfig/              the config folder when no mode is given, and for a mode without its own folder
 #                           (except mode 'defaults', which never falls back to it); with neither, nothing is seeded
@@ -66,4 +67,8 @@ fi
 # file too, which csconfig opens itself (S10i), as a dedicated server never does
 rm -f "$RUN_RIG_DIR/rig/config/colony_seasons-server.toml" "$RUN_RIG_DIR/rig/config/colony_seasons-client.toml"
 
-powershell -NoProfile -ExecutionPolicy Bypass -File "$RUN_RIG_DIR/run-rig.ps1" "${args[@]}"
+rc=0
+powershell -NoProfile -ExecutionPolicy Bypass -File "$RUN_RIG_DIR/run-rig.ps1" "${args[@]}" || rc=$?
+# an optional tools/<probe>/cleanup.sh runs after the rig, whatever the result (cstradepost: the Trade Post jar leaves the rig's mods)
+if [ -f "tools/$probe/cleanup.sh" ]; then bash "tools/$probe/cleanup.sh" "$mode" || true; fi
+exit "$rc"

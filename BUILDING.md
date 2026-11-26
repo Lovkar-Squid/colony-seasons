@@ -23,7 +23,9 @@ place where machine paths live, so building elsewhere means editing it.
 
 ```bash
 bash tools/build.sh      # compiles src/, packs resources/, writes colony_seasons-<version>.jar at the repo root
-bash tools/checks.sh     # lang keys, model textures, block files, and a sequential read of the jar; prints ALL OK
+bash tools/checks.sh     # lang keys, model textures, block files, the market's price file (against Trade Post's own list when its jar is
+                         # there), no reference to Trade Post in any built class, the market arithmetic's unit test (tools/unit), and a
+                         # sequential read of the jar; prints ALL OK
 ```
 
 `tools/build.sh` calls the rig's `build-addon.ps1`, which is a plain `javac` plus `jar` run. The jar is
@@ -171,6 +173,36 @@ bash tools/probe.sh csfullcycle hostile-free    # decorations free: what a playe
 bash tools/probe.sh csfullcycle hostile-world   # the grand tree with short stock, sliced take-downs, unloading chunks, five years, a
                                                 # deleted colony, touching claims, a second marker, the marker broken in the hours, the
                                                 # hut destroyed while he hosts, a broken tree, decor remove mid-festival, a newer ledger file
+```
+
+The festival market and its Trade Post bridge (0.2.0, Q10). `cstradepost` builds a colony with a town hall, the Workshop at level 5
+and its Decorator, and the level 5 Town Square (its blueprint pasted, registered as the main square, the Decorator assigned);
+the Workshop's own decorating is switched off, so the goods can be counted exactly. The stall materials (stripped spruce logs,
+spruce slabs, red and white wool) are really taken from the Workshop; the tree's costs are conjured. Trade Post is reached by
+reflection only, so one probe jar loads with and without it. The Trade Post jar (`TRADEPOST_JAR` in `tools/rigpaths.sh`, read
+only) is copied to `tools/out/` by `tools/cstradepost/prepare.sh` and goes into the private rig copy's mods for the runs that
+list it (`rigjars-with.txt`, `rigjars-restart.txt`); the script refuses to run unless the private rig copy is in use, and
+`tools/cstradepost/cleanup.sh` (run by `probe.sh` and `restart.sh` after the rig, whatever the result, the rig's exit code kept)
+takes it out again. `restart.sh` also reads an optional `dropjars.txt` (`<phase> <jar name>`, passed to `run-rig-keep.ps1 -Drop`).
+
+```bash
+bash tools/probe.sh cstradepost without       # no Trade Post: the mod boots, none of its classes and none of the client package loaded, the
+                                              # bridge off with no log line, the square holds the tree, the gift pile and the crate only (no stall
+                                              # cell listed, no market set), a festival day in the hours with a buyer at a stall sells nothing,
+                                              # current_balance never written, no market key in the saved ledger, no market line; the two ledger
+                                              # keys survive a save and a load, a tag without them reads as never paid
+bash tools/probe.sh cstradepost with          # Trade Post 1.06.012 next to the mod: one version line, the coin value, our six prices against its
+                                              # own list (marketplaceValue above 0 for each, 0 for the gift and the fixtures, each price within
+                                              # its ingredients + 25 %), four stalls up (every cell listed, the vendor's column and the lamp
+                                              # cells free, the four fronts), one sale pays exactly its price and takes one good, every "nothing
+                                              # sold" row of the tick (no festival day, outside the hours, no Decorator, no buyer, level 3,
+                                              # Bare, the switch off), a payment that throws or does not move the balance, amounts the clamp
+                                              # refuses, the cap at four coins, the next colony day and an earlier one, a foreign block on one
+                                              # pad (three stalls, three coins, the fourth comes at the next tending), the window's end
+bash tools/restart.sh cstradepost             # restart-save (sales short of the cap), restart-mid (the record, the balance and the stalls read
+                                              # back, selling on stops at the cap with both runs together), restart-gone (the Trade Post jar
+                                              # taken out first: the world loads with no error line, the statistic and the ledger's keys stay,
+                                              # nothing is paid)
 ```
 
 The supply order and the storage room (S10e). `csstorage` builds a colony with a town hall, two houses, the Workshop pasted

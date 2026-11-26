@@ -122,19 +122,20 @@ public class TradePostBridge {
             return known;
         }
         int value = DEFAULT_COIN_VALUE;
-        if (active()) {
-            try {
-                final Class<?> config = Class.forName(String.join(".", "com", "deathfrog", "mctradepost", "MCTPConfig"), true,
-                        TradePostBridge.class.getClassLoader());
-                final Object holder = config.getField("tradeCoinValue").get(null);
-                final Object got = holder.getClass().getMethod("get").invoke(holder);
-                if (got instanceof Integer i && i >= 1 && i <= MAX_COIN_VALUE) {
-                    value = i;
-                }
-            } catch (final Throwable unreadable) {
-                // not worth turning the bridge off: the default is what Trade Post ships
-                LOGGER.debug("{}the coin value could not be read ({}), using {}", LOG_PREFIX, describe(unreadable), DEFAULT_COIN_VALUE);
+        if (!active()) {
+            return value;                                 // asked again once the bridge is on: nothing of Trade Post is looked at now
+        }
+        try {
+            final Class<?> config = Class.forName(String.join(".", "com", "deathfrog", "mctradepost", "MCTPConfig"), true,
+                    TradePostBridge.class.getClassLoader());
+            final Object holder = config.getField("tradeCoinValue").get(null);
+            final Object got = holder.getClass().getMethod("get").invoke(holder);
+            if (got instanceof Integer i && i >= 1 && i <= MAX_COIN_VALUE) {
+                value = i;
             }
+        } catch (final Throwable unreadable) {
+            // not worth turning the bridge off: the default is what Trade Post ships
+            LOGGER.debug("{}the coin value could not be read ({}), using {}", LOG_PREFIX, describe(unreadable), DEFAULT_COIN_VALUE);
         }
         coinValue = value;
         return value;

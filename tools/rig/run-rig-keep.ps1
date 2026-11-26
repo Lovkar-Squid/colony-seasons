@@ -1,5 +1,5 @@
 # A repo-local copy of the shared rig's run-rig.ps1 that keeps the world between server runs (restart checks).
-#   powershell -NoProfile -ExecutionPolicy Bypass -File tools/rig/run-rig-keep.ps1 -Name <probe> -Jars <a.jar>,<b.jar> -Phases <mode1>,<mode2> [-Config <dir>] [-RigDir <dir>]
+#   powershell -NoProfile -ExecutionPolicy Bypass -File tools/rig/run-rig-keep.ps1 -Name <probe> -Jars <a.jar>,<b.jar> -Phases <mode1>,<mode2> [-Config <dir>] [-RigDir <dir>] [-Drop <phase>=<jar name>,...]
 # It does what run-rig.ps1 does (same rig folder, same lock file rig\rig.lock with the same 10-minute stale rule and 40-minute
 # wait, same fresh world and crash-reports at the start, same pass rules per run) and differs in one thing: the phases run
 # one after another on ONE world. The world is wiped once, before the first phase, never between them, so a probe can
@@ -14,7 +14,8 @@ param(
   [int]$TimeoutSec = 600,
   [string]$Config = '',
   [string]$Pass = 'RESULT .*(PASS|ok)',
-  [string]$ErrorMatch = ''
+  [string]$ErrorMatch = '',
+  [string]$Drop = ''
 )
 $ErrorActionPreference = 'Stop'
 $base = $RigDir
@@ -53,6 +54,15 @@ try {
   foreach ($Mode in $modes) {
     $logName = "$Name-$Mode"
     "==== phase '$Mode'"
+    # -Drop "<phase>=<jar name>,...": the jar leaves the rig's mods before that phase (a mod taken out of a world that has used it)
+    foreach ($d in @($Drop.Split(',') | Where-Object { $_ })) {
+      $parts = $d.Split('=', 2)
+      if ($parts.Count -eq 2 -and $parts[0].Trim() -eq $Mode) {
+        $gone = Join-Path "$rig\mods" $parts[1].Trim()
+        if (Test-Path $gone) { Remove-Item $gone -Force; "dropped $($parts[1].Trim()) from the mods before phase '$Mode'" } else { "RIG FAIL: $($parts[1].Trim()) is not in the mods to drop"; $allPassed = $false }
+      }
+    }
+    if (-not $allPassed) { break }
     if (Test-Path "$rig\logs\latest.log") { Remove-Item "$rig\logs\latest.log" -Force }
     Set-Content -Encoding ascii "$rig\probe-mode.txt" $Mode
     $proc = Start-Process -FilePath "$jdk\java.exe" -ArgumentList '@user_jvm_args.txt @libraries/net/neoforged/neoforge/21.1.249/win_args.txt nogui' `

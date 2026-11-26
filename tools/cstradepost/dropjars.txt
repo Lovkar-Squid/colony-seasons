@@ -1,0 +1,2 @@
+# <phase> <jar name>: the jar is taken out of the rig's mods before that phase starts
+restart-gone mctradepost-1.06.012-1.21.1.jar

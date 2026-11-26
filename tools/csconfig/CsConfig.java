@@ -65,7 +65,7 @@ public class CsConfig {
                             int gatherFromTick, int gatherUntilTick, String whoComes, boolean midnightShow, int giftsPerPlayerPerDay,
                             boolean festivalHappiness, double festivalHappinessBonus,
                             boolean winterCropSlowdown, double winterCropSkipChance,
-                            boolean winterFoodNeed, double winterFoodNeedFactor, boolean showWelcome) {
+                            boolean winterFoodNeed, double winterFoodNeedFactor, boolean showWelcome, boolean tradePostBridge) {
     }
 
     /** Design section 9, by hand: the numbers the mod must start with. */
@@ -76,7 +76,7 @@ public class CsConfig {
             true, 2, 2, 6,
             true,
             8500, 10500, "everyone_once_a_day", true, 1,
-            false, 1.0, false, 0.5, false, 1.25, true);
+            false, 1.0, false, 0.5, false, 1.25, true, true);
 
     /** What rigconfig/colony_seasons-server.toml seeds: a non-default value for every key. */
     private static final Expected SEEDED = new Expected(
@@ -86,7 +86,7 @@ public class CsConfig {
             false, 5, 3, 9,
             false,
             7000, 9000, "off_duty", false, 3,
-            true, 2.5, true, 0.25, true, 1.5, false);
+            true, 2.5, true, 0.25, true, 1.5, false, false);
 
     /** Design section 9, by hand: the client file's keys ("section.key") and values as NeoForge writes them (S10i). */
     private static final Map<String, String> CLIENT_DEFAULTS = Map.of("display.showClothes", "true");
@@ -171,6 +171,7 @@ public class CsConfig {
         checkNear("winterFoodNeedFactor", SeasonsConfig.winterFoodNeedFactor(), want.winterFoodNeedFactor());
 
         checkEq("links.showWelcome", SeasonsConfig.showWelcome(), want.showWelcome());
+        checkEq("compat.tradePostBridge", SeasonsConfig.tradePostBridge(), want.tradePostBridge());
     }
 
     private void checkFestival(final String id, final Festival want) {
@@ -213,7 +214,8 @@ public class CsConfig {
                 && SeasonsConfig.DEFAULT_WINTER_CROP_SKIP_CHANCE == d.winterCropSkipChance()
                 && SeasonsConfig.DEFAULT_WINTER_FOOD_NEED == d.winterFoodNeed()
                 && SeasonsConfig.DEFAULT_WINTER_FOOD_NEED_FACTOR == d.winterFoodNeedFactor()
-                && SeasonsConfig.DEFAULT_SHOW_WELCOME == d.showWelcome();
+                && SeasonsConfig.DEFAULT_SHOW_WELCOME == d.showWelcome()
+                && SeasonsConfig.DEFAULT_TRADE_POST_BRIDGE == d.tradePostBridge();
         check("documented defaults", same, "SeasonsConfig.DEFAULT_*");
         check("all effects off by default", !SeasonsConfig.festivalHappiness() && !SeasonsConfig.winterCropSlowdown()
                 && !SeasonsConfig.winterFoodNeed(), "design section 8");
