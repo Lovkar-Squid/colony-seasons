@@ -9,9 +9,10 @@ the rig's basemods/); the Minecraft client assets jar comes from tools/paths.py.
 
   resources/blueprints/colony_seasons/colony_seasons/pack.json         the pack ("Colony Seasons", its own pack)
   .../decorator/workshop1..5.blueprint                                  the Decorator's hut (tools/decorator_hut.py)
-  .../square/townsquare1.blueprint                                      the Town Square (0.2.0, tools/square_hut.py;
-                                                                        Q1: one placeholder level with every tag)
+  .../square/townsquare1..5.blueprint                                   the Town Square, five levels of the picked look A
+                                                                        (0.2.0, tools/square_hut.py, Q6)
   .../pieces/village_spruce_small|full|rich.blueprint, grand_tree.blueprint   the tree pieces (tools/tree_pieces.py)
+  .../pieces/bed_spring|summer|autumn|winter.blueprint                  the square's seasonal touches (square_hut.touch)
   tools/cspaste/res/cspaste/manifest.json                               what the paste probe expects to read back
   tools/csspots/res/csspots/spots.json                                  the storeroom's spot tags per level (S10g1),
                                                                         for the csspots probe
@@ -227,6 +228,11 @@ def piece_files():
     for name in tp.PIECES:
         s = tp.piece(name)
         fn = f"{name}.blueprint"
+        root = s.blueprint_nbt(fn, PACK_NAME, f"{PIECE_FOLDER}/{fn}", piece_entity(), PIECE_MODS)
+        out.append((f"{PIECE_FOLDER}/{fn}", s, root, None))
+    for season in sq.TOUCHES:                      # the square's seasonal touches (Q6, square_hut.touch)
+        s = sq.touch(season)
+        fn = f"{s.name}.blueprint"
         root = s.blueprint_nbt(fn, PACK_NAME, f"{PIECE_FOLDER}/{fn}", piece_entity(), PIECE_MODS)
         out.append((f"{PIECE_FOLDER}/{fn}", s, root, None))
     return out
@@ -560,12 +566,29 @@ def sets_text():
 
 
 SQUARE_TAGS = os.path.join(TOOLS, "cssquare", "res", "cssquare", "square_tags.json")
-STANDING_TAGS = ("gift", "launch", "gather", "stall")
+STANDING_TAGS = sq.STANDING
+STONE_MIX = {"minecraft:stone_bricks", "minecraft:cobblestone", "minecraft:andesite", "minecraft:cracked_stone_bricks",
+             "minecraft:mossy_cobblestone"}
+FULL_FLOORS = STONE_MIX | {sq.PAD}                 # what a standing tag may stand on: a full block of the blueprint
+SQUARE_PATH_BLOCK = sq.PATH
+LOG_FAMILY = ("_log", "_wood", "_stem", "_hyphae")
+# the touches' blocks: whole blocks that need no support and do not change by themselves (design A4)
+TOUCH_BLOCKS = {"minecraft:pumpkin", "minecraft:carved_pumpkin", "minecraft:hay_block", "minecraft:melon"}
+TOUCH_LEAVES = ("minecraft:azalea_leaves", "minecraft:flowering_azalea_leaves", "minecraft:spruce_leaves",
+                "minecraft:oak_leaves")
+FLOOR_RANK = {GROUND: 0, sq.PATH: 1}                # the bottom layer: the terrain, a path, then anything solid (2)
 
 
-def square_problems(s):
-    """The rules of docs/town-square-design.md 4.1 and the Q1 brief on one level of the Town Square `s`
-    (square_hut's frame: the `tree` cell at (0, 1, 0)). Returns a list of problems (empty when all hold)."""
+def floor_rank(block):
+    return FLOOR_RANK.get(block, 2)
+
+
+def square_problems(s, level):
+    """The rules of docs/town-square-design.md 4.1 and 4.2 on one level of the Town Square `s` (square_hut's frame: the
+    `tree` cell at (0, 1, 0)): the anchor, the box, the tags (their counts are the table of design 4.2, their cells the
+    ones square_hut gives, on air or on a bench's seat), standing room and a sturdy floor at the standing tags, the
+    lamp posts and planters, no block with collision over a dirt path, the paved bottom layer, the 11 x 11 column over
+    the tree, the walk from the entrance. Returns a list of problems (empty when all hold)."""
     out = []
     a = s.anchor
     if a != sq.HUT_SPOT or s.get(*a) != sq.HUT:
@@ -595,10 +618,14 @@ def square_problems(s):
                 out.append(f"{pos}: two square tags on one cell ({cells[pos]}, {name})")
             cells[pos] = name
             found.setdefault(name, []).append(pos)
-    for name, (lo, hi) in sq.TAG_COUNTS.items():
+    for name in sq.TAG_COUNTS:
         n = len(found.get(name, []))
-        if not lo <= n <= hi:
-            out.append(f"tag {name}: {n} cells, not {lo} to {hi}")
+        want = sq.SLOTS[level][name] if level in sq.SLOTS else None
+        if want is not None and n != want:
+            out.append(f"tag {name}: {n} cells at level {level}, the table of design 4.2 says {want}")
+        want_cells = sorted(sq.tag_cells(level).get(name, [])) if level in sq.SLOTS else None
+        if want_cells is not None and sorted(found.get(name, [])) != want_cells:
+            out.append(f"tag {name}: its cells at level {level} are not the ones square_hut.SLOT_CELLS gives")
     for pos, name in sorted(cells.items()):
         block = s.get(*pos)
         if name in sq.SEAT_TAGS:
@@ -606,8 +633,44 @@ def square_problems(s):
                 out.append(f"{name} {pos}: not on a seat (a bottom stair), but {block}")
         elif block is not None:
             out.append(f"{name} {pos}: not air ({block})")
-        if name in STANDING_TAGS and not standable(s, *pos):
-            out.append(f"{name} {pos}: no room to stand (solid ground, feet and head free)")
+        if name in STANDING_TAGS:
+            if not standable(s, *pos):
+                out.append(f"{name} {pos}: no room to stand (solid ground, feet and head free)")
+            floor = s.get(pos[0], pos[1] - 1, pos[2])
+            if floor not in FULL_FLOORS:
+                out.append(f"{name} {pos}: not on a full block of the blueprint (the stone mix or the pad's planks), but "
+                           f"{floor} (a dirt path has no sturdy top, a substitution cell is the terrain)")
+    # launch: open sky above it
+    for pos in found.get("launch", []):
+        over = [p for p in s.blocks if p[0] == pos[0] and p[2] == pos[2] and p[1] > pos[1]]
+        if over:
+            out.append(f"launch {pos}: {s.get(*over[0])} above it (the rockets need open sky)")
+    # lamp posts: the log under the tag cell's lantern, air on its four sides (garlands and strings hang there)
+    for pos in found.get("lamp", []):
+        x, y, z = pos
+        if s.get(x, 3, z) != sq.POST[2]:
+            out.append(f"lamp {pos}: the post's log is not at ({x}, 3, {z}), but {s.get(x, 3, z)}")
+        for dx, dz in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            if s.get(x + dx, 3, z + dz) is not None:
+                out.append(f"lamp {pos}: {s.get(x + dx, 3, z + dz)} beside the post's log at y 3 (strings hang there)")
+    # beds: grass under the tag cell, air over it, no lamp post beside
+    for pos in found.get("bed", []):
+        x, y, z = pos
+        if s.get(x, y - 1, z) != "minecraft:grass_block":
+            out.append(f"bed {pos}: the soil under it is {s.get(x, y - 1, z)}, not minecraft:grass_block")
+        if s.get(x, y + 1, z) is not None:
+            out.append(f"bed {pos}: {s.get(x, y + 1, z)} above it (the touch is two blocks high at most)")
+        for lx, _, lz in found.get("lamp", []):
+            if abs(lx - x) + abs(lz - z) == 1:
+                out.append(f"bed {pos}: beside the lamp post at ({lx}, {lz})")
+    # the bottom layer: every cell set; no block with collision over a dirt path
+    flat = [(x, z) for x in range(bx0, bx1 + 1) for z in range(bz0, bz1 + 1) if s.get(x, 0, z) is None]
+    if flat:
+        out.append(f"{len(flat)} cells of the bottom layer are not set, e.g. {flat[:3]}")
+    for (x, y, z), b in sorted(s.blocks.items()):
+        if y >= 1 and s.get(x, 0, z) == sq.PATH and not b.startswith("structurize:"):
+            out.append(f"{(x, y, z)}: {b} stands over a dirt path (it would turn to dirt)")
+            break
     trees = found.get("tree", [])
     if trees:
         tx, ty, tz = trees[0]
@@ -616,31 +679,90 @@ def square_problems(s):
         under = s.get(tx, ty - 1, tz)
         if under is None or under.startswith("structurize:"):
             out.append(f"the cell under the tree tag is {under}, not a solid block of the square")
-        blocked = sorted(p for p in s.blocks if abs(p[0] - tx) <= sq.TREE_HALF and abs(p[2] - tz) <= sq.TREE_HALF and p[1] >= ty)
+        blocked = sorted(p for p, b in s.blocks.items() if abs(p[0] - tx) <= sq.TREE_HALF and abs(p[2] - tz) <= sq.TREE_HALF
+                         and p[1] >= ty and b != KEEP)
         if blocked:
             out.append(f"{len(blocked)} blocks in the {2 * sq.TREE_HALF + 1} x {2 * sq.TREE_HALF + 1} column over the tree, "
                        f"e.g. {blocked[0]} {s.get(*blocked[0])}")
+        logs = sorted(p for p, b in s.blocks.items() if voxel.parse_state(b)[0].endswith(LOG_FAMILY)
+                      and max(abs(p[0] - tx), abs(p[2] - tz)) == sq.TREE_HALF + 1
+                      and min(abs(p[0] - tx), abs(p[2] - tz)) <= sq.TREE_HALF)
+        if logs:
+            out.append(f"a log-family block {logs[0]} {s.get(*logs[0])} beside the tree's column (the Forester takes trees)")
         if by1 < ty + 17:
             out.append(f"the box top y {by1} does not hold the grand tree (18 high from y {ty})")
     if not standable(s, *sq.ENTRANCE):
         out.append(f"nowhere to stand at the entrance {sq.ENTRANCE}")
-    elif not next_to(walk(s, [sq.ENTRANCE]), a):
-        out.append(f"the hut block {a} cannot be reached from the entrance {sq.ENTRANCE}")
+    else:
+        seen = walk(s, [sq.ENTRANCE])
+        if not next_to(seen, a):
+            out.append(f"the hut block {a} cannot be reached from the entrance {sq.ENTRANCE}")
+        for name, pos in sorted((n, p) for p, n in cells.items()):
+            if name in STANDING_TAGS and pos not in seen:
+                out.append(f"{name} {pos}: cannot be reached from the entrance {sq.ENTRANCE}")
+            if name in sq.SEAT_TAGS and not next_to(seen, pos):
+                out.append(f"{name} {pos}: no cell beside the seat can be reached from the entrance")
+    return out
+
+
+def square_level_problems(squares, roots):
+    """The rules across the five levels ([B] design 4.1: the footprint and every tag cell are the same at every level, an
+    upgrade only adds). `squares` {level: Structure}, `roots` {level: the blueprint's root compound}. Returns problems."""
+    out = []
+    levels = sorted(squares)
+    first = levels[0]
+    f = squares[first]
+    for lv in levels:
+        s = squares[lv]
+        r = roots[lv]
+        if tuple(int(r[k]) for k in ("size_x", "size_y", "size_z")) != tuple(int(roots[first][k]) for k in ("size_x", "size_y", "size_z")):
+            out.append(f"level {lv}: the blueprint's size differs from level {first}'s")
+        po = tuple(int(r["optional_data"]["structurize"]["primary_offset"][k]) for k in "xyz")
+        po0 = tuple(int(roots[first]["optional_data"]["structurize"]["primary_offset"][k]) for k in "xyz")
+        if po != po0 or s.anchor != f.anchor or s.get(*s.anchor) != f.get(*f.anchor):
+            out.append(f"level {lv}: the anchor (the hut block) is not where and what it is at level {first}")
+        for name in ("tree", "gift", "launch"):
+            mine = sorted(p for p, ns in s.tags.items() if name in ns)
+            theirs = sorted(p for p, ns in f.tags.items() if name in ns)
+            if mine != theirs:
+                out.append(f"level {lv}: the {name} tag is at {mine}, at level {first} it is at {theirs}")
+    for lo, hi in zip(levels, levels[1:]):
+        for pos, names in sorted(squares[lo].tags.items()):
+            for name in names:
+                if name.startswith("name="):
+                    continue
+                if name not in squares[hi].tags.get(pos, []):
+                    out.append(f"tag {name} at {pos} of level {lo} is not there at level {hi} (a slot never moves or goes)")
+        for x in range(sq.BOX[0][0], sq.BOX[1][0] + 1):
+            for z in range(sq.BOX[0][2], sq.BOX[1][2] + 1):
+                a, b = squares[lo].get(x, 0, z), squares[hi].get(x, 0, z)
+                if a is not None and b is not None and floor_rank(b) < floor_rank(a):
+                    out.append(f"the bottom layer at ({x}, {z}) goes back from {a} (level {lo}) to {b} (level {hi})")
     return out
 
 
 def selftest_square():
-    """Each fault planted once into a copy of level 1 must be found."""
+    """Each fault planted once into a copy of a level must be found."""
     ok = True
 
-    def planted(edit, want):
+    def planted(edit, want, level=1):
         nonlocal ok
-        s = sq.square(1)
-        s.tags = {p: list(n) for p, n in s.tags.items()}
+        s = sq.square(level)
         edit(s)
-        found = square_problems(s)
+        found = square_problems(s, level)
         if not any(want in f for f in found):
-            problem(f"square self-test: '{want}' was not reported: {found[:3]}")
+            problem(f"square self-test: '{want}' was not reported at level {level}: {found[:3]}")
+            ok = False
+
+    def across(edit, want):
+        nonlocal ok
+        squares = {lv: sq.square(lv) for lv in sq.LEVELS}
+        roots = {lv: squares[lv].blueprint_nbt(f"{squares[lv].name}.blueprint", PACK_NAME, "square/x.blueprint",
+                                               square_entity("x.blueprint"), HUT_MODS, box=sq.BOX) for lv in sq.LEVELS}
+        edit(squares, roots)
+        found = square_level_problems(squares, roots)
+        if not any(want in f for f in found):
+            problem(f"square self-test (levels): '{want}' was not reported: {found[:3]}")
             ok = False
 
     def wall(s):
@@ -648,23 +770,59 @@ def selftest_square():
             for y in (1, 2, 3):
                 s.set(x, y, 9, "minecraft:stone_bricks")
 
+    def move_tag(s, name, frm, to):
+        s.tags[frm].remove(name)
+        if not s.tags[frm]:
+            del s.tags[frm]
+        s.tags.setdefault(to, []).append(name)
+
+    def a_path_cell(level):
+        s = sq.square(level)
+        return next((x, z) for (x, y, z), b in sorted(s.blocks.items()) if y == 0 and b == sq.PATH and s.get(x, 1, z) is None
+                    and abs(x) > 3 and abs(z) > 3)
+
+    gather1 = sq.tag_cells(1)["gather"][0]
     planted(lambda s: s.set(3, 9, -2, "minecraft:stone"), "column over the tree")
+    planted(lambda s: s.set(6, 3, 0, "minecraft:oak_log[axis=y]"), "log-family block")
     planted(lambda s: s.tags[sq.HUT_SPOT].append("gather"), "no square tag on the anchor")
-    planted(lambda s: s.set(*sq.GATHER[0], "minecraft:stone"), "not air")
+    planted(lambda s: s.set(*gather1, "minecraft:stone"), "not air")
     planted(lambda s: s.set(0, 0, 0, None), "the cell under the tree tag")
-    planted(lambda s: s.tags.pop(sq.GIFT), "tag gift: 0 cells")
-    planted(lambda s: s.tags.setdefault(sq.GIFT, []).append("lamp"), "two square tags on one cell")
+    planted(lambda s: s.tags.pop(sq.GIFT[:3]), "tag gift: 0 cells")
+    planted(lambda s: s.tags.setdefault(sq.GIFT[:3], []).append("lamp"), "two square tags on one cell")
     planted(lambda s: s.tags[(4, 1, -7)].remove("sit"), "tag sit: 1 cells")
     planted(lambda s: s.tags.setdefault((0, 1, -3), []).append("sit"), "not on a seat")
     planted(lambda s: s.tags.setdefault((0, 1, 9), []).append("tinsel"), "unknown tag tinsel")
-    planted(lambda s: s.set(sq.GATHER[1][0], 2, sq.GATHER[1][2], "minecraft:stone"), "no room to stand")
+    planted(lambda s: s.set(gather1[0], 2, gather1[2], "minecraft:stone"), "no room to stand")
     planted(wall, "cannot be reached from the entrance")
+    planted(lambda s: s.set(gather1[0], 0, gather1[2], sq.PATH), "not on a full block")
+    planted(lambda s: s.set(gather1[0], 0, gather1[2], sq.GROUND), "not on a full block")
+    planted(lambda s: s.set(0, 5, -6, "minecraft:stone"), "above it (the rockets need open sky)")
+    planted(lambda s: s.set(0, 0, 3, None), "cells of the bottom layer are not set")
+    px, pz = a_path_cell(2)
+    planted(lambda s: s.set(px, 1, pz, "minecraft:cobblestone_wall"), "stands over a dirt path", 2)
+    lamp5 = sq.tag_cells(2)["lamp"][0]
+    planted(lambda s: s.set(*lamp5, "minecraft:stone"), "not air", 5)
+    planted(lambda s: s.set(lamp5[0] + 1, 3, lamp5[2], "minecraft:spruce_fence"), "beside the post's log", 2)
+    planted(lambda s: s.set(lamp5[0], 3, lamp5[2], "minecraft:stone"), "the post's log is not at", 2)
+    bed3 = sq.tag_cells(3)["bed"][0]
+    planted(lambda s: s.set(bed3[0], 1, bed3[2], "minecraft:dirt"), "not minecraft:grass_block", 3)
+    planted(lambda s: s.set(bed3[0], 3, bed3[2], "minecraft:stone"), "above it (the touch", 3)
+    planted(lambda s: move_tag(s, "gather", (6, 1, -2), (6, 1, -3)), "its cells at level 3", 3)
+    planted(lambda s: s.tags.pop(sq.tag_cells(4)["lamp"][-1]), "tag lamp: 7 cells", 4)
+    # across the levels
+    across(lambda sqs, r: move_tag(sqs[3], "gather", (6, 1, -2), (6, 1, -3)), "of level 2 is not there at level 3")
+    across(lambda sqs, r: sqs[4].tags.pop(sq.tag_cells(2)["lamp"][0]), "of level 3 is not there at level 4")
+    across(lambda sqs, r: move_tag(sqs[4], "launch", sq.LAUNCH, (0, 1, -5)), "the launch tag is at")
+    across(lambda sqs, r: r[3].__setitem__("size_x", nbt.Short(25)), "size differs")
+    across(lambda sqs, r: sqs[3].set(0, 0, 8, sq.GROUND), "goes back")
+    across(lambda sqs, r: sqs[3].set(0, 0, 8, sq.PATH), "goes back")
+    across(lambda sqs, r: setattr(sqs[2], "anchor", (3, 1, 8)), "the anchor")
     return ok
 
 
-def check_square(label, s):
+def check_square(label, s, level):
     ok = True
-    for p in square_problems(s):
+    for p in square_problems(s, level):
         problem(f"{label}: {p}")
         ok = False
     counts = {n: sum(1 for ts in s.tags.values() for t in ts if t == n) for n in sq.TAG_COUNTS}
@@ -749,6 +907,96 @@ def check_piece(label, s):
                 problem(f"{label}: the crate at {p} has {s.get(*above[0])} above it (rockets need open sky)")
                 ok = False
     return ok, f"{len(logs)} logs, {len(stars)} star, {sum('gift_pile' in t for t in s.tags.values())} gifts"
+
+
+def check_touch(label, s):
+    """A seasonal touch (square_hut.touch): an air anchor tagged `invisible`, one 1 x 1 column of at most two blocks
+    above it, only whole blocks that need no support and do not change by themselves, no other tag."""
+    ok = True
+    a = s.anchor
+    if a != sq.TOUCH_ANCHOR or s.get(*a) is not None:
+        problem(f"{label}: the anchor {a} must be the air cell {sq.TOUCH_ANCHOR}")
+        ok = False
+    if s.tags != {a: ["invisible"]}:
+        problem(f"{label}: the tags {s.tags} are not just the anchor's ['invisible']")
+        ok = False
+    for p, b in sorted(s.blocks.items()):
+        name, props = voxel.parse_state(b)
+        if (p[0], p[2]) != (a[0], a[2]):
+            problem(f"{label}: {p} is outside the 1 x 1 column")
+            ok = False
+        if not a[1] < p[1] <= a[1] + 2:
+            problem(f"{label}: {p} is not within two blocks above the anchor")
+            ok = False
+        leaf = name in TOUCH_LEAVES and props.get("persistent") == "true"
+        if not (leaf or name in TOUCH_BLOCKS):
+            problem(f"{label}: {b} is not a block that needs no support and never changes by itself")
+            ok = False
+    if not s.blocks:
+        problem(f"{label}: no block")
+        ok = False
+    return ok, f"{len(s.blocks)} block(s), anchor {a}"
+
+
+def check_pieces_on_squares(squares):
+    """The pieces against the square (Q6): at every level every `bed` tag takes every touch (its anchor on the soil under
+    the tag, its blocks into air inside the box), and every Winter centrepiece of a level up to the square's stands
+    inside the 11 x 11 column over `tree`, inside the box and on free cells (air or substitution). Returns the number of
+    placements checked; problems are reported."""
+    n = 0
+    (bx0, by0, bz0), (bx1, by1, bz1) = sq.BOX
+    tx, ty, tz = sq.TREE
+    for lv, s in sorted(squares.items()):
+        for (x, y, z) in sq.tag_cells(lv).get("bed", []):
+            for season in sq.TOUCHES:
+                piece = sq.touch(season)
+                ax, ay, az = piece.anchor
+                for (px, py, pz), b in piece.blocks.items():
+                    w = (x + px - ax, y - 1 + py - ay, z + pz - az)
+                    if not (bx0 <= w[0] <= bx1 and by0 <= w[1] <= by1 and bz0 <= w[2] <= bz1) or s.get(*w) is not None:
+                        problem(f"level {lv}: the {season} touch's block at {w} (bed tag {(x, y, z)}) is not on free air "
+                                f"inside the box: {s.get(*w)}")
+                n += 1
+        for name in tp.PIECES:
+            piece = tp.piece(name)
+            ax, ay, az = piece.anchor
+            for (px, py, pz) in piece.blocks:
+                w = (tx + px - ax, ty + py - ay, tz + pz - az)
+                if not (abs(w[0] - tx) <= sq.TREE_HALF and abs(w[2] - tz) <= sq.TREE_HALF and by0 <= w[1] <= by1):
+                    problem(f"level {lv}: {name} reaches {w}, outside the tree's {2 * sq.TREE_HALF + 1} x "
+                            f"{2 * sq.TREE_HALF + 1} column or the box")
+                    break
+                b = s.get(*w)
+                if b is not None and b != KEEP:
+                    problem(f"level {lv}: {name}'s block at {w} lands on {b}")
+                    break
+            n += 1
+    return n
+
+
+def compare_squares_with_designs():
+    """Each level against the owner's picked look A (design/src/squares.py square('A', level, season=None)): from the
+    first layer up, inside the box, the one difference is the hut block (the picture's draft model is the real one)."""
+    saved = list(sys.path)
+    sys.path.insert(0, os.path.join(paths.ROOT, "design", "src"))
+    try:
+        import squares      # noqa: E402
+    finally:
+        sys.path[:] = saved
+    (bx0, by0, bz0), (bx1, by1, bz1) = sq.BOX
+    out = []
+    for lv in sq.LEVELS:
+        want = {p: b for p, b in squares.square("A", lv, season=None).items()
+                if p[1] >= 1 and bx0 <= p[0] <= bx1 and bz0 <= p[2] <= bz1}
+        mine = {p: b for p, b in sq.square(lv).blocks.items() if p[1] >= 1}
+        diff = sorted(p for p in set(want) | set(mine) if want.get(p) != mine.get(p))
+        if diff != [sq.HUT_SPOT]:
+            problem(f"townsquare{lv} differs from the picked look A where it should not: "
+                    f"{[(p, want.get(p), mine.get(p)) for p in diff[:4]]}")
+            out.append((lv, False))
+        else:
+            out.append((lv, True))
+    return out
 
 
 def design_compare(label, mine, design, expected, mapper, inside=None, ignore=()):
@@ -875,7 +1123,12 @@ def main(argv):
             ok = r[0] and ok
         elif path.startswith(SQUARE_FOLDER + "/"):
             ok = check_common(label, s) and ok
-            r = check_square(label, s)
+            r = check_square(label, s, int(re.search(r"(\d)\.blueprint$", path).group(1)))
+            info = r[1]
+            ok = r[0] and ok
+        elif os.path.basename(path).startswith("bed_"):
+            ok = check_common(label, s, supports=[s.anchor]) and ok
+            r = check_touch(label, s)
             info = r[1]
             ok = r[0] and ok
         else:
@@ -897,8 +1150,20 @@ def main(argv):
         print(f"{label:38s} {r if r else 'PROBLEMS'}")
     storage_ok, rack_counts = check_storage()
     print(f"{'storage room (S10e)':38s} racks at levels 1 to 5: {rack_counts}  {'ok' if storage_ok else 'PROBLEMS'}")
+    squares = {int(re.search(r"(\d)\.blueprint$", p).group(1)): s for p, s, _, _ in files if p.startswith(SQUARE_FOLDER + "/")}
+    square_roots = {int(re.search(r"(\d)\.blueprint$", p).group(1)): r for p, _, r, _ in files if p.startswith(SQUARE_FOLDER + "/")}
+    level_problems = square_level_problems(squares, square_roots)
+    for p in level_problems:
+        problem(f"town square levels: {p}")
+    print(f"{'town square, five levels (Q6)':38s} same box, anchor, tree/gift/launch cells; tags only added; paving only "
+          f"grows  {'ok' if not level_problems else 'PROBLEMS'}")
+    placed = check_pieces_on_squares(squares)
+    print(f"{'pieces on the square (Q6)':38s} {placed} placements (touches on every bed tag, every winter centrepiece "
+          f"in the tree column)")
+    for lv, good in compare_squares_with_designs():
+        print(f"{f'townsquare{lv} vs design look A':38s} {'only the hut block differs' if good else 'PROBLEMS'}")
     square_ok = selftest_square()
-    print(f"{'town square self-test (Q1)':38s} {'ok' if square_ok else 'PROBLEMS'}")
+    print(f"{'town square self-test (Q1, Q6)':38s} {'ok' if square_ok else 'PROBLEMS'}")
     spots_ok, spot_counts = check_spots()
     print(f"{'storeroom spots (S10g1)':38s} packed / hung at levels 1 to 5: "
           f"{' '.join(f'{p}/{h}' for p, h in spot_counts)}  {'ok' if spots_ok else 'PROBLEMS'}")

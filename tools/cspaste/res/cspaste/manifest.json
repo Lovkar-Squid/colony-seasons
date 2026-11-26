@@ -1876,16 +1876,14 @@
    "anchorEntity": "colony_seasons:colonybuilding",
    "counts": {
     "colony_seasons:blockhuttownsquare": 1,
-    "minecraft:andesite": 43,
-    "minecraft:cobblestone": 43,
-    "minecraft:cobblestone_wall": 4,
-    "minecraft:cracked_stone_bricks": 9,
-    "minecraft:dirt": 4,
-    "minecraft:mossy_cobblestone": 9,
-    "minecraft:spruce_fence": 4,
+    "minecraft:andesite": 30,
+    "minecraft:cobblestone": 35,
+    "minecraft:cracked_stone_bricks": 2,
+    "minecraft:dirt_path": 32,
+    "minecraft:mossy_cobblestone": 7,
     "minecraft:spruce_stairs": 6,
-    "minecraft:spruce_trapdoor": 12,
-    "minecraft:stone_bricks": 87
+    "minecraft:spruce_trapdoor": 4,
+    "minecraft:stone_bricks": 54
    },
    "ours": [
     [
@@ -2254,74 +2252,94 @@
     [
      -9,
      -1,
-     -5
+     -10
     ],
     [
      -9,
+     -1,
+     -9
+    ],
+    [
+     -9,
+     -1,
+     -8
+    ],
+    [
+     -9,
+     -1,
+     -7
+    ],
+    [
+     -9,
+     -1,
+     -1
+    ],
+    [
+     -9,
+     -1,
+     0
+    ],
+    [
+     -9,
+     -1,
+     1
+    ],
+    [
+     -9,
+     -1,
+     2
+    ],
+    [
+     -8,
+     -1,
+     -18
+    ],
+    [
+     -8,
+     -1,
+     -17
+    ],
+    [
+     -8,
+     -1,
+     -16
+    ],
+    [
+     -8,
+     -1,
+     -15
+    ],
+    [
+     -8,
+     -1,
+     -14
+    ],
+    [
+     -8,
+     -1,
+     -13
+    ],
+    [
+     -8,
+     -1,
+     -12
+    ],
+    [
+     -8,
+     -1,
+     -11
+    ],
+    [
+     -8,
+     -1,
+     -5
+    ],
+    [
+     -8,
      -1,
      -4
     ],
     [
-     -9,
-     -1,
-     -3
-    ],
-    [
-     -9,
-     -1,
-     -2
-    ],
-    [
-     -9,
-     -1,
-     -1
-    ],
-    [
-     -9,
-     -1,
-     0
-    ],
-    [
-     -9,
-     -1,
-     1
-    ],
-    [
-     -9,
-     -1,
-     2
-    ],
-    [
-     -8,
-     -1,
-     -18
-    ],
-    [
-     -8,
-     -1,
-     -17
-    ],
-    [
-     -8,
-     -1,
-     -16
-    ],
-    [
-     -8,
-     -1,
-     -15
-    ],
-    [
-     -8,
-     -1,
-     -14
-    ],
-    [
-     -8,
-     -1,
-     -13
-    ],
-    [
      -8,
      -1,
      -3
@@ -2379,6 +2397,16 @@
     [
      -7,
      -1,
+     -13
+    ],
+    [
+     -7,
+     -1,
+     -3
+    ],
+    [
+     -7,
+     -1,
      -2
     ],
     [
@@ -2424,6 +2452,16 @@
     [
      -6,
      -1,
+     -14
+    ],
+    [
+     -6,
+     -1,
+     -2
+    ],
+    [
+     -6,
+     -1,
      -1
     ],
     [
@@ -2464,6 +2502,16 @@
     [
      -5,
      -1,
+     -14
+    ],
+    [
+     -5,
+     -1,
+     -2
+    ],
+    [
+     -5,
+     -1,
      -1
     ],
     [
@@ -2499,6 +2547,16 @@
     [
      -4,
      -1,
+     -15
+    ],
+    [
+     -4,
+     -1,
+     -1
+    ],
+    [
+     -4,
+     -1,
      0
     ],
     [
@@ -2527,6 +2585,11 @@
      -16
     ],
     [
+     -3,
+     -1,
+     -15
+    ],
+    [
      -2,
      -1,
      -18
@@ -2542,6 +2605,11 @@
      -16
     ],
     [
+     -2,
+     -1,
+     -15
+    ],
+    [
      -1,
      -1,
      -18
@@ -2557,6 +2625,11 @@
      -16
     ],
     [
+     -1,
+     -1,
+     -15
+    ],
+    [
      0,
      -1,
      -18
@@ -2570,6 +2643,16 @@
      0,
      -1,
      -16
+    ],
+    [
+     0,
+     -1,
+     -1
+    ],
+    [
+     0,
+     -1,
+     1
     ],
     [
      0,
@@ -2594,7 +2677,27 @@
     [
      1,
      -1,
-     -15
+     -14
+    ],
+    [
+     1,
+     -1,
+     -2
+    ],
+    [
+     1,
+     -1,
+     -1
+    ],
+    [
+     1,
+     -1,
+     0
+    ],
+    [
+     1,
+     -1,
+     1
     ],
     [
      1,
@@ -2619,7 +2722,12 @@
     [
      2,
      -1,
-     -15
+     -14
+    ],
+    [
+     2,
+     -1,
+     -2
     ],
     [
      2,
@@ -2655,11 +2763,6 @@
      3,
      -1,
      -16
-    ],
-    [
-     3,
-     -1,
-     -15
     ],
     [
      3,
@@ -2669,6 +2772,16 @@
     [
      3,
      -1,
+     -13
+    ],
+    [
+     3,
+     -1,
+     -3
+    ],
+    [
+     3,
+     -1,
      -2
     ],
     [
@@ -2705,11 +2818,6 @@
      4,
      -1,
      -16
-    ],
-    [
-     4,
-     -1,
-     -15
     ],
     [
      4,
@@ -2720,6 +2828,26 @@
      4,
      -1,
      -13
+    ],
+    [
+     4,
+     -1,
+     -12
+    ],
+    [
+     4,
+     -1,
+     -11
+    ],
+    [
+     4,
+     -1,
+     -5
+    ],
+    [
+     4,
+     -1,
+     -4
     ],
     [
      4,
@@ -2790,6 +2918,31 @@
      5,
      -1,
      -11
+    ],
+    [
+     5,
+     -1,
+     -10
+    ],
+    [
+     5,
+     -1,
+     -9
+    ],
+    [
+     5,
+     -1,
+     -8
+    ],
+    [
+     5,
+     -1,
+     -7
+    ],
+    [
+     5,
+     -1,
+     -6
     ],
     [
      5,
@@ -3151,11 +3304,9 @@
     "colony_seasons:blockhuttownsquare[facing=north]",
     "minecraft:andesite",
     "minecraft:cobblestone",
-    "minecraft:cobblestone_wall",
     "minecraft:cracked_stone_bricks",
-    "minecraft:dirt",
+    "minecraft:dirt_path",
     "minecraft:mossy_cobblestone",
-    "minecraft:spruce_fence",
     "minecraft:spruce_stairs[facing=north,half=bottom]",
     "minecraft:spruce_stairs[facing=west,half=bottom]",
     "minecraft:spruce_trapdoor[facing=east,half=bottom,open=true]",
@@ -3166,12 +3317,6 @@
     "structurize:blocksolidsubstitution"
    ],
    "tags": [
-    [
-     -11,
-     0,
-     -12,
-     "stall"
-    ],
     [
      -9,
      0,
@@ -3191,22 +3336,937 @@
      "gather"
     ],
     [
+     -4,
+     0,
+     -14,
+     "gather"
+    ],
+    [
+     -4,
+     0,
+     -2,
+     "gift"
+    ],
+    [
+     -2,
+     0,
+     -14,
+     "launch"
+    ],
+    [
+     -2,
+     0,
      -8,
+     "tree"
+    ],
+    [
+     -2,
+     0,
+     -2,
+     "gather"
+    ],
+    [
+     0,
+     0,
+     -14,
+     "gather"
+    ],
+    [
+     0,
+     0,
+     -2,
+     "gather"
+    ],
+    [
+     0,
+     0,
+     0,
+     "name=Village plaza"
+    ],
+    [
      2,
+     0,
+     -15,
+     "sit"
+    ],
+    [
+     4,
+     0,
+     -10,
+     "gather"
+    ],
+    [
+     4,
+     0,
+     -6,
+     "gather"
+    ]
+   ]
+  },
+  {
+   "path": "square/townsquare2.blueprint",
+   "kind": "square",
+   "buildingType": "colony_seasons:townsquare",
+   "folder": "square",
+   "size": [
+    21,
+    20,
+    21
+   ],
+   "anchor": [
+    12,
+    1,
+    18
+   ],
+   "anchorBlock": "colony_seasons:blockhuttownsquare[facing=north]",
+   "anchorEntity": "colony_seasons:colonybuilding",
+   "counts": {
+    "colony_seasons:blockhuttownsquare": 1,
+    "minecraft:andesite": 50,
+    "minecraft:cobblestone": 55,
+    "minecraft:cobblestone_wall": 4,
+    "minecraft:cracked_stone_bricks": 9,
+    "minecraft:dirt_path": 60,
+    "minecraft:lantern": 4,
+    "minecraft:mossy_cobblestone": 10,
+    "minecraft:spruce_fence": 4,
+    "minecraft:spruce_stairs": 6,
+    "minecraft:spruce_trapdoor": 4,
+    "minecraft:stone_bricks": 105,
+    "minecraft:stripped_spruce_log": 4
+   },
+   "ours": [
+    [
+     0,
+     0,
+     0,
+     "colony_seasons:blockhuttownsquare[facing=north]"
+    ]
+   ],
+   "subst": [
+    [
+     -12,
+     -1,
+     -18
+    ],
+    [
+     -12,
+     -1,
+     -17
+    ],
+    [
+     -12,
+     -1,
+     -16
+    ],
+    [
+     -12,
+     -1,
+     -15
+    ],
+    [
+     -12,
+     -1,
+     -14
+    ],
+    [
+     -12,
+     -1,
+     -13
+    ],
+    [
+     -12,
+     -1,
+     -12
+    ],
+    [
+     -12,
+     -1,
+     -11
+    ],
+    [
+     -12,
+     -1,
+     -10
+    ],
+    [
+     -12,
+     -1,
+     -6
+    ],
+    [
+     -12,
+     -1,
+     -5
+    ],
+    [
+     -12,
+     -1,
+     -4
+    ],
+    [
+     -12,
+     -1,
+     -3
+    ],
+    [
+     -12,
+     -1,
+     -2
+    ],
+    [
+     -12,
+     -1,
+     -1
+    ],
+    [
+     -12,
+     -1,
+     0
+    ],
+    [
+     -12,
+     -1,
+     1
+    ],
+    [
+     -12,
+     -1,
+     2
+    ],
+    [
+     -11,
+     -1,
+     -18
+    ],
+    [
+     -11,
+     -1,
+     -17
+    ],
+    [
+     -11,
+     -1,
+     -16
+    ],
+    [
+     -11,
+     -1,
+     -15
+    ],
+    [
+     -11,
+     -1,
+     -14
+    ],
+    [
+     -11,
+     -1,
+     -13
+    ],
+    [
+     -11,
+     -1,
+     -12
+    ],
+    [
+     -11,
+     -1,
+     -11
+    ],
+    [
+     -11,
+     -1,
+     -5
+    ],
+    [
+     -11,
+     -1,
+     -4
+    ],
+    [
+     -11,
+     -1,
+     -3
+    ],
+    [
+     -11,
+     -1,
+     -2
+    ],
+    [
+     -11,
+     -1,
+     -1
+    ],
+    [
+     -11,
+     -1,
+     0
+    ],
+    [
+     -11,
+     -1,
+     1
+    ],
+    [
+     -11,
+     -1,
+     2
+    ],
+    [
+     -10,
+     -1,
+     -18
+    ],
+    [
+     -10,
+     -1,
+     -17
+    ],
+    [
+     -10,
+     -1,
+     -16
+    ],
+    [
+     -10,
+     -1,
+     -15
+    ],
+    [
+     -10,
+     -1,
+     -14
+    ],
+    [
+     -10,
+     -1,
+     -13
+    ],
+    [
+     -10,
+     -1,
+     -3
+    ],
+    [
+     -10,
+     -1,
+     -2
+    ],
+    [
+     -10,
+     -1,
+     -1
+    ],
+    [
+     -10,
+     -1,
+     0
+    ],
+    [
+     -10,
+     -1,
+     1
+    ],
+    [
+     -10,
+     -1,
+     2
+    ],
+    [
+     -9,
+     -1,
+     -18
+    ],
+    [
+     -9,
+     -1,
+     -17
+    ],
+    [
+     -9,
+     -1,
+     -16
+    ],
+    [
+     -9,
+     -1,
+     -15
+    ],
+    [
+     -9,
+     -1,
+     -1
+    ],
+    [
+     -9,
+     -1,
+     0
+    ],
+    [
+     -9,
+     -1,
+     1
+    ],
+    [
+     -9,
+     -1,
+     2
+    ],
+    [
+     -8,
+     -1,
+     -18
+    ],
+    [
+     -8,
+     -1,
+     -17
+    ],
+    [
+     -8,
+     -1,
+     -16
+    ],
+    [
+     -8,
+     -1,
+     0
+    ],
+    [
+     -8,
+     -1,
+     1
+    ],
+    [
+     -8,
+     -1,
+     2
+    ],
+    [
+     -7,
+     -1,
+     -18
+    ],
+    [
+     -7,
+     -1,
+     -17
+    ],
+    [
+     -7,
+     -1,
+     -16
+    ],
+    [
+     -7,
+     -1,
+     0
+    ],
+    [
+     -7,
+     -1,
+     1
+    ],
+    [
+     -7,
+     -1,
+     2
+    ],
+    [
+     -6,
+     -1,
+     -18
+    ],
+    [
+     -6,
+     -1,
+     -17
+    ],
+    [
+     -6,
+     -1,
+     1
+    ],
+    [
+     -6,
+     -1,
+     2
+    ],
+    [
+     -5,
+     -1,
+     -18
+    ],
+    [
+     -5,
+     -1,
+     -17
+    ],
+    [
+     -5,
+     -1,
+     1
+    ],
+    [
+     -5,
+     -1,
+     2
+    ],
+    [
+     -4,
+     -1,
+     -18
+    ],
+    [
+     -4,
+     -1,
+     2
+    ],
+    [
+     0,
+     -1,
+     -18
+    ],
+    [
+     0,
+     -1,
+     2
+    ],
+    [
+     1,
+     -1,
+     -18
+    ],
+    [
+     1,
+     -1,
+     -17
+    ],
+    [
+     1,
+     -1,
+     1
+    ],
+    [
+     1,
+     -1,
+     2
+    ],
+    [
+     2,
+     -1,
+     -18
+    ],
+    [
+     2,
+     -1,
+     -17
+    ],
+    [
+     2,
+     -1,
+     1
+    ],
+    [
+     2,
+     -1,
+     2
+    ],
+    [
+     3,
+     -1,
+     -18
+    ],
+    [
+     3,
+     -1,
+     -17
+    ],
+    [
+     3,
+     -1,
+     -16
+    ],
+    [
+     3,
+     -1,
+     0
+    ],
+    [
+     3,
+     -1,
+     1
+    ],
+    [
+     3,
+     -1,
+     2
+    ],
+    [
+     4,
+     -1,
+     -18
+    ],
+    [
+     4,
+     -1,
+     -17
+    ],
+    [
+     4,
+     -1,
+     -16
+    ],
+    [
+     4,
+     -1,
+     0
+    ],
+    [
+     4,
+     -1,
+     1
+    ],
+    [
+     4,
+     -1,
+     2
+    ],
+    [
+     5,
+     -1,
+     -18
+    ],
+    [
+     5,
+     -1,
+     -17
+    ],
+    [
+     5,
+     -1,
+     -16
+    ],
+    [
+     5,
+     -1,
+     -15
+    ],
+    [
+     5,
+     -1,
+     -1
+    ],
+    [
+     5,
+     -1,
+     0
+    ],
+    [
+     5,
+     -1,
+     1
+    ],
+    [
+     5,
+     -1,
+     2
+    ],
+    [
+     6,
+     -1,
+     -18
+    ],
+    [
+     6,
+     -1,
+     -17
+    ],
+    [
+     6,
+     -1,
+     -16
+    ],
+    [
+     6,
+     -1,
+     -15
+    ],
+    [
+     6,
+     -1,
+     -14
+    ],
+    [
+     6,
+     -1,
+     -13
+    ],
+    [
+     6,
+     -1,
+     -3
+    ],
+    [
+     6,
+     -1,
+     -2
+    ],
+    [
+     6,
+     -1,
+     -1
+    ],
+    [
+     6,
+     -1,
+     0
+    ],
+    [
+     6,
+     -1,
+     1
+    ],
+    [
+     6,
+     -1,
+     2
+    ],
+    [
+     7,
+     -1,
+     -18
+    ],
+    [
+     7,
+     -1,
+     -17
+    ],
+    [
+     7,
+     -1,
+     -16
+    ],
+    [
+     7,
+     -1,
+     -15
+    ],
+    [
+     7,
+     -1,
+     -14
+    ],
+    [
+     7,
+     -1,
+     -13
+    ],
+    [
+     7,
+     -1,
+     -12
+    ],
+    [
+     7,
+     -1,
+     -11
+    ],
+    [
+     7,
+     -1,
+     -5
+    ],
+    [
+     7,
+     -1,
+     -4
+    ],
+    [
+     7,
+     -1,
+     -3
+    ],
+    [
+     7,
+     -1,
+     -2
+    ],
+    [
+     7,
+     -1,
+     -1
+    ],
+    [
+     7,
+     -1,
+     0
+    ],
+    [
+     7,
+     -1,
+     1
+    ],
+    [
+     7,
+     -1,
+     2
+    ],
+    [
+     8,
+     -1,
+     -18
+    ],
+    [
+     8,
+     -1,
+     -17
+    ],
+    [
+     8,
+     -1,
+     -16
+    ],
+    [
+     8,
+     -1,
+     -15
+    ],
+    [
+     8,
+     -1,
+     -14
+    ],
+    [
+     8,
+     -1,
+     -13
+    ],
+    [
+     8,
+     -1,
+     -12
+    ],
+    [
+     8,
+     -1,
+     -11
+    ],
+    [
+     8,
+     -1,
+     -10
+    ],
+    [
+     8,
+     -1,
+     -6
+    ],
+    [
+     8,
+     -1,
+     -5
+    ],
+    [
+     8,
+     -1,
+     -4
+    ],
+    [
+     8,
+     -1,
+     -3
+    ],
+    [
+     8,
+     -1,
+     -2
+    ],
+    [
+     8,
+     -1,
+     -1
+    ],
+    [
+     8,
+     -1,
+     0
+    ],
+    [
+     8,
+     -1,
+     1
+    ],
+    [
+     8,
+     -1,
+     2
+    ]
+   ],
+   "palette": [
+    "colony_seasons:blockhuttownsquare[facing=north]",
+    "minecraft:andesite",
+    "minecraft:cobblestone",
+    "minecraft:cobblestone_wall",
+    "minecraft:cracked_stone_bricks",
+    "minecraft:dirt_path",
+    "minecraft:lantern[hanging=false]",
+    "minecraft:mossy_cobblestone",
+    "minecraft:spruce_fence",
+    "minecraft:spruce_stairs[facing=north,half=bottom]",
+    "minecraft:spruce_stairs[facing=west,half=bottom]",
+    "minecraft:spruce_trapdoor[facing=east,half=bottom,open=true]",
+    "minecraft:spruce_trapdoor[facing=north,half=bottom,open=true]",
+    "minecraft:spruce_trapdoor[facing=south,half=bottom,open=true]",
+    "minecraft:spruce_trapdoor[facing=west,half=bottom,open=true]",
+    "minecraft:stone_bricks",
+    "minecraft:stripped_spruce_log[axis=y]",
+    "structurize:blocksolidsubstitution"
+   ],
+   "tags": [
+    [
+     -9,
+     0,
+     -4,
+     "sit"
+    ],
+    [
+     -8,
+     0,
+     -13,
+     "gather"
+    ],
+    [
+     -8,
+     0,
+     -10,
+     "gather"
+    ],
+    [
+     -8,
+     0,
+     -6,
+     "gather"
+    ],
+    [
+     -8,
+     0,
+     -3,
+     "gather"
+    ],
+    [
+     -8,
+     4,
      -14,
      "lamp"
     ],
     [
      -8,
-     2,
+     4,
      -2,
      "lamp"
-    ],
-    [
-     -6,
-     0,
-     -2,
-     "gather"
     ],
     [
      -4,
@@ -3223,7 +4283,7 @@
     [
      -2,
      0,
-     -15,
+     -14,
      "launch"
     ],
     [
@@ -3233,9 +4293,21 @@
      "tree"
     ],
     [
+     -2,
+     0,
+     -2,
+     "gather"
+    ],
+    [
      0,
      0,
      -14,
+     "gather"
+    ],
+    [
+     0,
+     0,
+     -2,
      "gather"
     ],
     [
@@ -3251,7 +4323,13 @@
      "sit"
     ],
     [
-     2,
+     3,
+     0,
+     -14,
+     "gather"
+    ],
+    [
+     3,
      0,
      -2,
      "gather"
@@ -3270,27 +4348,1110 @@
     ],
     [
      4,
-     2,
+     4,
      -14,
      "lamp"
     ],
     [
      4,
-     2,
+     4,
+     -2,
+     "lamp"
+    ]
+   ]
+  },
+  {
+   "path": "square/townsquare3.blueprint",
+   "kind": "square",
+   "buildingType": "colony_seasons:townsquare",
+   "folder": "square",
+   "size": [
+    21,
+    20,
+    21
+   ],
+   "anchor": [
+    12,
+    1,
+    18
+   ],
+   "anchorBlock": "colony_seasons:blockhuttownsquare[facing=north]",
+   "anchorEntity": "colony_seasons:colonybuilding",
+   "counts": {
+    "colony_seasons:blockhuttownsquare": 1,
+    "minecraft:andesite": 86,
+    "minecraft:cobblestone": 97,
+    "minecraft:cobblestone_wall": 72,
+    "minecraft:cracked_stone_bricks": 19,
+    "minecraft:dirt_path": 25,
+    "minecraft:grass_block": 22,
+    "minecraft:lantern": 4,
+    "minecraft:mossy_cobblestone": 20,
+    "minecraft:spruce_fence": 4,
+    "minecraft:spruce_stairs": 18,
+    "minecraft:spruce_trapdoor": 28,
+    "minecraft:stone_bricks": 185,
+    "minecraft:stripped_spruce_log": 4
+   },
+   "ours": [
+    [
+     0,
+     0,
+     0,
+     "colony_seasons:blockhuttownsquare[facing=north]"
+    ]
+   ],
+   "subst": [
+    [
+     -11,
+     -1,
+     -17
+    ],
+    [
+     -11,
+     -1,
+     -16
+    ],
+    [
+     -11,
+     -1,
+     0
+    ],
+    [
+     -11,
+     -1,
+     1
+    ],
+    [
+     -10,
+     -1,
+     -17
+    ],
+    [
+     -10,
+     -1,
+     1
+    ],
+    [
+     6,
+     -1,
+     -17
+    ],
+    [
+     7,
+     -1,
+     -17
+    ],
+    [
+     7,
+     -1,
+     -16
+    ]
+   ],
+   "palette": [
+    "colony_seasons:blockhuttownsquare[facing=north]",
+    "minecraft:andesite",
+    "minecraft:cobblestone",
+    "minecraft:cobblestone_wall",
+    "minecraft:cracked_stone_bricks",
+    "minecraft:dirt_path",
+    "minecraft:grass_block",
+    "minecraft:lantern[hanging=false]",
+    "minecraft:mossy_cobblestone",
+    "minecraft:spruce_fence",
+    "minecraft:spruce_stairs[facing=east,half=bottom]",
+    "minecraft:spruce_stairs[facing=north,half=bottom]",
+    "minecraft:spruce_stairs[facing=south,half=bottom]",
+    "minecraft:spruce_stairs[facing=west,half=bottom]",
+    "minecraft:spruce_trapdoor[facing=east,half=bottom,open=true]",
+    "minecraft:spruce_trapdoor[facing=north,half=bottom,open=true]",
+    "minecraft:spruce_trapdoor[facing=south,half=bottom,open=true]",
+    "minecraft:spruce_trapdoor[facing=west,half=bottom,open=true]",
+    "minecraft:stone_bricks",
+    "minecraft:stripped_spruce_log[axis=y]",
+    "structurize:blocksolidsubstitution"
+   ],
+   "tags": [
+    [
+     -11,
+     1,
+     -4,
+     "bed"
+    ],
+    [
+     -9,
+     0,
+     -12,
+     "sit"
+    ],
+    [
+     -9,
+     0,
+     -4,
+     "sit"
+    ],
+    [
+     -8,
+     0,
+     -13,
+     "gather"
+    ],
+    [
+     -8,
+     0,
+     -10,
+     "gather"
+    ],
+    [
+     -8,
+     0,
+     -6,
+     "gather"
+    ],
+    [
+     -8,
+     0,
+     -3,
+     "gather"
+    ],
+    [
+     -8,
+     4,
+     -14,
+     "lamp"
+    ],
+    [
+     -8,
+     4,
      -2,
      "lamp"
     ],
     [
+     -6,
+     0,
+     -15,
+     "sit"
+    ],
+    [
+     -6,
+     0,
+     -14,
+     "gather"
+    ],
+    [
+     -6,
+     0,
+     -2,
+     "gather"
+    ],
+    [
+     -6,
+     0,
+     -1,
+     "sit"
+    ],
+    [
+     -4,
+     0,
+     -14,
+     "gather"
+    ],
+    [
+     -4,
+     0,
+     -2,
+     "gift"
+    ],
+    [
+     -2,
+     0,
+     -14,
+     "launch"
+    ],
+    [
+     -2,
+     0,
+     -8,
+     "tree"
+    ],
+    [
+     -2,
+     0,
+     -2,
+     "gather"
+    ],
+    [
+     0,
+     0,
+     -14,
+     "gather"
+    ],
+    [
+     0,
+     0,
+     -2,
+     "gather"
+    ],
+    [
+     0,
+     0,
+     0,
+     "name=Village plaza"
+    ],
+    [
+     2,
+     0,
+     -15,
+     "sit"
+    ],
+    [
+     2,
+     1,
+     -16,
+     "bed"
+    ],
+    [
+     3,
+     0,
+     -14,
+     "gather"
+    ],
+    [
+     3,
+     0,
+     -2,
+     "gather"
+    ],
+    [
+     4,
+     0,
+     -12,
+     "gather"
+    ],
+    [
+     4,
+     0,
+     -10,
+     "gather"
+    ],
+    [
+     4,
+     0,
+     -6,
+     "gather"
+    ],
+    [
+     4,
+     0,
+     -4,
+     "gather"
+    ],
+    [
+     4,
+     4,
+     -14,
+     "lamp"
+    ],
+    [
+     4,
+     4,
+     -2,
+     "lamp"
+    ],
+    [
+     5,
+     0,
+     -12,
+     "sit"
+    ],
+    [
      6,
+     1,
+     0,
+     "bed"
+    ],
+    [
+     7,
+     1,
+     -12,
+     "bed"
+    ]
+   ]
+  },
+  {
+   "path": "square/townsquare4.blueprint",
+   "kind": "square",
+   "buildingType": "colony_seasons:townsquare",
+   "folder": "square",
+   "size": [
+    21,
+    20,
+    21
+   ],
+   "anchor": [
+    12,
+    1,
+    18
+   ],
+   "anchorBlock": "colony_seasons:blockhuttownsquare[facing=north]",
+   "anchorEntity": "colony_seasons:colonybuilding",
+   "counts": {
+    "colony_seasons:blockhuttownsquare": 1,
+    "minecraft:andesite": 83,
+    "minecraft:cobblestone": 97,
+    "minecraft:cobblestone_wall": 76,
+    "minecraft:cracked_stone_bricks": 18,
+    "minecraft:dirt_path": 23,
+    "minecraft:grass_block": 22,
+    "minecraft:lantern": 8,
+    "minecraft:mossy_cobblestone": 20,
+    "minecraft:spruce_fence": 8,
+    "minecraft:spruce_planks": 12,
+    "minecraft:spruce_stairs": 18,
+    "minecraft:spruce_trapdoor": 26,
+    "minecraft:stone_bricks": 179,
+    "minecraft:stripped_spruce_log": 8
+   },
+   "ours": [
+    [
+     0,
+     0,
+     0,
+     "colony_seasons:blockhuttownsquare[facing=north]"
+    ]
+   ],
+   "subst": [
+    [
+     -11,
+     -1,
+     -17
+    ],
+    [
+     -11,
+     -1,
+     -16
+    ],
+    [
+     -11,
+     -1,
+     0
+    ],
+    [
+     -11,
+     -1,
+     1
+    ],
+    [
+     -10,
+     -1,
+     -17
+    ],
+    [
+     -10,
+     -1,
+     1
+    ],
+    [
+     6,
+     -1,
+     -17
+    ],
+    [
+     7,
+     -1,
+     -17
+    ],
+    [
+     7,
+     -1,
+     -16
+    ]
+   ],
+   "palette": [
+    "colony_seasons:blockhuttownsquare[facing=north]",
+    "minecraft:andesite",
+    "minecraft:cobblestone",
+    "minecraft:cobblestone_wall",
+    "minecraft:cracked_stone_bricks",
+    "minecraft:dirt_path",
+    "minecraft:grass_block",
+    "minecraft:lantern[hanging=false]",
+    "minecraft:mossy_cobblestone",
+    "minecraft:spruce_fence",
+    "minecraft:spruce_planks",
+    "minecraft:spruce_stairs[facing=east,half=bottom]",
+    "minecraft:spruce_stairs[facing=north,half=bottom]",
+    "minecraft:spruce_stairs[facing=south,half=bottom]",
+    "minecraft:spruce_stairs[facing=west,half=bottom]",
+    "minecraft:spruce_trapdoor[facing=east,half=bottom,open=true]",
+    "minecraft:spruce_trapdoor[facing=north,half=bottom,open=true]",
+    "minecraft:spruce_trapdoor[facing=south,half=bottom,open=true]",
+    "minecraft:spruce_trapdoor[facing=west,half=bottom,open=true]",
+    "minecraft:stone_bricks",
+    "minecraft:stripped_spruce_log[axis=y]",
+    "structurize:blocksolidsubstitution"
+   ],
+   "tags": [
+    [
+     -11,
+     0,
+     -12,
+     "stall"
+    ],
+    [
+     -11,
+     1,
+     -4,
+     "bed"
+    ],
+    [
+     -10,
+     4,
+     -10,
+     "lamp"
+    ],
+    [
+     -10,
+     4,
+     -6,
+     "lamp"
+    ],
+    [
+     -9,
+     0,
+     -12,
+     "sit"
+    ],
+    [
+     -9,
+     0,
+     -4,
+     "sit"
+    ],
+    [
+     -8,
+     0,
+     -13,
+     "gather"
+    ],
+    [
+     -8,
+     0,
+     -10,
+     "gather"
+    ],
+    [
+     -8,
+     0,
+     -6,
+     "gather"
+    ],
+    [
+     -8,
+     0,
+     -3,
+     "gather"
+    ],
+    [
+     -8,
+     4,
+     -14,
+     "lamp"
+    ],
+    [
+     -8,
+     4,
+     -2,
+     "lamp"
+    ],
+    [
+     -6,
+     0,
+     -15,
+     "sit"
+    ],
+    [
+     -6,
+     0,
+     -14,
+     "gather"
+    ],
+    [
+     -6,
+     0,
+     -2,
+     "gather"
+    ],
+    [
+     -6,
+     0,
+     -1,
+     "sit"
+    ],
+    [
+     -4,
+     0,
+     -14,
+     "gather"
+    ],
+    [
+     -4,
+     0,
+     -2,
+     "gift"
+    ],
+    [
+     -2,
+     0,
+     -14,
+     "launch"
+    ],
+    [
+     -2,
+     0,
+     -8,
+     "tree"
+    ],
+    [
+     -2,
+     0,
+     -2,
+     "gather"
+    ],
+    [
+     0,
+     0,
+     -14,
+     "gather"
+    ],
+    [
+     0,
+     0,
+     -2,
+     "gather"
+    ],
+    [
+     0,
+     0,
+     0,
+     "name=Village plaza"
+    ],
+    [
+     2,
+     0,
+     -15,
+     "sit"
+    ],
+    [
+     2,
+     1,
+     -16,
+     "bed"
+    ],
+    [
+     3,
+     0,
+     -14,
+     "gather"
+    ],
+    [
+     3,
+     0,
+     -2,
+     "gather"
+    ],
+    [
+     4,
+     0,
+     -12,
+     "gather"
+    ],
+    [
+     4,
+     0,
+     -10,
+     "gather"
+    ],
+    [
+     4,
+     0,
+     -6,
+     "gather"
+    ],
+    [
+     4,
+     0,
+     -4,
+     "gather"
+    ],
+    [
+     4,
+     4,
+     -14,
+     "lamp"
+    ],
+    [
+     4,
+     4,
+     -2,
+     "lamp"
+    ],
+    [
+     5,
+     0,
+     -12,
+     "sit"
+    ],
+    [
+     6,
+     1,
+     0,
+     "bed"
+    ],
+    [
+     6,
+     4,
+     -10,
+     "lamp"
+    ],
+    [
+     6,
+     4,
+     -6,
+     "lamp"
+    ],
+    [
+     7,
+     0,
+     -4,
+     "stall"
+    ],
+    [
+     7,
+     1,
+     -12,
+     "bed"
+    ]
+   ]
+  },
+  {
+   "path": "square/townsquare5.blueprint",
+   "kind": "square",
+   "buildingType": "colony_seasons:townsquare",
+   "folder": "square",
+   "size": [
+    21,
+    20,
+    21
+   ],
+   "anchor": [
+    12,
+    1,
+    18
+   ],
+   "anchorBlock": "colony_seasons:blockhuttownsquare[facing=north]",
+   "anchorEntity": "colony_seasons:colonybuilding",
+   "counts": {
+    "colony_seasons:blockhuttownsquare": 1,
+    "minecraft:andesite": 92,
+    "minecraft:cobblestone": 101,
+    "minecraft:cobblestone_wall": 66,
+    "minecraft:cracked_stone_bricks": 19,
+    "minecraft:dark_oak_planks": 9,
+    "minecraft:dark_oak_slab": 1,
+    "minecraft:dark_oak_stairs": 24,
+    "minecraft:grass_block": 30,
+    "minecraft:lantern": 11,
+    "minecraft:mossy_cobblestone": 24,
+    "minecraft:spruce_fence": 16,
+    "minecraft:spruce_planks": 24,
+    "minecraft:spruce_slab": 21,
+    "minecraft:spruce_stairs": 24,
+    "minecraft:spruce_trapdoor": 34,
+    "minecraft:stone_bricks": 181,
+    "minecraft:stripped_spruce_log": 19
+   },
+   "ours": [
+    [
+     0,
+     0,
+     0,
+     "colony_seasons:blockhuttownsquare[facing=north]"
+    ]
+   ],
+   "subst": [],
+   "palette": [
+    "colony_seasons:blockhuttownsquare[facing=north]",
+    "minecraft:andesite",
+    "minecraft:cobblestone",
+    "minecraft:cobblestone_wall",
+    "minecraft:cracked_stone_bricks",
+    "minecraft:dark_oak_planks",
+    "minecraft:dark_oak_slab[type=bottom]",
+    "minecraft:dark_oak_stairs[facing=east,half=bottom]",
+    "minecraft:dark_oak_stairs[facing=north,half=bottom]",
+    "minecraft:dark_oak_stairs[facing=south,half=bottom]",
+    "minecraft:dark_oak_stairs[facing=west,half=bottom]",
+    "minecraft:grass_block",
+    "minecraft:lantern[hanging=false]",
+    "minecraft:lantern[hanging=true]",
+    "minecraft:mossy_cobblestone",
+    "minecraft:spruce_fence",
+    "minecraft:spruce_planks",
+    "minecraft:spruce_slab[type=top]",
+    "minecraft:spruce_stairs[facing=east,half=bottom]",
+    "minecraft:spruce_stairs[facing=north,half=bottom]",
+    "minecraft:spruce_stairs[facing=south,half=bottom]",
+    "minecraft:spruce_stairs[facing=west,half=bottom]",
+    "minecraft:spruce_trapdoor[facing=east,half=bottom,open=true]",
+    "minecraft:spruce_trapdoor[facing=north,half=bottom,open=true]",
+    "minecraft:spruce_trapdoor[facing=south,half=bottom,open=true]",
+    "minecraft:spruce_trapdoor[facing=west,half=bottom,open=true]",
+    "minecraft:stone_bricks",
+    "minecraft:stripped_spruce_log[axis=y]"
+   ],
+   "tags": [
+    [
+     -11,
+     0,
+     -12,
+     "stall"
+    ],
+    [
+     -11,
      1,
      -17,
      "bed"
+    ],
+    [
+     -11,
+     1,
+     -4,
+     "bed"
+    ],
+    [
+     -10,
+     0,
+     -14,
+     "gather"
+    ],
+    [
+     -10,
+     1,
+     -16,
+     "bed"
+    ],
+    [
+     -10,
+     4,
+     -10,
+     "lamp"
+    ],
+    [
+     -10,
+     4,
+     -6,
+     "lamp"
+    ],
+    [
+     -9,
+     0,
+     -12,
+     "sit"
+    ],
+    [
+     -9,
+     0,
+     -4,
+     "sit"
+    ],
+    [
+     -8,
+     0,
+     -16,
+     "gather"
+    ],
+    [
+     -8,
+     0,
+     -13,
+     "gather"
+    ],
+    [
+     -8,
+     0,
+     -10,
+     "gather"
+    ],
+    [
+     -8,
+     0,
+     -8,
+     "gather"
+    ],
+    [
+     -8,
+     0,
+     -6,
+     "gather"
+    ],
+    [
+     -8,
+     0,
+     -3,
+     "gather"
+    ],
+    [
+     -8,
+     4,
+     -14,
+     "lamp"
+    ],
+    [
+     -8,
+     4,
+     -2,
+     "lamp"
+    ],
+    [
+     -6,
+     0,
+     -17,
+     "stall"
+    ],
+    [
+     -6,
+     0,
+     -15,
+     "sit"
+    ],
+    [
+     -6,
+     0,
+     -14,
+     "gather"
+    ],
+    [
+     -6,
+     0,
+     -2,
+     "gather"
+    ],
+    [
+     -6,
+     0,
+     -1,
+     "sit"
+    ],
+    [
+     -6,
+     0,
+     1,
+     "stall"
+    ],
+    [
+     -4,
+     0,
+     -16,
+     "gather"
+    ],
+    [
+     -4,
+     0,
+     -14,
+     "gather"
+    ],
+    [
+     -4,
+     0,
+     -2,
+     "gift"
+    ],
+    [
+     -4,
+     0,
+     0,
+     "gather"
+    ],
+    [
+     -2,
+     0,
+     -14,
+     "launch"
+    ],
+    [
+     -2,
+     0,
+     -8,
+     "tree"
+    ],
+    [
+     -2,
+     0,
+     -2,
+     "gather"
+    ],
+    [
+     0,
+     0,
+     -14,
+     "gather"
+    ],
+    [
+     0,
+     0,
+     -2,
+     "gather"
+    ],
+    [
+     0,
+     0,
+     0,
+     "name=Village plaza"
+    ],
+    [
+     2,
+     0,
+     -15,
+     "sit"
+    ],
+    [
+     2,
+     0,
+     -1,
+     "sit"
+    ],
+    [
+     2,
+     1,
+     -16,
+     "bed"
+    ],
+    [
+     3,
+     0,
+     -14,
+     "gather"
+    ],
+    [
+     3,
+     0,
+     -2,
+     "gather"
+    ],
+    [
+     3,
+     0,
+     -1,
+     "sit"
+    ],
+    [
+     4,
+     0,
+     -12,
+     "gather"
+    ],
+    [
+     4,
+     0,
+     -10,
+     "gather"
+    ],
+    [
+     4,
+     0,
+     -8,
+     "gather"
+    ],
+    [
+     4,
+     0,
+     -6,
+     "gather"
+    ],
+    [
+     4,
+     0,
+     -4,
+     "gather"
+    ],
+    [
+     4,
+     0,
+     -1,
+     "sit"
+    ],
+    [
+     4,
+     0,
+     0,
+     "gather"
+    ],
+    [
+     4,
+     4,
+     -14,
+     "lamp"
+    ],
+    [
+     4,
+     4,
+     -2,
+     "lamp"
+    ],
+    [
+     5,
+     0,
+     -12,
+     "sit"
+    ],
+    [
+     5,
+     0,
+     -5,
+     "sit"
+    ],
+    [
+     5,
+     0,
+     -4,
+     "sit"
+    ],
+    [
+     5,
+     0,
+     -3,
+     "sit"
+    ],
+    [
+     6,
+     0,
+     -2,
+     "gather"
     ],
     [
      6,
      1,
      -16,
      "bed"
+    ],
+    [
+     6,
+     1,
+     0,
+     "bed"
+    ],
+    [
+     6,
+     4,
+     -10,
+     "lamp"
+    ],
+    [
+     6,
+     4,
+     -6,
+     "lamp"
     ],
     [
      7,
@@ -3307,7 +5468,7 @@
     [
      7,
      1,
-     -16,
+     -12,
      "bed"
     ]
    ]
@@ -5096,6 +7257,134 @@
      1,
      -2,
      "firework_crate"
+    ]
+   ]
+  },
+  {
+   "path": "pieces/bed_spring.blueprint",
+   "kind": "piece",
+   "size": [
+    1,
+    2,
+    1
+   ],
+   "anchor": [
+    0,
+    0,
+    0
+   ],
+   "anchorBlock": "minecraft:air",
+   "anchorEntity": "colony_seasons:festival_marker",
+   "counts": {
+    "minecraft:flowering_azalea_leaves": 1
+   },
+   "ours": [],
+   "subst": [],
+   "palette": [
+    "minecraft:flowering_azalea_leaves[persistent=true]"
+   ],
+   "tags": [
+    [
+     0,
+     0,
+     0,
+     "invisible"
+    ]
+   ]
+  },
+  {
+   "path": "pieces/bed_summer.blueprint",
+   "kind": "piece",
+   "size": [
+    1,
+    2,
+    1
+   ],
+   "anchor": [
+    0,
+    0,
+    0
+   ],
+   "anchorBlock": "minecraft:air",
+   "anchorEntity": "colony_seasons:festival_marker",
+   "counts": {
+    "minecraft:azalea_leaves": 1
+   },
+   "ours": [],
+   "subst": [],
+   "palette": [
+    "minecraft:azalea_leaves[persistent=true]"
+   ],
+   "tags": [
+    [
+     0,
+     0,
+     0,
+     "invisible"
+    ]
+   ]
+  },
+  {
+   "path": "pieces/bed_autumn.blueprint",
+   "kind": "piece",
+   "size": [
+    1,
+    2,
+    1
+   ],
+   "anchor": [
+    0,
+    0,
+    0
+   ],
+   "anchorBlock": "minecraft:air",
+   "anchorEntity": "colony_seasons:festival_marker",
+   "counts": {
+    "minecraft:pumpkin": 1
+   },
+   "ours": [],
+   "subst": [],
+   "palette": [
+    "minecraft:pumpkin"
+   ],
+   "tags": [
+    [
+     0,
+     0,
+     0,
+     "invisible"
+    ]
+   ]
+  },
+  {
+   "path": "pieces/bed_winter.blueprint",
+   "kind": "piece",
+   "size": [
+    1,
+    2,
+    1
+   ],
+   "anchor": [
+    0,
+    0,
+    0
+   ],
+   "anchorBlock": "minecraft:air",
+   "anchorEntity": "colony_seasons:festival_marker",
+   "counts": {
+    "minecraft:spruce_leaves": 1
+   },
+   "ours": [],
+   "subst": [],
+   "palette": [
+    "minecraft:spruce_leaves[persistent=true]"
+   ],
+   "tags": [
+    [
+     0,
+     0,
+     0,
+     "invisible"
     ]
    ]
   }

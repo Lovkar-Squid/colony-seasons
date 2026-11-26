@@ -221,98 +221,116 @@ public class CsPaste {
     // ------------------------------------------------------------------------------------------- the square's sets (0.2.0, Q3)
 
     /**
-     * The Winter Festival's set on the Town Square (Q3): for each of the eight rotations a square can be placed with,
+     * The Winter Festival's set on the Town Square (Q3, Q6): for each of the eight rotations a square can be placed with,
      * every centrepiece file of the set, read as the Decorator reads it for the square ({@code PieceLoader.forSquare}:
      * the square's rotation with its mirror stripped), equals the marker's version of the same facing cell for cell
      * (position and state), and both equal an independent turn of the piece as drawn (vanilla {@code BlockPos.rotate}
-     * and {@code BlockState.rotate}). The square's own blueprint, turned the same way, has its {@code tree} tag, and the
-     * piece of the level this build gives the square stands in its footprint on cells it leaves free (air, or a
-     * substitution cell); the larger pieces are noted only (their square levels come with Q6).
+     * and {@code BlockState.rotate}). Then, for every square file (the five levels of Q6), turned the same way: it has
+     * its {@code tree} tag, and every centrepiece the set puts on a square of that level or below (the lower of the
+     * square's and the Workshop's level, {@code SquareSets.pieceLevel}) stands in its footprint on cells it leaves free
+     * (air, or a substitution cell).
      */
     private void judgeSquareSets(final ServerLevel level, final String pack) {
-        String squarePath = null;
+        final List<String> squarePaths = new ArrayList<>();
         for (final JsonElement e : manifest.getAsJsonArray("files")) {
             final String p = e.getAsJsonObject().get("path").getAsString();
             if (p.startsWith("square/")) {
-                squarePath = squarePath == null || p.compareTo(squarePath) < 0 ? p : squarePath;
+                squarePaths.add(p);
             }
         }
-        check("the pack has the Town Square's blueprint", squarePath != null, String.valueOf(squarePath));
-        if (squarePath == null) {
+        java.util.Collections.sort(squarePaths);
+        check("the pack has the Town Square's five blueprints", squarePaths.size() == BuildingTownSquare.MAX_LEVEL
+                && squarePaths.size() == BuildingTownSquare.BUILT_LEVELS, String.valueOf(squarePaths));
+        if (squarePaths.isEmpty()) {
             return;
         }
         final List<String> files = new ArrayList<>(new java.util.LinkedHashSet<>(SquareSets.WINTER.centrepieces()));
-        final String builtPiece = SquareSets.WINTER.centrepiece(SquareSets.pieceLevel(BuildingTownSquare.BUILT_LEVELS, 5));
         int compared = 0;
+        int freeChecked = 0;
+        int wantFree = 0;
         final List<String> bad = new ArrayList<>();
-        for (final RotationMirror rm : RotationMirror.values()) {
-            final RotationMirror turn = PieceLoader.forSquare(rm);
-            final Direction facing = PieceLoader.facing(turn);
-            if (turn.isMirrored() || turn.rotation() != rm.rotation() || PieceLoader.rotation(facing) != turn) {
-                bad.add(rm + " turns as " + turn + ", facing " + facing);
-                continue;
+        for (int idx = 0; idx < squarePaths.size(); idx++) {
+            final String squarePath = squarePaths.get(idx);
+            final int squareLevel = idx + 1;
+            check("the square files are townsquare1 to 5 in order", squarePath.endsWith("townsquare" + squareLevel + ".blueprint"), squarePath);
+            final Set<String> mustFit = new java.util.LinkedHashSet<>();
+            for (int k = 1; k <= squareLevel; k++) {
+                mustFit.add(SquareSets.WINTER.centrepiece(SquareSets.pieceLevel(squareLevel, k)));
             }
-            final Blueprint square = StructurePacks.getBlueprint(pack, squarePath, level.registryAccess());
-            if (square == null) {
-                bad.add(rm + ": no copy of " + squarePath);
-                continue;
-            }
-            square.setRotationMirror(rm, level);
-            BlockPos tree = null;
-            for (final Map.Entry<BlockPos, List<String>> t : BlueprintTagUtils.getBlueprintTags(square).entrySet()) {
-                if (t.getValue().contains(BuildingTownSquare.TAG_TREE) && (tree == null || t.getKey().compareTo(tree) < 0)) {
-                    tree = t.getKey();
-                }
-            }
-            if (tree == null) {
-                bad.add(rm + ": the square has no tree tag");
-                continue;
-            }
-            final BlockPos po = square.getPrimaryBlockOffset();
-            final Map<BlockPos, BlockInfo> squareCells = square.getBlockInfoAsMap();
-            for (final String path : files) {
-                final Blueprint a = StructurePacks.getBlueprint(pack, path, level.registryAccess());
-                final Blueprint b = StructurePacks.getBlueprint(pack, path, level.registryAccess());
-                final Blueprint c = StructurePacks.getBlueprint(pack, path, level.registryAccess());
-                if (a == null || b == null || c == null) {
-                    bad.add(path + ": no copy");
+            wantFree += mustFit.size() * 8;
+            for (final RotationMirror rm : RotationMirror.values()) {
+                final RotationMirror turn = PieceLoader.forSquare(rm);
+                final Direction facing = PieceLoader.facing(turn);
+                if (turn.isMirrored() || turn.rotation() != rm.rotation() || PieceLoader.rotation(facing) != turn) {
+                    bad.add(rm + " turns as " + turn + ", facing " + facing);
                     continue;
                 }
-                final Map<BlockPos, BlockState> onSquare = cells(PieceLoader.readNow(level, a, pack, path, turn));
-                final Map<BlockPos, BlockState> atMarker = cells(PieceLoader.readNow(level, b, pack, path, PieceLoader.rotation(facing)));
-                final Map<BlockPos, BlockState> independent = turnedByHand(c, facing, level);
-                compared++;
-                if (!onSquare.equals(atMarker) || !onSquare.equals(independent)) {
-                    bad.add(rm + " " + path + ": " + onSquare.size() + " cells on the square, " + atMarker.size() + " at the marker, "
-                            + independent.size() + " turned by hand, first difference " + firstDifference(onSquare, independent));
+                final Blueprint square = StructurePacks.getBlueprint(pack, squarePath, level.registryAccess());
+                if (square == null) {
+                    bad.add(rm + ": no copy of " + squarePath);
                     continue;
                 }
-                // on the square's own cells: the reserved volume round the tree tag, inside the footprint
-                final List<String> taken = new ArrayList<>();
-                for (final Map.Entry<BlockPos, BlockState> cell : onSquare.entrySet()) {
-                    final BlockPos local = po.offset(tree).offset(cell.getKey());
-                    final boolean inside = local.getX() >= 0 && local.getZ() >= 0 && local.getX() < square.getSizeX() && local.getZ() < square.getSizeZ();
-                    final BlockInfo there = squareCells.get(local);
-                    final boolean free = there == null || there.getState() == null || there.getState().isAir() || isSubstitution(there.getState());
-                    if (!inside || local.getY() >= 0 && local.getY() < square.getSizeY() && !free) {
-                        taken.add(cell.getKey().toShortString() + (inside ? " " + BuiltInRegistries.BLOCK.getKey(there.getState().getBlock()) : " outside"));
+                square.setRotationMirror(rm, level);
+                BlockPos tree = null;
+                for (final Map.Entry<BlockPos, List<String>> t : BlueprintTagUtils.getBlueprintTags(square).entrySet()) {
+                    if (t.getValue().contains(BuildingTownSquare.TAG_TREE) && (tree == null || t.getKey().compareTo(tree) < 0)) {
+                        tree = t.getKey();
                     }
                 }
-                if (path.equals(builtPiece)) {
+                if (tree == null) {
+                    bad.add(rm + " " + squarePath + ": the square has no tree tag");
+                    continue;
+                }
+                final BlockPos po = square.getPrimaryBlockOffset();
+                final Map<BlockPos, BlockInfo> squareCells = square.getBlockInfoAsMap();
+                for (final String path : files) {
+                    final Blueprint a = StructurePacks.getBlueprint(pack, path, level.registryAccess());
+                    final Blueprint b = StructurePacks.getBlueprint(pack, path, level.registryAccess());
+                    final Blueprint c = StructurePacks.getBlueprint(pack, path, level.registryAccess());
+                    if (a == null || b == null || c == null) {
+                        bad.add(path + ": no copy");
+                        continue;
+                    }
+                    final Map<BlockPos, BlockState> onSquare = cells(PieceLoader.readNow(level, a, pack, path, turn));
+                    if (idx == 0) {
+                        final Map<BlockPos, BlockState> atMarker = cells(PieceLoader.readNow(level, b, pack, path, PieceLoader.rotation(facing)));
+                        final Map<BlockPos, BlockState> independent = turnedByHand(c, facing, level);
+                        compared++;
+                        if (!onSquare.equals(atMarker) || !onSquare.equals(independent)) {
+                            bad.add(rm + " " + path + ": " + onSquare.size() + " cells on the square, " + atMarker.size() + " at the marker, "
+                                    + independent.size() + " turned by hand, first difference " + firstDifference(onSquare, independent));
+                            continue;
+                        }
+                    }
+                    if (!mustFit.contains(path)) {
+                        continue;
+                    }
+                    // on the square's own cells: the reserved volume round the tree tag, inside the footprint
+                    final List<String> taken = new ArrayList<>();
+                    for (final Map.Entry<BlockPos, BlockState> cell : onSquare.entrySet()) {
+                        final BlockPos local = po.offset(tree).offset(cell.getKey());
+                        final boolean inside = local.getX() >= 0 && local.getZ() >= 0 && local.getX() < square.getSizeX() && local.getZ() < square.getSizeZ()
+                                && local.getY() >= 0 && local.getY() < square.getSizeY();
+                        final BlockInfo there = squareCells.get(local);
+                        final boolean free = there == null || there.getState() == null || there.getState().isAir() || isSubstitution(there.getState());
+                        if (!inside || !free) {
+                            taken.add(cell.getKey().toShortString() + (inside ? " " + BuiltInRegistries.BLOCK.getKey(there.getState().getBlock()) : " outside"));
+                        }
+                    }
+                    freeChecked++;
                     if (!taken.isEmpty()) {
-                        bad.add(rm + " " + path + ": " + taken.size() + " cells not free on the square, first " + taken.get(0));
+                        bad.add(rm + " " + squarePath + " " + path + ": " + taken.size() + " cells not free on the square, first " + taken.get(0));
                     }
-                } else if (!taken.isEmpty() && rm == RotationMirror.NONE) {
-                    LOGGER.info("[cspaste] NOTE {} on the level-1 square: {} cells not free, first {} (its square level comes with Q6)",
-                            path, taken.size(), taken.get(0));
                 }
+                square.setRotationMirror(RotationMirror.NONE, level);
             }
-            square.setRotationMirror(RotationMirror.NONE, level);
         }
-        check("Q3: the Winter Festival's set on the Town Square equals the marker's version cell for cell in 4 rotations and 4 mirrored"
-                        + " (the mirror stripped), and an independent turn; the level-" + BuildingTownSquare.BUILT_LEVELS + " piece "
-                        + builtPiece + " stands on the square's free cells", bad.isEmpty() && compared == 8 * files.size(),
-                compared + " of " + 8 * files.size() + " compared" + (bad.isEmpty() ? "" : ", not: " + bad.subList(0, Math.min(3, bad.size()))));
+        check("Q3, Q6: the Winter Festival's set on the Town Square equals the marker's version cell for cell in 4 rotations and 4 mirrored"
+                        + " (the mirror stripped), and an independent turn; on each of the five square levels, in all eight orientations, every"
+                        + " centrepiece up to that level stands on the square's free cells inside the tree's column",
+                bad.isEmpty() && compared == 8 * files.size() && freeChecked == wantFree,
+                compared + " of " + 8 * files.size() + " compared, " + freeChecked + " of " + wantFree + " placements free"
+                        + (bad.isEmpty() ? "" : ", not: " + bad.subList(0, Math.min(3, bad.size()))));
     }
 
     /** A piece's cells as position (relative to the anchor) to state. */
