@@ -72,7 +72,12 @@ import java.util.UUID;
  *   <li>each block drops its own item through its loot table (the large star only from its lower half);</li>
  *   <li>{@code lit} gives exactly the block's light level and none when off, in the state and in the world's block
  *       light; an empty hand switches it, a full hand does not;</li>
- *   <li>the gift pile's and the marker's block entity fields survive an NBT round trip.</li>
+ *   <li>the gift pile's and the marker's block entity fields survive an NBT round trip;</li>
+ *   <li>0.2.0, Q11: the street pieces placed by hand: the two snowmen facing each of four players, with collision and not
+ *       solid; the lantern post as two halves facing the player, lit, one item for two halves, the lantern's light in its
+ *       upper half and the bulbs' in its lower one, one half switching both, room needed; the block-only street garland
+ *       and street lights (no item, no collision, nothing dropped, the lights pop off with their fence); the Decorator's
+ *       wand (one per stack, its recipe).</li>
  * </ul>
  * Prints "[csblocks] CHECK ..." lines and "[csblocks] RESULT csblocks: PASS|FAIL", then halts. The words "error"
  * and "exception" stay out of the details: the rig takes such a line for a failure.
@@ -127,6 +132,7 @@ public class CsBlocks {
                 floorBlocks();
                 otherBlocks();
                 largeStar();
+                streetPieces();
                 drops();
                 blockEntities();
                 lightInState();
@@ -159,7 +165,7 @@ public class CsBlocks {
 
     // ------------------------------------------------------------------ registration, tab, recipes
     private void registration(final MinecraftServer server) {
-        checkEq("eleven decoration blocks", SeasonsBlocks.ALL.size(), 11);
+        checkEq("fourteen decoration blocks with an item (Q11: the two snowmen and the lantern post)", SeasonsBlocks.ALL.size(), 14);
         for (final DeferredBlock<? extends Block> block : SeasonsBlocks.ALL) {
             final ResourceLocation rl = block.getId();
             final Item item = BuiltInRegistries.ITEM.getOptional(rl).orElse(null);
@@ -179,18 +185,26 @@ public class CsBlocks {
                     missing.add(item.getId().getPath());
                 }
             }
-            // the decorations, and since S7 the gift (festival/Gifts puts it into this tab); nothing else
+            // the decorations, since S7 the gift (festival/Gifts puts it into this tab) and since Q11 the wand; nothing else
             final boolean gift = tab.getDisplayItems().stream().anyMatch(s -> s.is(me.lovkar.seasons.festival.Gifts.GIFT.get()));
-            check("creative tab lists every decoration and the gift", missing.isEmpty() && gift
-                            && tab.getDisplayItems().size() == SeasonsBlocks.ITEMS.size() + 1,
-                    tab.getDisplayItems().size() + " items" + (missing.isEmpty() ? "" : ", missing " + missing) + (gift ? "" : ", no gift"));
+            final boolean wand = tab.getDisplayItems().stream().anyMatch(s -> s.is(SeasonsBlocks.DECORATORS_WAND.get()));
+            check("creative tab lists every decoration, the gift and the wand", missing.isEmpty() && gift && wand
+                            && tab.getDisplayItems().size() == SeasonsBlocks.ITEMS.size() + 2,
+                    tab.getDisplayItems().size() + " items" + (missing.isEmpty() ? "" : ", missing " + missing) + (gift ? "" : ", no gift")
+                            + (wand ? "" : ", no wand"));
+            check("the block-only street pieces are in no list and have no item", BuiltInRegistries.ITEM.getOptional(id("street_garland")).isEmpty()
+                    && BuiltInRegistries.ITEM.getOptional(id("street_lights")).isEmpty()
+                    && SeasonsBlocks.ALL.stream().noneMatch(d -> d == SeasonsBlocks.STREET_GARLAND || d == SeasonsBlocks.STREET_LIGHTS), "");
         }
     }
 
     /** Every state of every block matches a variant of its blockstate file, and every model it names is in the jar. */
     private void blockstateFiles() throws java.io.IOException {
         final var file = ModList.get().getModFileById(NS).getFile();
-        for (final DeferredBlock<? extends Block> block : SeasonsBlocks.ALL) {
+        final List<DeferredBlock<? extends Block>> all = new ArrayList<>(SeasonsBlocks.ALL);
+        all.add(SeasonsBlocks.STREET_GARLAND);
+        all.add(SeasonsBlocks.STREET_LIGHTS);
+        for (final DeferredBlock<? extends Block> block : all) {
             final Path path = file.findResource("assets", NS, "blockstates", name(block) + ".json");
             if (!Files.exists(path)) {
                 check("blockstate file " + name(block), false, "not in the jar");
@@ -455,6 +469,84 @@ public class CsBlocks {
         check("large_star needs room for its top", !level.getBlockState(at).is(star), said(r) + " -> " + level.getBlockState(at));
         level.setBlock(at, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
         level.setBlock(at.above(), Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+    }
+
+    // ------------------------------------------------------------------ the street pieces (Q11)
+    private void streetPieces() {
+        // the two snowmen: facing the player who put them down, with collision, not solid
+        int k = 0;
+        for (final DeferredBlock<? extends Block> block : List.of(SeasonsBlocks.SNOWMAN, SeasonsBlocks.SNOWMAN_B)) {
+            int f = 0;
+            for (final Direction look : Direction.Plane.HORIZONTAL) {
+                final BlockPos at = spot(36 + 4 * k, 20 + 3 * f);
+                final InteractionResult r = use(block.get().asItem(), at.below(), Direction.UP, look.toYRot(), 60);
+                final BlockState placed = level.getBlockState(at);
+                final String where = name(block) + " placed by a player looking " + look;
+                check("placed by hand: " + where, r.consumesAction() && placed.is(block.get())
+                        && placed.getValue(HorizontalDirectionalBlock.FACING) == look.getOpposite(), r + " -> " + placed);
+                check("collision, not solid: " + where, !placed.getCollisionShape(level, at).isEmpty() && !placed.isSolid(), shape(placed, at));
+                level.setBlock(at, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+                f++;
+            }
+            k++;
+        }
+        // the lantern post: two halves facing the player, lit; one half switches both; one item for two halves; room needed
+        final Block post = SeasonsBlocks.LANTERN_POST.get();
+        final BlockPos at = spot(36, 34);
+        InteractionResult r = use(post.asItem(), at.below(), Direction.UP, Direction.EAST.toYRot(), 60);
+        final BlockState lower = level.getBlockState(at);
+        final BlockState upper = level.getBlockState(at.above());
+        check("placed by hand: lantern_post, two halves facing the player, lit", r.consumesAction() && lower.is(post) && upper.is(post)
+                && lower.getValue(LargeStarBlock.HALF) == DoubleBlockHalf.LOWER && upper.getValue(LargeStarBlock.HALF) == DoubleBlockHalf.UPPER
+                && lower.getValue(HorizontalDirectionalBlock.FACING) == Direction.WEST && upper.getValue(HorizontalDirectionalBlock.FACING) == Direction.WEST
+                && lower.getValue(Lights.LIT) && upper.getValue(Lights.LIT), lower + " / " + upper);
+        check("lantern_post: collision in both halves, not solid", !lower.getCollisionShape(level, at).isEmpty()
+                && !upper.getCollisionShape(level, at.above()).isEmpty() && !lower.isSolid() && !upper.isSolid(), shape(lower, at) + " / " + shape(upper, at.above()));
+        checkEq("lantern_post: the lantern's light in the upper half, the bulbs' in the lower", List.of(upper.getLightEmission(), lower.getLightEmission()),
+                List.of(Lights.LANTERN_POST, Lights.LANTERN_POST_BULBS));
+        lightSpots.put(at.above(), Lights.LANTERN_POST);
+        final InteractionResult sw = level.getBlockState(at).useWithoutItem(level, player,
+                new BlockHitResult(Vec3.atCenterOf(at), Direction.NORTH, at, false));
+        check("lantern_post: one half switches both", sw.consumesAction() && !level.getBlockState(at).getValue(Lights.LIT)
+                && !level.getBlockState(at.above()).getValue(Lights.LIT) && level.getBlockState(at.above()).getLightEmission() == 0, "");
+        level.getBlockState(at.above()).useWithoutItem(level, player, new BlockHitResult(Vec3.atCenterOf(at.above()), Direction.NORTH, at.above(), false));
+        check("lantern_post: and back on from the upper half", level.getBlockState(at).getValue(Lights.LIT) && level.getBlockState(at.above()).getValue(Lights.LIT), "");
+        final BlockPos second = spot(40, 34);
+        use(post.asItem(), second.below(), Direction.UP, 0, 60);
+        level.destroyBlock(second.above(), true);
+        check("lantern_post: no lower half without the upper", level.getBlockState(second).isAir(), String.valueOf(level.getBlockState(second)));
+        checkEq("lantern_post: one item for two halves", dropsNear(second, post.asItem()), 1);
+        clearDrops(second);
+        level.setBlock(second.above(), Blocks.STONE.defaultBlockState(), Block.UPDATE_ALL);
+        r = use(post.asItem(), second.below(), Direction.UP, 0, 60);
+        check("lantern_post needs room for its top", !level.getBlockState(second).is(post), said(r) + " -> " + level.getBlockState(second));
+        level.setBlock(second, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+        level.setBlock(second.above(), Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+        final List<ItemStack> top = Block.getDrops(level.getBlockState(at.above()), level, at.above(), null);
+        check("lantern_post upper half drops nothing", top.isEmpty(), top.toString());
+        // the block-only pieces: no collision, nothing dropped; the lights stand only on a fence or a wall and pop off with it
+        final BlockPos fence = spot(44, 34);
+        level.setBlock(fence, Blocks.OAK_FENCE.defaultBlockState(), Block.UPDATE_ALL);
+        final BlockState lights = SeasonsBlocks.STREET_LIGHTS.get().defaultBlockState().setValue(Lights.LIT, true);
+        check("street_lights stand on a fence, not on the ground", lights.canSurvive(level, fence.above())
+                && !lights.canSurvive(level, spot(46, 34)), "");
+        level.setBlock(fence.above(), lights, Block.UPDATE_ALL);
+        check("street_lights: no collision, break at once, light " + Lights.STREET_LIGHTS + " when lit",
+                level.getBlockState(fence.above()).getCollisionShape(level, fence.above()).isEmpty()
+                        && level.getBlockState(fence.above()).getDestroySpeed(level, fence.above()) == 0.0F
+                        && level.getBlockState(fence.above()).getLightEmission() == Lights.STREET_LIGHTS, String.valueOf(level.getBlockState(fence.above())));
+        level.setBlock(fence, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+        check("street_lights pop off with their fence and drop nothing", level.getBlockState(fence.above()).isAir()
+                && level.getEntitiesOfClass(ItemEntity.class, new AABB(fence).inflate(2)).isEmpty(), String.valueOf(level.getBlockState(fence.above())));
+        final BlockState garland = SeasonsBlocks.STREET_GARLAND.get().defaultBlockState();
+        check("street_garland: no collision, breaks at once, drops nothing", garland.getCollisionShape(level, fence).isEmpty()
+                && garland.getDestroySpeed(level, fence) == 0.0F && Block.getDrops(garland, level, fence, null).isEmpty()
+                && Block.getDrops(lights, level, fence, null).isEmpty(), "");
+        // the wand: one per stack, crafted
+        final Item wand = SeasonsBlocks.DECORATORS_WAND.get();
+        checkEq("the wand stacks to one", new ItemStack(wand).getMaxStackSize(), 1);
+        final var recipe = level.getServer().getRecipeManager().byKey(id("decorators_wand"));
+        check("recipe colony_seasons:decorators_wand", recipe.isPresent() && recipe.get().value().getResultItem(level.registryAccess()).is(wand), "");
     }
 
     // ------------------------------------------------------------------ drops through the loot tables

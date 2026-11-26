@@ -29,6 +29,7 @@
 	buildingsPerDayPerLevel = 3
 	maxPerSide = 9
 	storeroomDressing = false
+	streetLights = true
 
 [events]
 	gatherFromTick = 7000

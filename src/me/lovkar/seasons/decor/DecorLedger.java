@@ -1154,6 +1154,13 @@ public final class DecorLedger extends SavedData {
         return newerVersionWarnings;
     }
 
+    /** Loads since the server started that skipped entries or marks of an unknown kind (each warned about once; the probe counts them). */
+    private static int unknownWarnings;
+
+    public static int unknownWarnings() {
+        return unknownWarnings;
+    }
+
     /**
      * Reads a ledger. The file's {@code version} is read first (a file without one is version 1; versions 1, 2 and 3
      * share one layout, so all read the same way, a version 3 file with its square marks): a newer one than
@@ -1211,6 +1218,9 @@ public final class DecorLedger extends SavedData {
                 }
                 dropped += ledger.loadGroup(id, record, group, blocks, oldFile);
             }
+        }
+        if (unknown > 0) {
+            unknownWarnings++;
         }
         if (version > VERSION) {
             newerVersionWarnings++;

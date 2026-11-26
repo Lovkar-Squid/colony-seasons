@@ -106,7 +106,8 @@ public final class StreetLights {
     /**
      * The lights as a place to work at now, or {@code null}: only with the switch on, the hut's lights kind on and a
      * decoration window open, while the group is not finished for this window and was not left for today, and when the
-     * scan (one more bounded step now) has found a cell that is open.
+     * scan (one more bounded step now) has found a cell that is open. A whole pass that finds nothing open marks the
+     * group finished (it is tended once a game day from then on).
      */
     public static DecorWork.Target next(final ServerLevel level, final IColony colony, final DecorLedger ledger, final DecorKinds kinds, final long day) {
         if (!SeasonsConfig.streetLights() || !kinds.lights() || !DecorPhase.windowOpen(CalendarManager.current())) {
@@ -128,6 +129,10 @@ public final class StreetLights {
         if (open.isEmpty()) {
             if (scan.complete) {
                 scan.idleDay = day;               // a whole pass found nothing open: not looked for again today
+                if (group != null && !group.entries().isEmpty()) {
+                    ledger.setDecorated(id, owner, day);   // every light it found is up: finished for this window, tended from now on
+                    ledger.flush(level);
+                }
             }
             return null;
         }
