@@ -1,0 +1,20 @@
+modLoader="javafml"
+loaderVersion="[4,)"
+license="GPL-3.0-or-later"
+[[mods]]
+modId="colonyseasonssquarelife"
+version="1.0.0"
+displayName="Colony Seasons rig Town Square lifecycle check"
+description="Headless test of the Town Square's lifecycle (0.2.0, chunk Q2): the ledger's files of every version and a 0.1.0 reader, the marker to square switch, work orders, removal, a second square, unreadable tags, a deleted colony, a building type that is no longer registered, the Builder's clearing over substitution cells, and a restart in the middle of a switch."
+[[dependencies.colonyseasonssquarelife]]
+modId="colony_seasons"
+type="required"
+versionRange="*"
+ordering="AFTER"
+side="SERVER"
+[[dependencies.colonyseasonssquarelife]]
+modId="minecolonies"
+type="required"
+versionRange="*"
+ordering="AFTER"
+side="SERVER"
