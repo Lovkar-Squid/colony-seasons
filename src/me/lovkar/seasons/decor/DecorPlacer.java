@@ -236,8 +236,9 @@ public final class DecorPlacer {
     }
 
     /**
-     * The entities ({@link #blocks}) whose bounding box reaches into the cells of {@code slots}, in one query over
-     * their box. It reads loaded entity sections only and never loads a chunk.
+     * The entities ({@link #blocks}) whose bounding box reaches into the cells of {@code slots}, or up to
+     * {@link #SHAPE_REACH} above them (a collision shape taller than its cell, a snowman's head or a fence, reaches
+     * there), in one query over their box. It reads loaded entity sections only and never loads a chunk.
      */
     public static List<Entity> blockers(final ServerLevel level, final List<Slot> slots) {
         if (slots.isEmpty()) {
@@ -247,12 +248,16 @@ public final class DecorPlacer {
         for (final Slot slot : slots) {
             box = box == null ? new AABB(slot.pos()) : box.minmax(new AABB(slot.pos()));
         }
-        return level.getEntities((Entity) null, box, DecorPlacer::blocks);
+        return level.getEntities((Entity) null, box.expandTowards(0, SHAPE_REACH, 0), DecorPlacer::blocks);
     }
+
+    /** How far a collision shape may reach above its cell (vanilla's tallest, a fence or a wall, 24 px; Q11's snowman too). */
+    private static final double SHAPE_REACH = 0.5;
 
     /** True when an entity's box strictly overlaps the block's collision shape set at {@code pos} (a body standing on top of it does not). */
     private static boolean inEntity(final ServerLevel level, final BlockPos pos, final VoxelShape shape, final List<Entity> near) {
-        final List<Entity> who = near != null ? near : level.getEntities((Entity) null, new AABB(pos), DecorPlacer::blocks);
+        final List<Entity> who = near != null ? near
+                : level.getEntities((Entity) null, new AABB(pos).expandTowards(0, SHAPE_REACH, 0), DecorPlacer::blocks);
         if (who.isEmpty()) {
             return false;
         }

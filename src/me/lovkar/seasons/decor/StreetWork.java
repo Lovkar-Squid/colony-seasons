@@ -10,6 +10,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.block.LeavesBlock;
+import net.minecraft.world.phys.AABB;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -246,9 +247,14 @@ public final class StreetWork {
                 todo.add(slot);
             }
         }
+        // a body in a cell keeps that cell open, a thin garland's cell too (never into a cell a body stands in); a post
+        // waits whole
+        final List<Entity> near = DecorPlacer.blockers(level, todo);
+        if (!near.isEmpty() && todo.removeIf(slot -> inBody(near, slot.pos())) && mark.type() == StreetMarks.Type.POST) {
+            return fruit(ledger, colony, key, day, tending, 0, cells.size(), false);
+        }
         if (mark.type() == StreetMarks.Type.POST && todo.size() == 2) {
             // both halves pass the cell rule before either goes up (nobody stands in the upper half's cell, ...)
-            final List<Entity> near = DecorPlacer.blockers(level, todo);
             for (final DecorPlacer.Slot slot : todo) {
                 if (DecorPlacer.refusal(level, ledger, colony, slot.pos(), DecorPlacer.normalise(slot.state(), slot.pos()), true, near) != null) {
                     return fruit(ledger, colony, key, day, tending, 0, cells.size(), false);
@@ -294,6 +300,17 @@ public final class StreetWork {
             }
         }
         return new One(placed, open, complete);
+    }
+
+    /** True when one of {@code bodies} strictly overlaps the cell (one standing on top of it does not). */
+    private static boolean inBody(final List<Entity> bodies, final BlockPos cell) {
+        final AABB box = new AABB(cell);
+        for (final Entity body : bodies) {
+            if (body.getBoundingBox().intersects(box)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static int listed(final @Nullable DecorLedger.GroupView group, final List<BlockPos> cells) {

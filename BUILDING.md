@@ -224,7 +224,8 @@ bash tools/probe.sh cswand            # marking all five types (a body in a cell
                                       # file (save, load, save the same; an unknown mark type warns once; a file without marks); a dirt
                                       # path under a snowman and a post stays one after a neighbour update (a control turns to dirt); a
                                       # sweep that removes nothing; no street lights with the switch off; tending (a broken snowman, a
-                                      # broken post half taking its garland down, then all back); a season change swapping only the
+                                      # broken post half taking its garland down, then all back, a body in one garland cell keeping
+                                      # that thin cell open); a season change swapping only the
                                       # planter; a mark removed mid-window by a shift-click (a hand-changed cell stays, the garland goes
                                       # with its post); decor list and decor remove (the marks stay); the Decorator's own AI putting
                                       # every mark up and taking it down after the window on one slot; the sweep with no Decorator

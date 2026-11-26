@@ -1025,6 +1025,18 @@ public class CsWand {
             note("tending at the garland: {}", o.status());
             checkEq("tending: post 1 back", up(mark(p1)), "");
             check("tending: the garland came down (its post had gone before the visit)", down(garlandMark()), "");
+            // a body in one garland cell (a passer-by's head under the garland): that thin cell waits too
+            final List<BlockPos> span = StreetPieces.cells(garlandMark());
+            final BlockPos head = span.get(1);
+            final ArmorStand passer = new ArmorStand(level, head.getX() + 0.5, head.getY(), head.getZ() + 0.5);
+            passer.setNoGravity(true);
+            level.addFreshEntity(passer);
+            streetVisits(1);
+            final DecorLedger.GroupView partial = ledger.group(colonyId, street(garlandMark().pos()));
+            check("a body in a garland cell: that cell stays air and unlisted, the rest of the garland went up", level.getBlockState(head).isAir()
+                    && ledger.at(head) == null && partial != null && partial.size() == span.size() - 1,
+                    level.getBlockState(head) + ", " + (partial == null ? "no group" : partial.size() + " of " + span.size() + " listed"));
+            passer.discard();
             final int visits = streetVisits(3);
             checkEq("then the next visit put the garland back", up(garlandMark()), "");
             check("in one visit", visits == 1, visits + " visits");
