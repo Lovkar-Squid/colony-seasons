@@ -62,6 +62,7 @@ public final class DecorCommands {
                         case SQUARE -> "com.colony_seasons.command.decor.kind.square";
                         case STOREROOM -> "com.colony_seasons.command.decor.kind.storeroom";
                         case BUILDING -> "com.colony_seasons.command.decor.kind.building";
+                        case TOUCHES -> "com.colony_seasons.command.decor.kind.touches";
                     });
                     source.sendSuccess(() -> Component.translatable("com.colony_seasons.command.decor.list.group", kind,
                             group.owner().pos().toShortString(), group.size(), group.festival().isEmpty() ? "-" : group.festival()), false);

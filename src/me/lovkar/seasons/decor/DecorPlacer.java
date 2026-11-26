@@ -48,9 +48,9 @@ import java.util.function.Predicate;
  * item is taken if the slot costs one; the ledger records the cell; then the block is set without neighbour updates
  * (flags 18) and read back. A cell that reads back as another state of the same block keeps its entry with that
  * state; one that reads back as anything else is forgotten and its item refunded. Nothing
- * with collision is placed for a building; only the square's group may have it, at a player's festival marker or on a
- * Town Square the player built (the owner's answer of 20 Nov 2026), and never into a cell where an entity stands
- * (S10c: the cell waits for a later visit).</p>
+ * with collision is placed for a building; only the square's group and its seasonal touches (Q12) may have it, at a
+ * player's festival marker or on a Town Square the player built (the owner's answer of 20 Nov 2026), and never into a
+ * cell where an entity stands (S10c: the cell waits for a later visit).</p>
  *
  * <p>Removing, per entry: a cell in an unloaded chunk waits; a cell whose state equals the record exactly is
  * forgotten first, then set to air with no drops, and its item handed back if it was paid for. One exception, the
@@ -334,8 +334,9 @@ public final class DecorPlacer {
      */
     public static PlaceResult place(final ServerLevel level, final DecorLedger ledger, final int colony, final DecorLedger.Owner owner,
                                     final String festival, final int hutLevel, final List<Slot> slots, final Stock stock) {
-        final boolean square = owner.kind() == DecorLedger.Kind.SQUARE;
-        // the square's blocks have collision: who stands in its cells is looked up once (nobody moves within this tick)
+        // the square's set and its seasonal touches (Q12) may have collision: only at a place the player chose (a marker
+        // he put down, a Town Square he built); who stands in their cells is looked up once (nobody moves within this tick)
+        final boolean square = owner.collides();
         final List<Entity> near = square ? blockers(level, slots) : null;
         final List<BlockPos> placed = new ArrayList<>();
         final Map<BlockPos, String> refused = new LinkedHashMap<>();

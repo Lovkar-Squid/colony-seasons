@@ -27,17 +27,24 @@ import com.minecolonies.core.placementhandlers.main.SurvivalHandler;
 import com.mojang.authlib.GameProfile;
 import me.lovkar.seasons.block.FestivalMarkerBlock;
 import me.lovkar.seasons.block.SeasonsBlocks;
+import me.lovkar.seasons.ai.EntityAIWorkDecorator;
 import me.lovkar.seasons.calendar.CalendarManager;
 import me.lovkar.seasons.calendar.DateSource;
+import me.lovkar.seasons.calendar.Season;
 import me.lovkar.seasons.colony.BuildingDecorator;
 import me.lovkar.seasons.colony.BuildingTownSquare;
 import me.lovkar.seasons.colony.DecoratorModules;
+import me.lovkar.seasons.colony.DecoratorSetup;
+import me.lovkar.seasons.colony.JobDecorator;
 import me.lovkar.seasons.colony.SquareAssignmentModule;
 import me.lovkar.seasons.colony.TownSquareSetup;
 import me.lovkar.seasons.decor.DecorEvents;
 import me.lovkar.seasons.decor.DecorLedger;
+import me.lovkar.seasons.decor.DecorPhase;
 import me.lovkar.seasons.decor.DecorPlacer;
 import me.lovkar.seasons.decor.DecorWork;
+import me.lovkar.seasons.decor.PieceLoader;
+import me.lovkar.seasons.decor.SquareSets;
 import me.lovkar.seasons.decor.Squares;
 import me.lovkar.seasons.festival.Gathering;
 import net.minecraft.commands.CommandSource;
@@ -898,6 +905,7 @@ public class CsSquareLife {
         check("files: clearing the mark never makes a record", !v3.clearSquareMark(FILE_COLONY + 100) && !v3.colonies().contains(FILE_COLONY + 100)
                 && v3.clearSquareMark(FILE_COLONY) && v3.squareMark(FILE_COLONY) == null && !v3.clearSquareMark(FILE_COLONY), "");
         downgrade(provider, saved);
+        touchesFile(provider, saved);
     }
 
     /**
@@ -1514,6 +1522,8 @@ public class CsSquareLife {
             final Squares.Square before = Squares.of(level, c2[0], ledger());
             check("over the marker: with the square at level 0 the marker has the tree", before.source() == Squares.Source.MARKER && before.hosts(marker0),
                     show(before));
+            check("Q12: a colony whose centrepiece is its festival marker gets no seasonal touches (they belong to a Town Square)",
+                    DecorWork.nextTouches(level, c2[0], ledger(), s5[0], DecorWork.day(level), true, marker0) == null, "");
             for (final BlockPos p : tree0.keySet()) {
                 level.setBlock(p, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);      // the first build clears the box
             }
@@ -1671,6 +1681,733 @@ public class CsSquareLife {
         });
     }
 
+    // ================================================================ Q12: the seasonal touches and the tree's foot
+
+    /** The touches' colony: far from the others, so its level 3 square (four planters) is its main square from the start. */
+    private static final BlockPos COLONY_Q12 = new BlockPos(-300, 0, 2);
+    /** The level 3 square's box, low corner from the colony's town hall: its centre 30 blocks north of the hall, inside the claim. */
+    private static final BlockPos Q12_PLOT = new BlockPos(-10, -1, -40);
+    private static final String SQUARE3_PATH = "square/townsquare3.blueprint";
+    private static final LocalDate WINDOW_DAY = LocalDate.of(2026, 12, 5);
+    private static final LocalDate AFTER_WINDOW = LocalDate.of(2027, 1, 10);
+    private static final Season[] SEASONS = Season.values();
+
+    private IColony q12;
+    private BuildingDecorator w4;
+    private ICitizenData d4;
+    private BuildingTownSquare s6;
+    private BlockPos a6;
+    private List<BlockPos> beds6 = List.of();
+    private FakePlayer owner4;
+    private Season seasonBefore;
+
+    /** The block of each season's touch (tools/square_hut.py TOUCHES); the leaves are set persistent. */
+    private static Block touchBlock(final Season season) {
+        return switch (season) {
+            case SPRING -> Blocks.FLOWERING_AZALEA_LEAVES;
+            case SUMMER -> Blocks.AZALEA_LEAVES;
+            case AUTUMN -> Blocks.PUMPKIN;
+            case WINTER -> Blocks.SPRUCE_LEAVES;
+        };
+    }
+
+    private int qid() {
+        return q12.getID();
+    }
+
+    private DecorLedger.Owner touchOwner() {
+        return DecorLedger.Owner.touches(a6);
+    }
+
+    /** The touches' group in words ({@link #canon(DecorLedger.GroupView)}), "none" without one. */
+    private String touchCanon() {
+        final DecorLedger.GroupView g = ledger().group(qid(), touchOwner());
+        return g == null ? "none" : canon(g);
+    }
+
+    private long day() {
+        return DecorWork.day(level);
+    }
+
+    private void setDate(final LocalDate date) {
+        CalendarManager.setDateSource(DateSource.fixed(date));
+        CalendarManager.refresh(server);
+    }
+
+    private void setSeason(final Season season) {
+        CalendarManager.setSeason(server, season);
+    }
+
+    private void order(final SquareSets.Order order) {
+        s6.settings().getSetting(BuildingTownSquare.ORDER).set(order.key());
+    }
+
+    private DecorWork.Target nextTouches(final boolean placing) {
+        return DecorWork.nextTouches(level, q12, ledger(), s6, day(), placing, w4.getPosition());
+    }
+
+    /** The planters' visit as the Decorator makes it: the next target, then the visit; {@code null} when there is no target. */
+    private DecorWork.TouchOutcome touchVisit(final boolean placing) {
+        final DecorWork.Target target = nextTouches(placing);
+        return target == null ? null : DecorWork.touch(level, qid(), target, day(), ledger(), placing);
+    }
+
+    private static String show(final DecorWork.TouchOutcome o) {
+        return o == null ? "no visit" : o.removed() + " down, " + o.placed() + " up, " + o.open() + " open (" + o.status() + ")";
+    }
+
+    /**
+     * "" when the season's touch block stands on every bed cell except {@code skip} and the touches' group lists exactly
+     * those cells, unpaid, each entry equal to the world; else what differs.
+     */
+    private String touchState(final Season season, final Set<BlockPos> skip) {
+        final List<String> wrong = new ArrayList<>();
+        final DecorLedger.GroupView group = ledger().group(qid(), touchOwner());
+        final Map<BlockPos, DecorLedger.Entry> entries = group == null ? Map.of() : group.entries();
+        for (final BlockPos bed : beds6) {
+            if (skip.contains(bed)) {
+                continue;
+            }
+            final BlockState now = level.getBlockState(bed);
+            if (!now.is(touchBlock(season))) {
+                wrong.add(bed.toShortString() + " is " + now);
+            }
+            final DecorLedger.Entry e = entries.get(bed);
+            if (e == null || e.state() != now || e.paid()) {
+                wrong.add(bed.toShortString() + " listed as " + (e == null ? "nothing" : e.state() + (e.paid() ? " paid" : "")));
+            }
+        }
+        for (final BlockPos p : entries.keySet()) {
+            if (!beds6.contains(p) || skip.contains(p)) {
+                wrong.add("listed off a bed: " + p.toShortString());
+            }
+        }
+        if (group != null && !(SquareSets.TOUCH_PREFIX + season.id() + ".blueprint").equals(group.piece())) {
+            wrong.add("piece " + group.piece());
+        }
+        return wrong.isEmpty() ? "" : wrong.toString();
+    }
+
+    private String touchState(final Season season) {
+        return touchState(season, Set.of());
+    }
+
+    /** Every touch cell air and no touches' group. */
+    private boolean touchesGone() {
+        return ledger().group(qid(), touchOwner()) == null && notAir(beds6).isEmpty();
+    }
+
+    /** A stock that always has the item and keeps what comes back. */
+    private static final class Counting implements DecorPlacer.Stock {
+        int taken;
+        final Map<net.minecraft.world.item.Item, Integer> back = new LinkedHashMap<>();
+
+        @Override
+        public boolean take(final net.minecraft.world.item.Item item) {
+            taken++;
+            return true;
+        }
+
+        @Override
+        public void give(final ItemStack stack) {
+            back.merge(stack.getItem(), stack.getCount(), Integer::sum);
+        }
+
+        int back() {
+            return back.values().stream().mapToInt(Integer::intValue).sum();
+        }
+    }
+
+    /** Decorating visits until the square's set is complete (pieces loaded beforehand); the last outcome. */
+    private DecorWork.Outcome decorateSet(final DecorPlacer.Stock stock) {
+        final DecorWork.Target target = DecorWork.centrepiece(level, q12, ledger(), s6);
+        if (target == null) {
+            return null;
+        }
+        DecorWork.Outcome o;
+        int rounds = 0;
+        do {
+            o = DecorWork.decorate(level, qid(), target, w4.getBuildingLevel(), stock, day(), ledger());
+        } while (!o.complete() && o.placed() > 0 && ++rounds < 20);
+        return o;
+    }
+
+    /** The square's whole set taken down at once by the rule (no items), the probe's own cleaning between cases. */
+    private void clearSet() {
+        DecorPlacer.remove(level, ledger(), qid(), sq(a6), DecorPlacer.Stock.FREE);
+        ledger().clearFruitless(qid(), sq(a6));
+    }
+
+    private void clearTouches() {
+        DecorPlacer.remove(level, ledger(), qid(), touchOwner(), DecorPlacer.Stock.FREE);
+        ledger().clearFruitless(qid(), touchOwner());
+    }
+
+    /** The square's blueprint of level {@code lv} pasted with its box's low corner at {@code plot} and registered as built. */
+    private BuildingTownSquare pasteSquare(final String name, final IColony c, final BlockPos plot, final int lv) {
+        final String path = "square/townsquare" + lv + ".blueprint";
+        final Blueprint bp = StructurePacks.getBlueprint(PACK, path, level.registryAccess());
+        if (bp == null) {
+            check(name + ": the blueprint " + path + " loads", false, "");
+            return null;
+        }
+        bp.setRotationMirror(RotationMirror.NONE, level);
+        final BlockPos at = plot.offset(bp.getPrimaryBlockOffset());
+        final StructurePlacer placer = new StructurePlacer(new CreativeStructureHandler(level, at, bp, RotationMirror.NONE, true));
+        int rounds = 0;
+        while (rounds++ < 4000) {
+            final StructurePhasePlacementResult result = placer.executeStructureStep(level, null, placer.getIterator().getProgressPos(),
+                    StructurePlacer.Operation.BLOCK_PLACEMENT, () -> placer.getIterator().increment((info, pos, h) -> false), false);
+            if (result.getIteratorPos().equals(AbstractBlueprintIterator.NULL_POS)) {
+                break;
+            }
+        }
+        IBuilding building = c.getServerBuildingManager().getBuilding(at);
+        if (building == null && level.getBlockEntity(at) instanceof AbstractTileEntityColonyBuilding te) {
+            building = c.getServerBuildingManager().addNewBuilding(te, level);
+        }
+        if (!(building instanceof BuildingTownSquare square)) {
+            check(name + ": the pasted square registers as a Town Square", false, String.valueOf(building));
+            return null;
+        }
+        square.setCorners(plot, plot.offset(20, 19, 20));
+        square.setBuildingLevel(lv);
+        square.setStructurePack(PACK);
+        square.setBlueprintPath(path);
+        square.assignment().setHiringMode(HiringMode.MANUAL);
+        square.markDirty();
+        return square;
+    }
+
+    /** The touches' colony: a town hall, a Workshop with its Decorator (data only), a level 3 square pasted and listing him. */
+    private void q12Setup(final String prefix) {
+        now(prefix + "Q12 setup: a colony with its Workshop, its Decorator and a level 3 Town Square", () -> {
+            final BlockPos at = new BlockPos(COLONY_Q12.getX(), center.getY(), COLONY_Q12.getZ());
+            force(at.offset(0, 0, -20), 5, true);
+            owner4 = FakePlayerFactory.get(level, new GameProfile(UUID.nameUUIDFromBytes("cssquarelife-owner4".getBytes(StandardCharsets.US_ASCII)),
+                    "cslife_owner4"));
+            owner4.setPos(at.getX() + 0.5, at.getY(), at.getZ() + 0.5);
+            q12 = IColonyManager.getInstance().createColony(level, at, owner4, "Seasons Square Life Touches", "Medieval Oak");
+            check("Q12 setup: the touches' colony was made", q12 != null, q12 == null ? "-" : "id " + q12.getID());
+            if (q12 == null) {
+                finish();
+                return;
+            }
+            stockHut(q12, "minecolonies:blockhuttownhall", at);
+            final IBuilding hut = stockHut(q12, BuiltInRegistries.BLOCK.getKey(DecoratorSetup.HUT.get()).toString(), at.offset(W1_OFFSET));
+            w4 = hut instanceof BuildingDecorator b ? b : null;
+            d4 = dataCitizen(q12);
+            check("Q12 setup: the Decorator is hired at the Workshop", w4 != null && work(w4).assignCitizen(d4) && d4.getWorkBuilding() == w4
+                    && d4.getJob() instanceof JobDecorator, "");
+            s6 = w4 == null ? null : pasteSquare("Q12 setup: S6", q12, at.offset(Q12_PLOT), 3);
+            if (s6 == null) {
+                finish();
+                return;
+            }
+            check("Q12 setup: S6 lists the Decorator (he stays employed at his Workshop)", s6.assignment().assignCitizen(d4)
+                    && d4.getWorkBuilding() == w4 && d4.getJob() instanceof JobDecorator j && j.findSquare() == s6, "");
+        });
+        waitTags(prefix + "Q12: S6", () -> s6);
+        now(prefix + "Q12 setup: S6 is the colony's main square, its planters", () -> {
+            Squares.refresh(level, q12, ledger());
+            a6 = Squares.treeCell(s6);
+            beds6 = DecorWork.bedCells(s6);
+            checkEq("Q12 setup: S6 is the main square at its tree cell", ledger().squareMark(qid()), new DecorLedger.SquareMark(s6.getPosition(), a6));
+            checkEq("Q12 setup: a level 3 square has four bed cells", beds6.size(), 4);
+            final List<String> wrong = new ArrayList<>();
+            for (final BlockPos bed : beds6) {
+                if (!level.getBlockState(bed).isAir() || !level.getBlockState(bed.below()).is(Blocks.GRASS_BLOCK) || DecorPlacer.colonyAt(level, bed) != qid()) {
+                    wrong.add(bed.toShortString() + " " + level.getBlockState(bed) + " over " + level.getBlockState(bed.below()));
+                }
+            }
+            check("Q12 setup: every bed cell is air over the planter's grass, inside the colony's claim", wrong.isEmpty(), wrong.toString());
+            check("Q12 setup: the tree cell is air over the paving", level.getBlockState(a6).isAir()
+                    && level.getBlockState(a6.below()).isFaceSturdy(level, a6.below(), Direction.UP), String.valueOf(level.getBlockState(a6.below())));
+        });
+        steps.add(new Step(prefix + "Q12: the four touch pieces and the square's tree load", 400) {
+            @Override
+            boolean tick() {
+                boolean all = PieceLoader.request(level, PieceLoader.PACK, PieceLoader.pathFor(1), PieceLoader.forSquare(s6.getRotationMirror())) != null;
+                for (final Season season : SEASONS) {
+                    all &= PieceLoader.request(level, PieceLoader.PACK, SquareSets.TOUCH_PREFIX + season.id() + ".blueprint", RotationMirror.NONE) != null;
+                }
+                return all;
+            }
+
+            @Override
+            void end(final boolean done) {
+                check(prefix + "Q12: the four touch pieces and the small spruce load", done, "after " + t + " ticks");
+                if (!done) {
+                    finish();
+                }
+            }
+        });
+    }
+
+    private void q12Steps() {
+        q12Setup("");
+        now("Q12 contract", () -> {
+            seasonBefore = CalendarManager.current().season().season();
+            // [V] the placement contract of Q6 (tools/square_hut.py): one block a cell above the piece's anchor
+            for (final Season season : SEASONS) {
+                final PieceLoader.Piece piece = PieceLoader.request(level, PieceLoader.PACK, SquareSets.TOUCH_PREFIX + season.id() + ".blueprint",
+                        RotationMirror.NONE);
+                check("Q12 [V] contract: pieces/bed_" + season.id() + " has one cell, one above its anchor, of the season's block", piece != null
+                        && piece.cells().size() == 1 && piece.cells().get(0).rel().equals(new BlockPos(0, 1, 0))
+                        && piece.cells().get(0).state().is(touchBlock(season)), piece == null ? "not loaded" : String.valueOf(piece.cells()));
+            }
+            checkEq("Q12: no window in July, the order is Follow the calendar", DecorPhase.windowOpen(CalendarManager.current()) + " " + s6.order(),
+                    "false " + SquareSets.Order.FOLLOW);
+        });
+        now("Q12 spring: the touches go up", () -> {
+            setSeason(Season.SPRING);
+            final long day = day();
+            final int budget = ledger().budgetUsed(qid(), day);
+            final DecorWork.Target target = nextTouches(true);
+            check("Q12 spring: the planters need him: a target of the touches' own group on the square", target != null
+                    && target.owner().equals(touchOwner()) && target.onTownSquare() && target.building() == s6, String.valueOf(target));
+            final List<BlockPos> spots = s6.getLocationsFromTag(BuildingTownSquare.TAG_GATHER);
+            check("Q12 spring: he stands on a standing spot of the square, never in a planter", target != null && !beds6.contains(target.stand())
+                    && spots.stream().anyMatch(p -> p.distManhattan(target.stand()) <= 3), target == null ? "-" : target.stand().toShortString());
+            final DecorWork.TouchOutcome o = target == null ? null : DecorWork.touch(level, qid(), target, day, ledger(), true);
+            check("Q12 spring: one visit puts the touch in all four planters", o != null && o.placed() == 4 && o.open() == 0 && o.removed() == 0, show(o));
+            checkEq("Q12 spring: the spring touch on every bed cell and nowhere else, unpaid, every entry equal to the world", touchState(Season.SPRING), "");
+            final DecorLedger.GroupView g = ledger().group(qid(), touchOwner());
+            check("Q12 spring: a group of kind TOUCHES at the tree cell, decorated and looked at today", g != null && g.owner().kind() == DecorLedger.Kind.TOUCHES
+                    && g.decoratedDay() == day && g.tendedDay() == day, g == null ? "none" : g.owner() + " " + g.decoratedDay() + " " + g.tendedDay());
+            check("Q12 spring: no decoration counts as up: no outdoor entries, the Workshop's flag off, the phase Off season",
+                    !ledger().hasOutdoorEntries(qid()) && ledger().countOutdoor(qid()) == 0 && !w4.decorationsUp()
+                            && DecorPhase.of(CalendarManager.current(), w4.decorationsUp() || ledger().hasOutdoorEntries(qid())) == DecorPhase.OFF_SEASON, "");
+            check("Q12 spring: the take-down and the tending never pick the touches", DecorWork.nextToTakeDown(level, q12, w4.getPosition(), ledger()) == null
+                    && DecorWork.nextToTend(level, q12, w4.getPosition(), ledger(), day + 1, s6) == null
+                    && DecorWork.targetOf(level, q12, ledger(), touchOwner(), s6) == null, "");
+            checkEq("Q12 spring: the day's budget is untouched", ledger().budgetUsed(qid(), day), budget);
+            checkEq("Q12 spring: a second look the same day finds nothing to do", nextTouches(true), null);
+            final String before = touchCanon();
+            final int writes = ledger().writes();
+            DecorEvents.sweep(level);
+            check("Q12 spring: a sweep with the square free and its Workshop staffed leaves them and writes nothing",
+                    before.equals(touchCanon()) && ledger().writes() == writes, (ledger().writes() - writes) + " writes");
+            // the square's rule (Q2): a touches' group at any other position than the main square's centrepiece goes with the sweep
+            final BlockPos elsewhere = a6.offset(3, 1, 3);
+            final DecorLedger.Owner stray = DecorLedger.Owner.touches(elsewhere);
+            seed("Q12 spring: a touches' group off the main square's anchor", qid(), stray, Map.of(elsewhere, Blocks.PUMPKIN.defaultBlockState()), false);
+            DecorEvents.sweep(level);
+            check("Q12 spring: ... goes with the next sweep (cell air), the square's own touches stay", ledger().group(qid(), stray) == null
+                    && level.getBlockState(elsewhere).isAir() && before.equals(touchCanon()), "");
+            final List<String> said = command("colonyseasons decor list " + qid()).said;
+            check("Q12 spring: decor list lists the planters' group", said.stream().filter("com.colony_seasons.command.decor.list.group"::equals).count()
+                    == ledger().groups(qid()).size() && !ledger().groups(qid()).isEmpty(), String.valueOf(said));
+        });
+        now("Q12 seasons: each season change swaps the touches in one visit", () -> {
+            for (final Season season : new Season[] {Season.SUMMER, Season.AUTUMN, Season.WINTER}) {
+                setSeason(season);
+                check("Q12 " + season.id() + ": the season changed, the planters need him (also with decorate off: the old touch must go)",
+                        nextTouches(false) != null && nextTouches(true) != null, "");
+                final DecorWork.TouchOutcome o = touchVisit(true);
+                check("Q12 " + season.id() + ": one visit takes the old four down and puts four new up", o != null && o.removed() == 4 && o.placed() == 4
+                        && o.open() == 0, show(o));
+                checkEq("Q12 " + season.id() + ": the season's touch on every bed cell and nowhere else, entries equal to the world", touchState(season), "");
+            }
+        });
+        final Counting[] paid = new Counting[1];
+        now("Q12 window: the touches give way to the Winter Festival's set and its foot", () -> {
+            setDate(WINDOW_DAY);
+            check("Q12 window: 5 Dec opens the window, the planters want no touch", DecorPhase.windowOpen(CalendarManager.current())
+                    && SquareSets.touchPath(s6.order(), CalendarManager.current()) == null, String.valueOf(CalendarManager.current().festivals().decor()));
+            final DecorWork.TouchOutcome down = touchVisit(false);
+            check("Q12 window: the touches come down (with decorate off too), nothing goes up", down != null && down.removed() == 4 && down.placed() == 0
+                    && touchesGone(), show(down));
+            final DecorWork.Target square = DecorWork.centrepiece(level, q12, ledger(), s6);
+            final List<PieceLoader.PieceCell> fixtures = square == null ? List.of() : DecorWork.fixtures(square, 1);
+            final PieceLoader.Piece piece = square == null ? null : PieceLoader.request(level, PieceLoader.PACK, DecorWork.piecePath(square, 1), square.rotation());
+            final PieceLoader.SquarePlan plan = piece == null ? null : PieceLoader.plan(level, piece, a6, 1, ledger(), qid(), sq(a6),
+                    me.lovkar.seasons.SeasonsConfig.needsMaterials(), fixtures);
+            check("Q12 foot: the winter set plans a festival trunk in the tree cell itself, as its first slot, costing a spruce log",
+                    plan != null && plan.fits() && !plan.slots().isEmpty() && plan.slots().get(0).pos().equals(a6)
+                            && plan.slots().get(0).state().is(SeasonsBlocks.FESTIVAL_TRUNK.get()) && plan.treeSlots().contains(a6)
+                            && plan.slots().get(0).costs() == me.lovkar.seasons.SeasonsConfig.needsMaterials(),
+                    plan == null ? "no plan" : plan.slots().isEmpty() ? "no slot" : plan.slots().get(0).pos().toShortString() + " " + plan.slots().get(0).state());
+            paid[0] = new Counting();
+            final DecorWork.Outcome o = decorateSet(paid[0]);
+            final DecorLedger.Located foot = ledger().at(a6);
+            check("Q12 foot: the tree is up with its foot: a festival trunk in the tree cell, listed in the square's group, the trunk above it",
+                    o != null && o.complete() && level.getBlockState(a6).is(SeasonsBlocks.FESTIVAL_TRUNK.get()) && foot != null
+                            && foot.owner().equals(sq(a6)) && (level.getBlockState(a6.above()).is(SeasonsBlocks.FESTIVAL_TRUNK.get())
+                            || level.getBlockState(a6.above()).is(net.minecraft.tags.BlockTags.LOGS)),
+                    (o == null ? "no visit" : o.status()) + ", centre " + level.getBlockState(a6) + ", above " + level.getBlockState(a6.above()));
+            check("Q12 window: the planters stay empty while the set is up", nextTouches(true) == null && touchesGone(), "");
+        });
+        now("Q12 window end: the tree and its foot come down, then the touches come back", () -> {
+            setDate(AFTER_WINDOW);
+            check("Q12 window end: 10 Jan: no window, the phase is Taking down (the set is up)", !DecorPhase.windowOpen(CalendarManager.current())
+                    && DecorPhase.of(CalendarManager.current(), ledger().hasOutdoorEntries(qid())) == DecorPhase.TAKING_DOWN, "");
+            checkEq("Q12 window end: no touches while the square's group lists anything", nextTouches(true), null);
+            final DecorLedger.Located foot = ledger().at(a6);
+            final boolean footPaid = foot != null && foot.entry().paid();
+            final int refund = refundNow(qid(), sq(a6));
+            int logs = 0;
+            final DecorLedger.GroupView set = ledger().group(qid(), sq(a6));
+            for (final Map.Entry<BlockPos, DecorLedger.Entry> e : set == null ? Map.<BlockPos, DecorLedger.Entry>of().entrySet() : set.entries().entrySet()) {
+                if (e.getValue().paid() && DecorPlacer.itemOf(e.getValue().state()) == Items.SPRUCE_LOG && level.getBlockState(e.getKey()) == e.getValue().state()) {
+                    logs++;
+                }
+            }
+            final Counting sink = new Counting();
+            int rounds = 0;
+            while (ledger().group(qid(), sq(a6)) != null && rounds++ < 20) {
+                DecorWork.takeDown(level, qid(), sq(a6), sink, day(), ledger());
+            }
+            check("Q12 foot: the foot goes with the tree: the tree cell is air and listed nowhere", ledger().group(qid(), sq(a6)) == null
+                    && level.getBlockState(a6).isAir() && ledger().at(a6) == null, String.valueOf(level.getBlockState(a6)));
+            check("Q12 foot: every paid item came back, a spruce log for each paid trunk cell, the foot's among them",
+                    sink.back() == refund && sink.back.getOrDefault(Items.SPRUCE_LOG, 0) == logs && footPaid == me.lovkar.seasons.SeasonsConfig.needsMaterials(),
+                    sink.back + ", " + refund + " expected, " + logs + " logs, foot paid " + footPaid);
+            final DecorWork.TouchOutcome back = touchVisit(true);
+            check("Q12 window end: the take-down done, the winter touches come back", back != null && back.placed() == 4, show(back));
+            checkEq("Q12 window end: the winter touch on every bed cell", touchState(Season.WINTER), "");
+        });
+        now("Q12 Bare: no touches in any season; in a window the fixtures only, no foot", () -> {
+            setDate(OFF_SEASON);
+            order(SquareSets.Order.BARE);
+            final DecorWork.TouchOutcome down = touchVisit(false);
+            check("Q12 Bare: the standing touches come down", down != null && down.removed() == 4 && touchesGone(), show(down));
+            final List<String> any = new ArrayList<>();
+            for (final Season season : SEASONS) {
+                setSeason(season);
+                final DecorWork.Target target = nextTouches(true);
+                final DecorWork.TouchOutcome o = DecorWork.touch(level, qid(), DecorWork.Target.touches(DecorWork.centrepiece(level, q12, ledger(), s6), null),
+                        day(), ledger(), true);
+                if (target != null || o.placed() > 0) {
+                    any.add(season.id() + " " + show(o));
+                }
+            }
+            check("Q12 Bare: in no season is a touch wanted or placed (also by a visit that comes anyway)", any.isEmpty() && touchesGone(), any.toString());
+            setDate(WINDOW_DAY);
+            final DecorWork.Outcome o = decorateSet(DecorPlacer.Stock.FREE);
+            final List<BlockPos> gift = s6.getLocationsFromTag(BuildingTownSquare.TAG_GIFT);
+            final DecorLedger.GroupView g = ledger().group(qid(), sq(a6));
+            check("Q12 Bare in the window: the fixtures only (the gift pile), no foot in the tree cell", o != null && o.complete() && g != null
+                    && PieceLoader.FIXTURES_ONLY.equals(g.piece()) && level.getBlockState(gift.get(0)).is(SeasonsBlocks.GIFT_PILE.get())
+                    && level.getBlockState(a6).isAir() && ledger().at(a6) == null, (o == null ? "-" : o.status()) + ", " + (g == null ? "no group" : g.piece()));
+            clearSet();
+            setDate(OFF_SEASON);
+            order(SquareSets.Order.ALWAYS_WINTER);
+            final Season season = CalendarManager.current().season().season();
+            final DecorWork.TouchOutcome always = touchVisit(true);
+            check("Q12 Always Winter Festival in July: the full sets come only in their window, so the touches", always != null && always.placed() == 4
+                    && touchState(season).isEmpty(), show(always) + " " + touchState(season));
+            order(SquareSets.Order.FOLLOW);
+        });
+        now("Q12 foot: put back by tending; a block in the centre never refuses the tree", () -> {
+            setDate(WINDOW_DAY);
+            final DecorWork.TouchOutcome down = touchVisit(true);
+            check("Q12 foot: the window opens, the touches come down", down != null && down.removed() == 4 && touchesGone(), show(down));
+            final DecorWork.Outcome up = decorateSet(DecorPlacer.Stock.FREE);
+            check("Q12 foot: the tree with its foot is up", up != null && up.complete() && level.getBlockState(a6).is(SeasonsBlocks.FESTIVAL_TRUNK.get()),
+                    up == null ? "-" : up.status());
+            level.setBlock(a6, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+            check("Q12 foot: broken by hand it tells the ledger (our trunk): forgotten at once", ledger().at(a6) == null, "");
+            final DecorWork.Target square = DecorWork.centrepiece(level, q12, ledger(), s6);
+            final DecorWork.Outcome tended = DecorWork.tend(level, qid(), square, w4.getBuildingLevel(), DecorPlacer.Stock.FREE, day(), ledger());
+            check("Q12 foot: the next tending visit puts the foot back", tended.placed() >= 1 && level.getBlockState(a6).is(SeasonsBlocks.FESTIVAL_TRUNK.get())
+                    && ledger().at(a6) != null && ledger().at(a6).owner().equals(sq(a6)), tended.status());
+            clearSet();
+            final int notices = DecorWork.notices();
+            level.setBlock(a6, Blocks.SNOW.defaultBlockState(), Block.UPDATE_ALL);
+            final List<PieceLoader.PieceCell> fixtures = DecorWork.fixtures(square, 1);
+            final PieceLoader.SquarePlan plan = PieceLoader.plan(level, PieceLoader.request(level, PieceLoader.PACK, DecorWork.piecePath(square, 1),
+                    square.rotation()), a6, 1, ledger(), qid(), sq(a6), true, fixtures);
+            check("Q12 foot: a snow layer in the tree cell: the plan still fits, the cell is no slot and not counted as blocked",
+                    plan.fits() && !plan.trunkBlocked() && plan.blocked() == 0 && plan.slots().stream().noneMatch(s -> s.pos().equals(a6)),
+                    plan.cells() + " cells, " + plan.blocked() + " blocked");
+            final DecorWork.Outcome without = decorateSet(DecorPlacer.Stock.FREE);
+            check("Q12 foot: the tree completes without its foot, no notice, no problem noted", without != null && without.complete()
+                    && level.getBlockState(a6).is(Blocks.SNOW) && ledger().at(a6) == null && DecorWork.notices() == notices && !ledger().squareProblem(qid()),
+                    (without == null ? "-" : without.status()) + ", " + (DecorWork.notices() - notices) + " notices");
+            level.setBlock(a6, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+            final DecorWork.Outcome follows = DecorWork.tend(level, qid(), square, w4.getBuildingLevel(), DecorPlacer.Stock.FREE, day(), ledger());
+            check("Q12 foot: the snow gone, the next tending visit places the foot", follows.placed() >= 1
+                    && level.getBlockState(a6).is(SeasonsBlocks.FESTIVAL_TRUNK.get()) && ledger().at(a6) != null, follows.status());
+            clearSet();
+            setDate(OFF_SEASON);
+            final DecorWork.TouchOutcome back = touchVisit(true);
+            check("Q12 foot: after the window the touches are back", back != null && back.placed() == 4, show(back));
+        });
+        now("Q12 planters: a filled bed is skipped without a word; an entity keeps its cell open", () -> {
+            setSeason(Season.SPRING);
+            clearTouches();
+            final BlockPos filled = beds6.get(0);
+            level.setBlock(filled, Blocks.OAK_PLANKS.defaultBlockState(), Block.UPDATE_ALL);
+            final int notices = DecorWork.notices();
+            final DecorWork.TouchOutcome o = touchVisit(true);
+            check("Q12 planters: a bed the player filled is skipped: three touches, nothing open, no notice, no problem noted", o != null
+                    && o.placed() == 3 && o.open() == 0 && level.getBlockState(filled).is(Blocks.OAK_PLANKS) && DecorWork.notices() == notices
+                    && !ledger().squareProblem(qid()) && touchState(Season.SPRING, Set.of(filled)).isEmpty(), show(o) + " " + touchState(Season.SPRING, Set.of(filled)));
+            level.setBlock(filled, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+            clearTouches();
+            final net.minecraft.world.entity.decoration.ArmorStand stand = new net.minecraft.world.entity.decoration.ArmorStand(
+                    net.minecraft.world.entity.EntityType.ARMOR_STAND, level);
+            stand.setNoGravity(true);
+            stand.setPos(filled.getX() + 0.5, filled.getY(), filled.getZ() + 0.5);
+            level.addFreshEntity(stand);
+            final List<String> visits = new ArrayList<>();
+            for (int i = 0; i < 10; i++) {
+                final DecorWork.TouchOutcome v = touchVisit(true);
+                if (v == null) {
+                    break;
+                }
+                visits.add(show(v));
+            }
+            check("Q12 planters: the cell an entity stands in stays open; after " + DecorWork.MAX_FRUITLESS_VISITS + " visits that place nothing it is "
+                    + "left for the day", level.getBlockState(filled).isAir() && size(qid(), touchOwner()) == 3 && visits.size() == DecorWork.MAX_FRUITLESS_VISITS + 1
+                    && ledger().fruitless(qid(), touchOwner(), day()) == DecorWork.MAX_FRUITLESS_VISITS && nextTouches(true) == null, visits.toString());
+            stand.discard();
+            ledger().clearFruitless(qid(), touchOwner());
+            final DecorWork.TouchOutcome last = touchVisit(true);
+            check("Q12 planters: the entity gone (and a new day's count), the last touch goes up", last != null && last.placed() == 1
+                    && touchState(Season.SPRING).isEmpty(), show(last));
+        });
+        now("Q12 planters: a touch broken by a player drops nothing and comes back the next game day", () -> {
+            setSeason(Season.AUTUMN);
+            final DecorWork.TouchOutcome swap = touchVisit(true);
+            check("Q12 planters: autumn: pumpkins in the planters", swap != null && swap.placed() == 4 && touchState(Season.AUTUMN).isEmpty(), show(swap));
+            final BlockPos broken = beds6.get(1);
+            for (final ItemEntity e : level.getEntitiesOfClass(ItemEntity.class, new AABB(broken).inflate(2))) {
+                e.discard();
+            }
+            owner4.setGameMode(GameType.SURVIVAL);
+            final boolean broke = owner4.gameMode.destroyBlock(broken);
+            int drops = 0;
+            for (final ItemEntity e : level.getEntitiesOfClass(ItemEntity.class, new AABB(broken).inflate(2))) {
+                drops += e.getItem().getCount();
+                e.discard();
+            }
+            check("Q12 planters: the colony's owner breaks a pumpkin: it goes, and drops nothing (the touch was free)", broke
+                    && level.getBlockState(broken).isAir() && drops == 0, "broke " + broke + ", " + drops + " items");
+            checkEq("Q12 planters: not put back the same game day", nextTouches(true), null);
+            level.setDayTime(level.getDayTime() + 24000L);
+            final DecorWork.TouchOutcome next = touchVisit(true);
+            check("Q12 planters: the next game day it is put back, its stale entry forgotten first", next != null && next.placed() == 1
+                    && touchState(Season.AUTUMN).isEmpty(), show(next) + " " + touchState(Season.AUTUMN));
+        });
+        q12Order();
+        q12Live();
+        now("Q12 hut broken: the square's set and the touches go in the same tick", () -> {
+            final Map<BlockPos, BlockState> cells = tree(a6, 1, 3);
+            seed("Q12 hut broken: the square's group", qid(), sq(a6), cells, true);
+            check("Q12 hut broken: the touches stand", size(qid(), touchOwner()) == 4, touchState(Season.SPRING));
+            final BlockPos hut = s6.getPosition();
+            s6.destroy();
+            level.setBlock(hut, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+            DecorEvents.drain(server);
+            check("Q12 hut broken: both groups gone in the same tick, every cell air, the mark cleared", ledger().group(qid(), sq(a6)) == null
+                    && touchesGone() && notAir(cells.keySet()).isEmpty() && ledger().squareMark(qid()) == null, size(qid(), touchOwner()) + " touches listed");
+            setDate(OFF_SEASON);
+            if (seasonBefore != null) {
+                setSeason(seasonBefore);
+            }
+        });
+    }
+
+    /** Q12: a work order on the square takes the touches down with its set, server side; they come back once it closes. */
+    private void q12Order() {
+        final Map<BlockPos, BlockState>[] cells = new Map[1];
+        steps.add(new Step("Q12 order: a REPAIR order takes both groups down", DecorEvents.SQUARE_WATCH + 60) {
+            int made;
+            int setEmpty = -1;
+            int touchesEmpty = -1;
+
+            @Override
+            void start() {
+                setSeason(Season.SPRING);
+                final DecorWork.TouchOutcome o = touchVisit(true);
+                check("Q12 order: spring touches up", touchState(Season.SPRING).isEmpty(), show(o));
+                cells[0] = tree(a6, 1, 3);
+                seed("Q12 order: the square's group", qid(), sq(a6), cells[0], false);
+                final WorkOrderBuilding wo = WorkOrderBuilding.create(WorkOrderType.REPAIR, s6);
+                q12.getWorkManager().addWorkOrder(wo, false);
+                made = ticks;
+                check("Q12 order: the REPAIR order is open, the square busy: no touches meanwhile", Squares.of(level, q12, ledger()).busy()
+                        && nextTouches(true) == null, "");
+            }
+
+            @Override
+            boolean tick() {
+                if (setEmpty < 0 && size(qid(), sq(a6)) == 0) {
+                    setEmpty = ticks;
+                }
+                if (touchesEmpty < 0 && size(qid(), touchOwner()) == 0) {
+                    touchesEmpty = ticks;
+                }
+                return setEmpty >= 0 && touchesEmpty >= 0;
+            }
+
+            @Override
+            void end(final boolean done) {
+                check("Q12 order: both groups come down server side within " + (DecorEvents.SQUARE_WATCH + 3) + " ticks, in the same drain",
+                        done && setEmpty == touchesEmpty && setEmpty - made <= DecorEvents.SQUARE_WATCH + 3 && touchesGone() && notAir(cells[0].keySet()).isEmpty(),
+                        "set after " + (setEmpty - made) + ", touches after " + (touchesEmpty - made) + " ticks");
+                for (final WorkOrderBuilding wo : new ArrayList<>(q12.getWorkManager().getWorkOrdersOfType(WorkOrderBuilding.class))) {
+                    q12.getWorkManager().removeWorkOrder(wo);
+                }
+                DecorEvents.drain(server);
+                final DecorWork.TouchOutcome back = touchVisit(true);
+                check("Q12 order: the order closed, the square free: the touches come back", !Squares.of(level, q12, ledger()).busy()
+                        && back != null && back.placed() == 4 && touchState(Season.SPRING).isEmpty(), show(back));
+            }
+        });
+    }
+
+    /** Q12, one live proof: the Decorator's own AI reaches Touching by himself and the touches stand. */
+    private void q12Live() {
+        final int[] visits0 = new int[1];
+        now("Q12 live: the touches taken off, the Decorator given a body", () -> {
+            setDate(OFF_SEASON);
+            setSeason(Season.SPRING);
+            clearTouches();
+            level.setDayTime(day() * 24000L + 1000L);
+            q12.getCitizenManager().spawnOrCreateCitizen(d4, level, w4.getPosition().offset(0, 0, 3));
+            visits0[0] = ((JobDecorator) d4.getJob()).visits(EntityAIWorkDecorator.DecoratorState.TOUCHING);
+            check("Q12 live: the Decorator has an entity", d4.getEntity().isPresent(), "");
+        });
+        steps.add(new Step("Q12 live: his own AI puts the touches up", 3000) {
+            @Override
+            boolean tick() {
+                return ((JobDecorator) d4.getJob()).visits(EntityAIWorkDecorator.DecoratorState.TOUCHING) > visits0[0] && size(qid(), touchOwner()) == 4;
+            }
+
+            @Override
+            void end(final boolean done) {
+                final JobDecorator job = (JobDecorator) d4.getJob();
+                check("Q12 live: the Decorator's AI went Touching by itself and the spring touches stand", done && touchState(Season.SPRING).isEmpty(),
+                        "after " + t + " ticks, " + (job.visits(EntityAIWorkDecorator.DecoratorState.TOUCHING) - visits0[0]) + " visits, status "
+                                + job.status() + ", " + touchState(Season.SPRING));
+                check("Q12 live: he never set decorations up for them: the Workshop's flag off, his phase Off season", !w4.decorationsUp()
+                        && job.phase() == DecorPhase.OFF_SEASON, String.valueOf(job.phase()));
+                d4.getEntity().ifPresent(e -> e.remove(net.minecraft.world.entity.Entity.RemovalReason.DISCARDED));
+            }
+        });
+    }
+
+    // ---------------------------------------------------------------- Q12 across a restart
+
+    private void q12Save() {
+        q12Setup("save: ");
+        now("save: Q12 spring touches up before the save", () -> {
+            setSeason(Season.SPRING);
+            final DecorWork.TouchOutcome o = touchVisit(true);
+            check("save: Q12 the spring touches stand", o != null && o.placed() == 4 && touchState(Season.SPRING).isEmpty(), show(o));
+        });
+    }
+
+    private void q12Ids(final Properties ids) {
+        if (q12 == null || s6 == null || a6 == null) {
+            return;
+        }
+        ids.setProperty("q12", Integer.toString(qid()));
+        ids.setProperty("s6", Long.toString(s6.getPosition().asLong()));
+        ids.setProperty("w4", Long.toString(w4.getPosition().asLong()));
+        ids.setProperty("d4", Integer.toString(d4.getId()));
+        ids.setProperty("a6", Long.toString(a6.asLong()));
+        ids.setProperty("touches", touchCanon());
+    }
+
+    private void q12Load(final Properties ids) {
+        steps.add(new Step("load: Q12 the touches' colony comes back", 2400) {
+            @Override
+            boolean tick() {
+                final IColony found = IColonyManager.getInstance().getColonyByWorld(Integer.parseInt(ids.getProperty("q12", "-1")), level);
+                if (found == null) {
+                    return false;
+                }
+                final IBuilding s = found.getServerBuildingManager().getBuilding(BlockPos.of(Long.parseLong(ids.getProperty("s6", "0"))));
+                final IBuilding w = found.getServerBuildingManager().getBuilding(BlockPos.of(Long.parseLong(ids.getProperty("w4", "0"))));
+                if (s instanceof BuildingTownSquare ss && w instanceof BuildingDecorator ws && ss.getTileEntity() != null) {
+                    q12 = found;
+                    s6 = ss;
+                    w4 = ws;
+                    return t >= 20;
+                }
+                return false;
+            }
+
+            @Override
+            void end(final boolean done) {
+                check("load: Q12 the colony, its square and its Workshop are back", done, "");
+                if (!done) {
+                    finish();
+                    return;
+                }
+                a6 = BlockPos.of(Long.parseLong(ids.getProperty("a6")));
+                d4 = q12.getCitizenManager().getCivilian(Integer.parseInt(ids.getProperty("d4", "-1")));
+                check("load: Q12 the square still lists its Decorator", d4 != null && s6.assignment().hasAssignedCitizen(d4), "");
+                checkEq("load: Q12 the touches' group reads back as saved (kind, piece, days, every entry)", touchCanon(),
+                        ids.getProperty("touches"));
+            }
+        });
+        waitTags("load: Q12 S6", () -> s6);
+        now("load: Q12 the first sweep leaves them, a season change swaps them", () -> {
+            beds6 = DecorWork.bedCells(s6);
+            final int writes = ledger().writes();
+            DecorEvents.sweep(level);
+            checkEq("load: Q12 a sweep after the load leaves the touches as saved", touchCanon(), ids.getProperty("touches"));
+            check("load: Q12 ... and writes nothing for them", ledger().writes() - writes <= 1, (ledger().writes() - writes) + " writes");
+            checkEq("load: Q12 the spring touches stand on every bed cell", touchState(Season.SPRING), "");
+            setSeason(Season.SUMMER);
+            check("load: Q12 the season changed, but while summer's piece loads (a fresh server) the spring touches stay",
+                    nextTouches(true) == null && touchState(Season.SPRING).isEmpty(), touchState(Season.SPRING));
+        });
+        steps.add(new Step("load: Q12 a season change swaps them in one visit", 400) {
+            @Override
+            boolean tick() {
+                return nextTouches(true) != null;
+            }
+
+            @Override
+            void end(final boolean done) {
+                final DecorWork.TouchOutcome o = touchVisit(true);
+                check("load: Q12 summer's piece loaded, a season change swaps them in one visit", done && o != null && o.removed() == 4 && o.placed() == 4
+                        && touchState(Season.SUMMER).isEmpty(), "after " + t + " ticks: " + show(o) + " " + touchState(Season.SUMMER));
+            }
+        });
+    }
+
+    // ---------------------------------------------------------------- Q12 in the ledger's files
+
+    /** A version 3 file with the touches' group: it round trips; the 0.1.0 reader skips that group with its one warning. */
+    private void touchesFile(final HolderLookup.Provider provider, final CompoundTag v3file) {
+        final DecorLedger ours = DecorLedger.load(v3file, provider);
+        final DecorLedger.Owner touches = DecorLedger.Owner.touches(FILE_ANCHOR);
+        check("files: Q12 the touches' group at the centrepiece is listed", ours.record(FILE_COLONY, touches, "", 3, FILE_ANCHOR.offset(9, 1, -4),
+                Blocks.PUMPKIN.defaultBlockState(), false) && ours.record(FILE_COLONY, touches, "", 3, FILE_ANCHOR.offset(-9, 1, 4),
+                Blocks.PUMPKIN.defaultBlockState(), false), "");
+        ours.plan(FILE_COLONY, touches, "", 3, SquareSets.TOUCH_PREFIX + "autumn.blueprint");
+        ours.setDecorated(FILE_COLONY, touches, 5);
+        ours.setTended(FILE_COLONY, touches, 6);
+        final int warnings = DecorLedger.newerVersionWarnings();
+        final CompoundTag tag = ours.save(new CompoundTag(), provider);
+        final DecorLedger back = DecorLedger.load(tag, provider);
+        checkEq("files: Q12 a file with the touches' group is version 3", tag.getInt("version"), 3);
+        checkEq("files: Q12 it round trips: every group, the touches' kind, piece, days and entries", canonAll(back, FILE_COLONY), canonAll(ours, FILE_COLONY));
+        final DecorLedger without = DecorLedger.load(v3file, provider);
+        check("files: Q12 the touches are no outdoor decorations (the square's and the building's are)", back.count(FILE_COLONY)
+                == without.count(FILE_COLONY) + 2 && back.countOutdoor(FILE_COLONY) == without.countOutdoor(FILE_COLONY)
+                && back.hasOutdoorEntries(FILE_COLONY) == without.hasOutdoorEntries(FILE_COLONY) && back.group(FILE_COLONY, touches) != null
+                && back.group(FILE_COLONY, touches).owner().kind() == DecorLedger.Kind.TOUCHES,
+                back.count(FILE_COLONY) + " listed, " + back.countOutdoor(FILE_COLONY) + " outdoor, " + without.countOutdoor(FILE_COLONY) + " without the touches");
+        checkEq("files: Q12 not a newer file to this build", DecorLedger.newerVersionWarnings(), warnings);
+        final int old = me.lovkar.seasons.cssquarelife.v010.DecorLedger.newerVersionWarnings();
+        final me.lovkar.seasons.cssquarelife.v010.DecorLedger reader = me.lovkar.seasons.cssquarelife.v010.DecorLedger.load(tag, provider);
+        checkEq("files: Q12 the 0.1.0 reader warns once", me.lovkar.seasons.cssquarelife.v010.DecorLedger.newerVersionWarnings() - old, 1);
+        final List<String> others = ours.groups(FILE_COLONY).stream().filter(g -> g.owner().kind() != DecorLedger.Kind.TOUCHES).map(CsSquareLife::canon).toList();
+        checkEq("files: Q12 the 0.1.0 reader skips the touches' group and has every other group as written",
+                reader.groups(FILE_COLONY).stream().map(CsSquareLife::canon010).toList(), others);
+        check("files: Q12 the 0.1.0 reader lists the touches' two entries nowhere (skipped), the marker and the budget as written",
+                reader.count(FILE_COLONY) == ours.count(FILE_COLONY) - 2 && FILE_MARKER.equals(reader.marker(FILE_COLONY)) && reader.budgetUsed(FILE_COLONY, 12) == 2,
+                reader.count(FILE_COLONY) + " of " + ours.count(FILE_COLONY));
+    }
+
     // ================================================================ the plans
 
     private void planDefault() {
@@ -1686,6 +2423,7 @@ public class CsSquareLife {
         unknownTypeSteps();
         substitutionSteps();
         deletedSteps();
+        q12Steps();
         now("summary", () -> note("NOTE section 8: Q2 proves points 3 (the Workshop's state with the Decorator on the square), 6 (CLEAR_NON_SOLIDS "
                 + "over substitution cells, with Structurize's placer), 7 (here our side: ticks from a work order to an empty group; mode "
                 + "builder measures the Builder's own side with his AI at work) and 13 (the 0.1.0 reader and MineColonies' unknown type)"));
@@ -2156,6 +2894,7 @@ public class CsSquareLife {
 
     private void planRestartSave() {
         setupSteps(false);
+        q12Save();
         final Map<BlockPos, BlockState>[] tree = new Map[1];
         now("save: the marker's tree and S1 at level 0", () -> {
             m1 = center.offset(MARKER_1);
@@ -2216,6 +2955,7 @@ public class CsSquareLife {
                     cells.append(cells.isEmpty() ? "" : ",").append(p.asLong());
                 }
                 ids.setProperty("cells", cells.toString());
+                q12Ids(ids);
                 try (var out = Files.newBufferedWriter(server.getWorldPath(LevelResource.ROOT).resolve(IDS_FILE), StandardCharsets.US_ASCII)) {
                     ids.store(out, "cssquarelife restart");
                 } catch (final java.io.IOException unwritten) {
@@ -2343,5 +3083,6 @@ public class CsSquareLife {
                         && DecorWork.squareTarget(level, ledger(), cid()) == null, ledger().countOutdoor(cid()) + " listed");
             }
         });
+        q12Load(ids);
     }
 }

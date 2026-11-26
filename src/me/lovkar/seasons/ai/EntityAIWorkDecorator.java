@@ -20,6 +20,7 @@ import me.lovkar.seasons.ColonySeasons;
 import me.lovkar.seasons.SeasonsConfig;
 import me.lovkar.seasons.block.FestivalMarkerBlock;
 import me.lovkar.seasons.calendar.CalendarManager;
+import me.lovkar.seasons.calendar.Season;
 import me.lovkar.seasons.colony.BuildingDecorator;
 import me.lovkar.seasons.colony.BuildingTownSquare;
 import me.lovkar.seasons.colony.DecoratorTexts;
@@ -84,6 +85,11 @@ import java.util.Map;
  *       day, or at once when the target or the Workshop's level changed, and swaps what differs; a check that changed
  *       something says so on his status line. It costs no walk of its own (he comes back to the hut between jobs), no
  *       visit and no budget.</li>
+ *   <li>The seasonal touches in the planters of the Town Square his module lists him on (0.2.0, Q12,
+ *       {@link DecorWork#nextTouches}): in every phase, every {@link #TOUCH_CHECK_TICKS} ticks and at once when the
+ *       in-game season or the open decoration windows change, he looks whether the planters need him (the season's touch
+ *       up, swapped, or taken down for a festival set) and goes Touching. It never sets "decorations up" and costs no
+ *       budget.</li>
  * </ul>
  *
  * <p>Nothing that must survive is kept here: MineColonies resets this AI for sleep, rain and raids. The fields are
@@ -106,7 +112,9 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
         /** Standing at the tree in the gathering hours of the festival days (he may eat there). */
         HOSTING(true),
         /** Getting the New Year show ready at the square. */
-        LAUNCHING(false);
+        LAUNCHING(false),
+        /** The seasonal touches in the Town Square's planters: up, swapped with the season, or down for a festival set (Q12). */
+        TOUCHING(true);
 
         private final boolean okayToEat;
 
@@ -166,6 +174,12 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
      */
     public static final int SQUARE_GIFT_RADIUS = Gathering.SQUARE_KEEP_RADIUS;
 
+    /**
+     * Ticks between two looks at the Town Square's planters (Q12) while the in-game season and the open decoration windows
+     * stay as they were; a change of either is looked at on the next decision.
+     */
+    public static final int TOUCH_CHECK_TICKS = 600;
+
     /** Ticks after a complete storeroom check before he looks at the room again (S10g2). */
     public static final int ROOM_RECHECK_TICKS = 600;
     /** Ticks after a check that could not finish (a chunk, the hut's data not there yet) before he tries again. */
@@ -179,6 +193,10 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
     // scratch: the storeroom's own progress is its ledger group (a reset only makes him look at the room once more)
     private long nextRoomCheck = Long.MIN_VALUE;
     private String lastRoomTarget;
+    // scratch: the touches' progress is their ledger group; a reset only makes him look at the planters once more
+    private long nextTouchCheck = Long.MIN_VALUE;
+    private Season lastTouchSeason;
+    private List<String> lastTouchWindows;
     private int walkAttempts;
     private Kits.Kit kitToAssemble;
     private DecorWork.Target target;
@@ -201,7 +219,8 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
                 new AITarget<IAIState>(DecoratorState.TENDING, this::tending, TICK_DELAY),
                 new AITarget<IAIState>(DecoratorState.TAKING_DOWN, this::takingDown, TICK_DELAY),
                 new AITarget<IAIState>(DecoratorState.HOSTING, this::hosting, TICK_DELAY),
-                new AITarget<IAIState>(DecoratorState.LAUNCHING, this::launching, TICK_DELAY));
+                new AITarget<IAIState>(DecoratorState.LAUNCHING, this::launching, TICK_DELAY),
+                new AITarget<IAIState>(DecoratorState.TOUCHING, this::touching, TICK_DELAY));
     }
 
     @Override
@@ -237,6 +256,10 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
         // ahead of the phase visits and of the free and window-only returns: in every phase, whenever he is at his hut
         if (storeroom(snapshot, phase, ledger, now)) {
             return AIWorkerState.START_WORKING;
+        }
+        // in every phase too: the Town Square's planters, when they need him (Q12)
+        if (touchesDue(snapshot, ledger, now)) {
+            return DecoratorState.TOUCHING;
         }
         if (phase != DecorPhase.OFF_SEASON && now >= nextPhaseVisit) {
             nextPhaseVisit = now + PHASE_VISIT_TICKS;
@@ -301,6 +324,39 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
         }
         job.setStatus(result.status());
         incrementActionsDoneAndDecSaturation();
+        return true;
+    }
+
+    /**
+     * The look at the Town Square's planters (Q12): at most every {@link #TOUCH_CHECK_TICKS} ticks, and at once when the
+     * in-game season or the open decoration windows differ from the last look; between looks it returns at once without
+     * reading a building. True when the planters need him: {@link #target} is set and he goes Touching.
+     */
+    private boolean touchesDue(final CalendarManager.Snapshot snapshot, final DecorLedger ledger, final long now) {
+        if (snapshot == null || snapshot.festivals() == null || ledger == null || !(world instanceof ServerLevel level)) {
+            return false;
+        }
+        final Season season = snapshot.season() == null ? null : snapshot.season().season();
+        final List<String> windows = snapshot.festivals().decor();
+        if (now < nextTouchCheck && season == lastTouchSeason && windows.equals(lastTouchWindows)) {
+            return false;
+        }
+        nextTouchCheck = now + TOUCH_CHECK_TICKS;
+        lastTouchSeason = season;
+        lastTouchWindows = windows;
+        final BuildingTownSquare mine = job.findSquare();
+        if (mine == null) {
+            return false;
+        }
+        final DecorWork.Target next = DecorWork.nextTouches(level, building.getColony(), ledger, mine, DecorWork.day(level),
+                building.decorateEnabled(), building.getPosition());
+        if (next == null) {
+            return false;
+        }
+        target = next;
+        walkAttempts = 0;
+        job.recordVisit(DecoratorState.TOUCHING);      // once per visit: the walk loops through TOUCHING
+        job.setStatus(DecoratorTexts.TOUCHES_ON_WAY, at(next));
         return true;
     }
 
@@ -732,6 +788,29 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
             afterWork();
         }
         job.setStatus(DecoratorTexts.TENDED_AT, at(target), outcome.placed(), outcome.open());
+        target = null;
+        return AIWorkerState.START_WORKING;
+    }
+
+    /**
+     * Touching (Q12): at the Town Square's planters, one visit in one tick ({@link DecorWork#touch}): the touches that are
+     * not wanted now come down, the wanted ones go up. It never sets "decorations up" (the touches are no festival's).
+     */
+    private IAIState touching() {
+        final DecorLedger ledger = ledger();
+        if (ledger == null || target == null || !(world instanceof ServerLevel level)) {
+            target = null;
+            return AIWorkerState.START_WORKING;
+        }
+        if (!arrived()) {
+            return DecoratorState.TOUCHING;
+        }
+        final DecorWork.TouchOutcome outcome = DecorWork.touch(level, building.getColony().getID(), target, DecorWork.day(level), ledger,
+                building.decorateEnabled());
+        job.setStatus(DecoratorTexts.TOUCHES_DONE, at(target), outcome.placed(), outcome.removed());
+        if (outcome.placed() > 0 || outcome.removed() > 0) {
+            afterWork();
+        }
         target = null;
         return AIWorkerState.START_WORKING;
     }

@@ -325,7 +325,21 @@ bash tools/probe.sh cssquarelife     # the ledger's files (no version, version 1
                                      # over substitution cells; in a second colony a square built where its marker stood (the marker block
                                      # replaced as the Builder would: its group goes, no ghost entry, no notice), a marker put down after
                                      # the square (the fallback, one notice), and the colony deleted (its mark and marker off, a new colony
-                                     # inherits neither)
+                                     # inherits neither); Q12 in a third colony with a level 3 square pasted (four planters)
+                                     # and its Decorator listed: the [V] touch pieces' contract, the season's touch on every bed
+                                     # cell (kind TOUCHES, free, never "decorations up", no budget, no take-down or tending
+                                     # target, a sweep leaves them and writes nothing), each season change swapping them in one
+                                     # visit, the window (5 Dec) taking them down and the tree going up with its foot (a
+                                     # festival trunk in the tree cell, the plan's first slot), the window's end (10 Jan: the
+                                     # tree and the foot down, every paid log back, then the touches back), Bare (none in any
+                                     # season; fixtures only in the window, no foot), Always Winter Festival in July (touches),
+                                     # the foot put back by tending and a snow layer in the centre never refusing the tree, a
+                                     # filled bed skipped without a notice, an entity's cell left open up to the fruitless cap,
+                                     # a pumpkin broken by the owner dropping nothing and coming back the next game day, a REPAIR
+                                     # order taking the set and the touches down in the same drain and the touches back after
+                                     # it, the Decorator's own AI going Touching by itself, the hut broken (both groups gone the
+                                     # same tick); a version 3 file with a touches' group (round trip; the 0.1.0 reader skips it
+                                     # with its one warning); a marker colony gets no touches
 bash tools/probe.sh cssquarelife builder   # section 8 point 7 with MineColonies' own Builder AI: the square's plaza set as built, the builder
                                      # given an entity, two REPAIR orders (the hut window with this Builder named, and one through the work
                                      # manager, which the watch sees), and (Q6) a real UPGRADE 1 to 2 through the hut's own route (his hut
@@ -339,7 +353,8 @@ bash tools/probe.sh cssquarelife builder   # section 8 point 7 with MineColonies
                                      # (the rig's colony is never active, so the probe runs the work manager at MineColonies' 20 ticks)
 bash tools/restart.sh cssquarelife   # a switch stopped half way between two of the rig's own sweeps: the ledger file on disk, the mark and
                                      # marker read back, no second notice, the Decorator's work building; the sweeps finish the tree and
-                                     # the world equals the expectation cell for cell
+                                     # the world equals the expectation cell for cell; Q12: spring touches up before the save read back
+                                     # as saved, a sweep after the load leaves them, a season change swaps them
 ```
 
 Each finding that goes to the owner instead of a fix is a `NOTE FINDING H<n> owner:ask|fyi` line. `tools/restart.sh` runs the phases a
@@ -462,7 +477,8 @@ run (`tools/nbt.py` is a small NBT writer, so the scripts need no packages and r
   centre (air), `gift`, `launch`, 8 to 24 `gather`, 2 to 12 `sit` on the benches' seats, 0 to 8 `lamp` over the posts'
   lanterns, 0 to 8 `bed` over the planters' grass, 0 to 4 `stall` on the pad planks. `touch(season)` makes the four
   seasonal touches (`pieces/bed_spring|summer|autumn|winter.blueprint`): a 1 x 1 piece whose air anchor, tagged
-  `invisible`, goes on the planter's soil cell (the `bed` tag cell minus one) so the tag cell gets the block.
+  `invisible`, goes on the planter's soil cell (the `bed` tag cell minus one) so the tag cell gets the block; from Q12 the
+  Decorator places them between the festivals (`DecorWork.touch`).
   `build_pack.py` checks it (`check_square` per level and `square_level_problems` across the levels, after a self-test that
   plants each fault once: the anchor and its name tag only, the box, the tag counts and cells, tags on air except `sit`,
   standing room and a full block under the standing tags (never a dirt path), open sky over `launch`, the posts' logs
@@ -475,8 +491,13 @@ run (`tools/nbt.py` is a small NBT writer, so the scripts need no packages and r
   own pixels over vanilla wood, a PNG writer of its own); `--check` is a step of `checks.sh`.
 - `tools/render_q6.py` (`bash tools/render_q6.sh`, Q6): the shipped square blueprints read back and drawn with the design
   renderer on the picture round's camera: `docs/renders/q6/level1..5.png` by day and `level5-night-winter.png` (the level-5
-  square with the grand tree lit, the gift pile and the crate, as the Decorator's code places them). One Blender process:
-  never beside a probe.
+  square with the grand tree lit, the gift pile and the crate, as the Decorator's code placed them before Q12's foot). One
+  Blender process: never beside a probe.
+- `tools/render_q12.py` (`bash tools/render_q12.sh`, Q12): the shipped level-3 square with the shipped seasonal touch on
+  every `bed` cell by the code's contract, `docs/renders/q12/level3-spring|summer|autumn|winter.png`, and
+  `level3-festival-foot.png` (the planters empty in the Winter Festival's window, the full village spruce with its foot, a
+  festival trunk in the `tree` cell, the gift pile and the crate). Same camera as Q6; one Blender process, never beside
+  a probe.
 - `tools/tree_pieces.py`: the tree pieces the Decorator places at the festival marker, `pieces/village_spruce_small`,
   `village_spruce_full`, `village_spruce_rich` (tree A) and `grand_tree` (tree B) of `design/src/trees.py`. A piece is
   drawn facing north; its anchor is the marker's cell and stays air; tags `gift_pile`, `firework_crate`, `star`

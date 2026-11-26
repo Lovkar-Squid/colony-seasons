@@ -350,6 +350,13 @@ public final class PieceLoader {
      * Square's fixtures ({@code fixtures}, relative to the anchor, already chosen for the level): they are planned after
      * the piece's own cells like any of them, and a fixture crate (the square's {@code launch} cell) stands instead of
      * the piece's own crate (one crate, where the rockets leave from). No fixtures: the 0.1.0 plan.
+     *
+     * <p>The tree's foot (0.2.0, Q12: a fixture at the anchor itself, {@code rel} zero, which {@link #read} never yields)
+     * is planned first of all, so it goes up before the trunk it carries. It is soft: when its cell is not air, is listed
+     * by another group or lies outside the claim, it is skipped and counted in none of {@code cells}, {@code blocked}
+     * and {@code trunkBlocked} (a snow layer in the centre must not refuse the tree; a later tending visit places the
+     * foot once the cell is free). Otherwise it is a cell like any other: a slot (a tree slot, costing a spruce log like
+     * every trunk cell), ours, or gone.</p>
      */
     public static SquarePlan plan(final ServerLevel level, final Piece piece, final BlockPos marker, final int hutLevel,
                                   final DecorLedger ledger, final int colony, final DecorLedger.Owner owner, final boolean costs,
@@ -361,18 +368,28 @@ public final class PieceLoader {
         int blocked = 0;
         int ours = 0;
         boolean trunkBlocked = false;
-        final List<PieceCell> order = new ArrayList<>(piece.cells());
-        order.sort(Comparator.comparing((PieceCell c) -> !c.trunk()).thenComparingInt(c -> c.rel().getY())
+        final List<PieceCell> sorted = new ArrayList<>(piece.cells());
+        sorted.sort(Comparator.comparing((PieceCell c) -> !c.trunk()).thenComparingInt(c -> c.rel().getY())
                 .thenComparing(PieceCell::rel));
         boolean ownCrate = true;
+        final List<PieceCell> order = new ArrayList<>();
+        final List<PieceCell> rest = new ArrayList<>();
         for (final PieceCell fixture : fixtures) {
             ownCrate &= !fixture.fireworkCrate();
+            if (fixture.rel().equals(BlockPos.ZERO)) {
+                order.add(fixture);                   // the tree's foot (Q12): first of all
+            } else {
+                rest.add(fixture);
+            }
         }
-        final int pieceCells = order.size();
-        order.addAll(fixtures);
+        final int lead = order.size();
+        final int pieceCells = sorted.size();
+        order.addAll(sorted);
+        order.addAll(rest);
         for (int i = 0; i < order.size(); i++) {
             final PieceCell cell = order.get(i);
-            final boolean fixture = i >= pieceCells;
+            final boolean foot = i < lead;
+            final boolean fixture = foot || i >= lead + pieceCells;
             if (!fixture && (cell.giftPile() && hutLevel < GIFT_PILE_LEVEL || cell.fireworkCrate() && (hutLevel < FIREWORK_CRATE_LEVEL || !ownCrate))) {
                 continue;
             }
@@ -380,21 +397,26 @@ public final class PieceLoader {
             if (!level.hasChunkAt(pos)) {
                 return SquarePlan.WAITING;
             }
-            cells++;
             final BlockState wanted = DecorPlacer.normalise(cell.state(), pos);
             final BlockState now = level.getBlockState(pos);
             final DecorLedger.Located at = ledger.at(pos);
             if (at != null && at.colony() == colony && at.owner().equals(owner) && at.entry().state() == now) {
+                cells++;
                 ours++;
                 continue;
             }
             // listed by this very group and air now: ours went missing (a player broke a log); any other entry blocks
             final boolean missing = at != null && now.isAir() && at.colony() == colony && at.owner().equals(owner);
             if (!now.isAir() || at != null && !missing || DecorPlacer.colonyAt(level, pos) != colony) {
+                if (foot) {
+                    continue;                         // the soft foot: skipped, counted nowhere (the tree goes up without it)
+                }
+                cells++;
                 blocked++;
                 trunkBlocked |= cell.trunk();
                 continue;
             }
+            cells++;
             if (missing) {
                 gone.add(pos.immutable());
             }

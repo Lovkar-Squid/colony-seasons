@@ -39,8 +39,8 @@ THE TOUCHES (the owner's answer "small seasonal touches between festivals"): fou
 (pieces/bed_spring|summer|autumn|winter.blueprint), a 1 x 1 column each. PLACEMENT CONTRACT: the piece's anchor is an
 air cell tagged `invisible`; its blocks start in the cell above it; the anchor goes on the planter's SOIL cell, which
 is the `bed` tag cell minus one in y, so the tag cell receives the piece's first block. Only blocks that need no
-support and do not change by themselves (no flowers, bushes, snow layers or crops). Q6 ships the pieces and the
-contract; no code places them yet (SquareSets.SEASONAL names the `bed` slot; its wiring has no chunk).
+support and do not change by themselves (no flowers, bushes, snow layers or crops). Q6 shipped the pieces and the
+contract; from Q12 on the Decorator places them between the festivals (decor/DecorWork.touch, SquareSets.touchPath).
 """
 import functools
 import math

@@ -6,8 +6,9 @@
   level5-night-winter.png      at night, the level-5 square with the Winter Festival's set as the Decorator's code places it:
                                pieces/grand_tree.blueprint on the `tree` cell with its blocks lit (the lit tree), the gift
                                pile at the `gift` cell facing away from the tree, the firework crate at the `launch` cell
-                               (decor/DecorWork.fixtures); nothing on the lamp posts or in the planters, because no code
-                               places anything there yet
+                               (decor/DecorWork.fixtures, before Q12 added the tree's foot); nothing on the lamp posts
+                               and nothing in the planters (the seasonal touches give way to a festival set: Q12,
+                               docs/renders/q12/)
 
 The camera is the picture round's (design/src/squares.py CAM_SQUARE), so the pictures sit beside the owner's picks in
 design/square/. Real block models through design/tools/mcmodel.py (the client jar's, the mod's own blockstates and
