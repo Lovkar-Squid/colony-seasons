@@ -31,6 +31,14 @@ build chunk.
   order this version does not know reads as Follow the calendar with one log line (MineColonies alone would read it by
   its position). The pieces are keyed by `RotationMirror`; the seasonal touches between festivals are in the set list
   without pieces until Q6. Probes `csdecorgate square` and `cspaste` extended.
+- **Q4, the events at the square.** With a Town Square as the colony's main square the gathering is at its tree
+  cell and the crowd stands on its `gather` spots (the 0.1.0 ring only when the tag reads empty), its hut is the
+  colony's leisure site in the festival hours, the tree is lit and the lighting rockets go up from the tree cell,
+  and the New Year shows leave from the crate, else from the `launch` tag's cell; the Decorator hosts and waits
+  outside the tree's box. The square's own gift pile stands at its `gift` cell (from square level 1) and its one
+  firework crate at its `launch` cell (from level 3, instead of the tree piece's crate), also under the order Bare
+  while the Winter Festival's window is open, so the daily gift and the show never depend on the order. A colony
+  with only a festival marker (every 0.1.0 world) behaves as before. Probe `csfestival square`.
 
 ## 0.1.0-beta.1 - unreleased - seasons and festivals for MineColonies
 

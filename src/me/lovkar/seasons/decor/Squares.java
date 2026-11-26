@@ -144,6 +144,40 @@ public final class Squares {
         return ledger == null || ledger.squareMark(colony) != null ? null : ledger.marker(colony);
     }
 
+    /**
+     * Where the colony's festival events happen (gathering, lighting, show): {@code anchor} the centrepiece cell and
+     * {@code hut} the Town Square's hut position, or {@code null} for the festival marker.
+     */
+    public record Centre(BlockPos anchor, BlockPos hut) {
+        public boolean onSquare() {
+            return hut != null;
+        }
+    }
+
+    /**
+     * The festival centre, in constant time from the ledger (the stored mark of the main square, kept by {@link #refresh},
+     * else the registered marker); {@code null} without either. Reads no world and no building, so the events ask it every
+     * poll; a square under construction keeps its mark ([B] design 4.6: the marker is not used meanwhile).
+     */
+    public static Centre centre(final DecorLedger ledger, final int colony) {
+        if (ledger == null) {
+            return null;
+        }
+        final DecorLedger.SquareMark mark = ledger.squareMark(colony);
+        if (mark != null) {
+            return new Centre(mark.anchor(), mark.building());
+        }
+        final BlockPos marker = ledger.marker(colony);
+        return marker == null ? null : new Centre(marker, null);
+    }
+
+    /** The colony's main Town Square building as the stored mark names it, or {@code null} (no mark, or the building is not there). */
+    public static BuildingTownSquare building(final IColony colony, final DecorLedger ledger) {
+        final DecorLedger.SquareMark mark = ledger == null ? null : ledger.squareMark(colony.getID());
+        return mark != null && colony.getServerBuildingManager().getBuilding(mark.building()) instanceof BuildingTownSquare square
+                ? square : null;
+    }
+
     /** "The festival marker is not used while the Town Square stands", to the colony's managers. */
     static void markerUnused(final ServerLevel level, final int colony) {
         markerUnusedNotices++;

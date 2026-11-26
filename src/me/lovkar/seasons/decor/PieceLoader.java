@@ -63,6 +63,12 @@ public final class PieceLoader {
     /** Hut level from which the gift pile and the firework crate are placed. */
     public static final int GIFT_PILE_LEVEL = 2;
     public static final int FIREWORK_CRATE_LEVEL = 3;
+    /**
+     * The "piece" of a Town Square group that holds only the festival's fixtures (0.2.0, Q4, design 4.4: the gift pile
+     * at the square's {@code gift} cell and the crate at its {@code launch} cell are placed for an active festival under
+     * every order, Bare included): no file, no cells of its own; {@link #request} answers {@link #FIXTURES_PIECE}.
+     */
+    public static final String FIXTURES_ONLY = "fixtures/winter_festival";
     /** At most this share of a piece's cells may be blocked for the rest to be placed (and no trunk cell). */
     public static final double MAX_BLOCKED_SHARE = 0.10;
 
@@ -92,6 +98,10 @@ public final class PieceLoader {
                              boolean waiting, int ours, List<BlockPos> gone, Set<BlockPos> treeSlots) {
         public static final SquarePlan WAITING = new SquarePlan(List.of(), 0, 0, false, false, true, 0, List.of(), Set.of());
     }
+
+    /** The piece of {@link #FIXTURES_ONLY}: no cells, its box the anchor's cell. */
+    public static final Piece FIXTURES_PIECE = new Piece(PACK, FIXTURES_ONLY, RotationMirror.NONE, List.of(), BlockPos.ZERO, false,
+            BlockPos.ZERO, BlockPos.ZERO);
 
     record Key(String pack, String path, RotationMirror rotation) {
     }
@@ -168,6 +178,9 @@ public final class PieceLoader {
     }
 
     public static boolean missing(final String pack, final String path, final RotationMirror rotation) {
+        if (FIXTURES_ONLY.equals(path)) {
+            return false;
+        }
         final Cached cached = CACHE.get(new Key(pack, path, rotation));
         return cached != null && cached.piece() == null;
     }
@@ -182,6 +195,9 @@ public final class PieceLoader {
      * and it is asked for again on a later game day).
      */
     public static Piece request(final ServerLevel level, final String pack, final String path, final RotationMirror rotation) {
+        if (FIXTURES_ONLY.equals(path)) {
+            return FIXTURES_PIECE;                    // a Town Square's fixtures only: nothing to load
+        }
         final Key key = new Key(pack, path, rotation);
         final long day = level.getDayTime() / 24000L;
         final Cached cached = CACHE.get(key);
@@ -326,6 +342,18 @@ public final class PieceLoader {
      */
     public static SquarePlan plan(final ServerLevel level, final Piece piece, final BlockPos marker, final int hutLevel,
                                   final DecorLedger ledger, final int colony, final DecorLedger.Owner owner, final boolean costs) {
+        return plan(level, piece, marker, hutLevel, ledger, colony, owner, costs, List.of());
+    }
+
+    /**
+     * {@link #plan(ServerLevel, Piece, BlockPos, int, DecorLedger, int, DecorLedger.Owner, boolean)} with a Town
+     * Square's fixtures ({@code fixtures}, relative to the anchor, already chosen for the level): they are planned after
+     * the piece's own cells like any of them, and a fixture crate (the square's {@code launch} cell) stands instead of
+     * the piece's own crate (one crate, where the rockets leave from). No fixtures: the 0.1.0 plan.
+     */
+    public static SquarePlan plan(final ServerLevel level, final Piece piece, final BlockPos marker, final int hutLevel,
+                                  final DecorLedger ledger, final int colony, final DecorLedger.Owner owner, final boolean costs,
+                                  final List<PieceCell> fixtures) {
         final List<DecorPlacer.Slot> slots = new ArrayList<>();
         final List<BlockPos> gone = new ArrayList<>();
         final Set<BlockPos> treeSlots = new HashSet<>();
@@ -336,8 +364,16 @@ public final class PieceLoader {
         final List<PieceCell> order = new ArrayList<>(piece.cells());
         order.sort(Comparator.comparing((PieceCell c) -> !c.trunk()).thenComparingInt(c -> c.rel().getY())
                 .thenComparing(PieceCell::rel));
-        for (final PieceCell cell : order) {
-            if (cell.giftPile() && hutLevel < GIFT_PILE_LEVEL || cell.fireworkCrate() && hutLevel < FIREWORK_CRATE_LEVEL) {
+        boolean ownCrate = true;
+        for (final PieceCell fixture : fixtures) {
+            ownCrate &= !fixture.fireworkCrate();
+        }
+        final int pieceCells = order.size();
+        order.addAll(fixtures);
+        for (int i = 0; i < order.size(); i++) {
+            final PieceCell cell = order.get(i);
+            final boolean fixture = i >= pieceCells;
+            if (!fixture && (cell.giftPile() && hutLevel < GIFT_PILE_LEVEL || cell.fireworkCrate() && (hutLevel < FIREWORK_CRATE_LEVEL || !ownCrate))) {
                 continue;
             }
             final BlockPos pos = marker.offset(cell.rel());

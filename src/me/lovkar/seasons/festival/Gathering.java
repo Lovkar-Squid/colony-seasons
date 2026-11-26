@@ -4,6 +4,7 @@ import com.ldtteam.structurize.blockentities.interfaces.IBlueprintDataProviderBE
 import com.minecolonies.api.colony.ICitizenData;
 import com.minecolonies.api.colony.IColony;
 import com.minecolonies.api.colony.buildings.IBuilding;
+import com.minecolonies.api.colony.managers.interfaces.IRegisteredStructureManager;
 import com.minecolonies.api.colony.jobs.IJob;
 import com.minecolonies.api.entity.ai.statemachine.states.CitizenAIState;
 import com.minecolonies.core.entity.ai.minimal.EntityAICitizenWander;
@@ -14,6 +15,7 @@ import me.lovkar.seasons.SeasonsConfig;
 import me.lovkar.seasons.block.FestivalMarkerBlock;
 import me.lovkar.seasons.calendar.CalendarManager;
 import me.lovkar.seasons.colony.BuildingDecorator;
+import me.lovkar.seasons.colony.BuildingTownSquare;
 import me.lovkar.seasons.colony.JobDecorator;
 import me.lovkar.seasons.decor.DecorLedger;
 import me.lovkar.seasons.decor.DecorWork;
@@ -42,7 +44,8 @@ import java.util.Set;
  * The gathering at the tree (design 5, Winter Festival days). In the festival hours ({@code events.gatherFromTick}
  * to {@code events.gatherUntilTick}, the afternoon: colonists go to bed once {@code dayTime % 24000 > 10600}) the
  * colony's off-duty colonists (citizen AI state IDLE, or on MineColonies' own leisure trip) are sent walking to a
- * free spot round the tree, the festival marker's square (without a marker, the town hall: design 6). A colonist on a
+ * free spot round the tree, the main Town Square's tree cell and its {@code gather} spots (0.2.0), else the festival
+ * marker's square (without either, the town hall: design 6). A colonist on a
  * leisure trip to another place (the town hall, a tavern) would be walked straight back there by MineColonies' idle
  * walk, so that trip is ended (his citizen AI is set back to its first state, IDLE, which he was in before the trip)
  * and he comes like the others; one strolling round our tree is left to stroll. A short song plays at the start and every
@@ -77,6 +80,13 @@ public final class Gathering {
     public static final int SONG_TICKS = 1200;
     /** Colonists further than this from the site are walked back to it; the spots lie within it. */
     public static final int KEEP_RADIUS = 7;
+    /**
+     * The same on a Town Square: its footprint is 21 x 21 at every level ([B] owner answer, pictures round), so the
+     * {@code gather} spots lie up to 10 blocks from the tree in each direction (about 14 on a diagonal).
+     */
+    public static final int SQUARE_KEEP_RADIUS = 15;
+    /** On a Town Square a colonist counts as at his spot within this squared distance (blocks). */
+    static final int SETTLE_DIST_SQ = 8;
     /** Only the colony's colonists within this distance of the site are called. */
     public static final int CALL_RADIUS = 160;
     /** The festivals whose days have a gathering. */
@@ -154,12 +164,19 @@ public final class Gathering {
 
     // ---------------------------------------------------------------- the place
 
-    /** Where the colony gathers: its festival marker when it stands, else the town hall, else the colony's centre. */
+    /**
+     * Where the colony gathers: the {@code tree} cell of its main Town Square (docs/town-square-design.md 4.5), else
+     * its festival marker when it stands, else the town hall, else the colony's centre. While the square is under
+     * construction the gathering stays at its tree cell (the marker is not used meanwhile, [B] design 4.6).
+     */
     public static BlockPos site(final ServerLevel level, final IColony colony) {
         final DecorLedger ledger = DecorLedger.peek(level);
-        final BlockPos marker = ledger == null ? null : Squares.marker(ledger, colony.getID());
-        if (marker != null && level.hasChunkAt(marker) && level.getBlockState(marker).getBlock() instanceof FestivalMarkerBlock) {
-            return marker;
+        final Squares.Centre centre = Squares.centre(ledger, colony.getID());
+        if (centre != null && centre.onSquare()) {
+            return centre.anchor();
+        }
+        if (centre != null && level.hasChunkAt(centre.anchor()) && level.getBlockState(centre.anchor()).getBlock() instanceof FestivalMarkerBlock) {
+            return centre.anchor();
         }
         final IBuilding hall = colony.getServerBuildingManager().getTownHall();
         return hall != null ? hall.getPosition() : colony.getCenter();
@@ -173,7 +190,10 @@ public final class Gathering {
     private static int treeRadius(final ServerLevel level, final IColony colony, final BlockPos site) {
         final DecorLedger ledger = DecorLedger.peek(level);
         AABB box = null;
-        if (ledger != null && level.hasChunkAt(site) && level.getBlockState(site).getBlock() instanceof FestivalMarkerBlock) {
+        final BuildingTownSquare square = squareAt(colony, ledger, site);
+        if (square != null) {
+            box = level.hasChunkAt(site) ? DecorWork.townSquareBox(level, ledger, colony.getID(), square, site, decoratorLevel(colony)) : null;
+        } else if (ledger != null && level.hasChunkAt(site) && level.getBlockState(site).getBlock() instanceof FestivalMarkerBlock) {
             final Direction facing = level.getBlockState(site).getValue(FestivalMarkerBlock.FACING);
             box = DecorWork.squareBox(level, ledger, colony.getID(), site, facing, PieceLoader.PACK,
                     DecorWork.squarePath(ledger, colony.getID(), site, decoratorLevel(colony)));
@@ -183,7 +203,23 @@ public final class Gathering {
             r = Math.max(r, Math.max(Math.max(site.getX() - (int) Math.floor(box.minX), (int) Math.ceil(box.maxX) - 1 - site.getX()),
                     Math.max(site.getZ() - (int) Math.floor(box.minZ), (int) Math.ceil(box.maxZ) - 1 - site.getZ())));
         }
-        return Math.min(r, KEEP_RADIUS - 1);
+        return Math.min(r, keepRadius(square) - 1);
+    }
+
+    /** The colony's main Town Square when {@code site} is its tree cell, else {@code null} (the marker, the hall, the centre). */
+    static BuildingTownSquare squareAt(final IColony colony, final DecorLedger ledger, final BlockPos site) {
+        final Squares.Centre centre = Squares.centre(ledger, colony.getID());
+        return centre != null && centre.onSquare() && centre.anchor().equals(site) ? Squares.building(colony, ledger) : null;
+    }
+
+    /** How far from the site a colonist still counts as gathered: {@link #SQUARE_KEEP_RADIUS} on a Town Square. */
+    static int keepRadius(final BuildingTownSquare square) {
+        return square != null ? SQUARE_KEEP_RADIUS : KEEP_RADIUS;
+    }
+
+    /** {@link #keepRadius(BuildingTownSquare)} for the colony's site (public for the Decorator's hosting and the probe). */
+    public static int keepRadius(final ServerLevel level, final IColony colony, final BlockPos site) {
+        return keepRadius(squareAt(colony, DecorLedger.peek(level), site));
     }
 
     /** The level of the colony's Decorator hut (the piece he would put up), or 0 without one. */
@@ -196,15 +232,27 @@ public final class Gathering {
         return 0;
     }
 
-    /** Standing places round the site, nearest ring first: a solid floor and room for feet and head, not in the tree. */
+    /**
+     * Standing places for the crowd, nearest first, at most 24: on a Town Square the standing places of its
+     * {@code gather} tag cells (design 4.5), else (the 0.1.0 rule, also a square whose tag reads empty or has no room)
+     * a ring round the site, nearest ring first: a solid floor and room for feet and head, not in the tree.
+     */
     public static List<BlockPos> spots(final ServerLevel level, final IColony colony, final BlockPos site) {
+        final BuildingTownSquare square = squareAt(colony, DecorLedger.peek(level), site);
+        if (square != null) {
+            final List<BlockPos> tagged = gatherSpots(level, square, site);
+            if (!tagged.isEmpty()) {
+                return tagged;
+            }
+        }
+        final int keep = keepRadius(square);
         final int inner = treeRadius(level, colony, site) + 1;
         final List<BlockPos> found = new ArrayList<>();
-        for (int r = inner; r <= KEEP_RADIUS && found.size() < 24; r++) {
+        for (int r = inner; r <= keep && found.size() < 24; r++) {
             for (int dx = -r; dx <= r; dx++) {
                 for (int dz = -r; dz <= r; dz++) {
                     if (Math.max(Math.abs(dx), Math.abs(dz)) != r || (dx + dz) % 2 != 0
-                            || dx * dx + dz * dz > (KEEP_RADIUS + 0.5) * (KEEP_RADIUS + 0.5)) {
+                            || dx * dx + dz * dz > (keep + 0.5) * (keep + 0.5)) {
                         continue;                     // the ring only, every other cell (room between colonists), not too far
                     }
                     final BlockPos stand = standable(level, site.offset(dx, 0, dz));
@@ -215,7 +263,26 @@ public final class Gathering {
             }
         }
         found.sort(Comparator.comparingDouble((BlockPos p) -> p.distSqr(site)).thenComparing(p -> p));
-        return found;
+        // the 0.1.0 ring is left as it was; a square's rings reach 15 blocks and would list far more than 24
+        return square != null && found.size() > 24 ? new ArrayList<>(found.subList(0, 24)) : found;
+    }
+
+    /** The standing places of the square's {@code gather} cells, nearest the site first, distinct, at most 24; empty while the tag reads empty. */
+    private static List<BlockPos> gatherSpots(final ServerLevel level, final BuildingTownSquare square, final BlockPos site) {
+        final List<BlockPos> cells = square.getLocationsFromTag(BuildingTownSquare.TAG_GATHER);
+        if (cells == null || cells.isEmpty()) {
+            return List.of();
+        }
+        final java.util.LinkedHashSet<BlockPos> found = new java.util.LinkedHashSet<>();
+        for (final BlockPos cell : cells) {
+            final BlockPos stand = standable(level, cell);
+            if (stand != null && stand.distSqr(site) <= (double) SQUARE_KEEP_RADIUS * SQUARE_KEEP_RADIUS) {
+                found.add(stand);
+            }
+        }
+        final List<BlockPos> sorted = new ArrayList<>(found);
+        sorted.sort(Comparator.comparingDouble((BlockPos p) -> p.distSqr(site)).thenComparing(p -> p));
+        return sorted.size() > 24 ? new ArrayList<>(sorted.subList(0, 24)) : sorted;
     }
 
     /** A cell near {@code at} (3 up to 3 down) a colonist can stand in, or {@code null}; never loads a chunk. */
@@ -283,6 +350,8 @@ public final class Gathering {
         if (spots.isEmpty()) {
             return everyoneComes;
         }
+        final BuildingTownSquare square = squareAt(colony, DecorLedger.peek(level), site);
+        final double keep = keepRadius(square);
         final List<EntityCitizen> come = new ArrayList<>();
         for (final ICitizenData citizen : colony.getCitizenManager().getCitizens()) {
             if (citizen.getEntity().orElse(null) instanceof EntityCitizen entity && offDuty(entity)
@@ -296,7 +365,10 @@ public final class Gathering {
         for (int i = 0; i < come.size(); i++) {
             final EntityCitizen entity = come.get(i);
             final BlockPos spot = spots.get(Math.floorMod(i + turn, spots.size()));
-            final boolean there = entity.blockPosition().distSqr(site) <= (double) KEEP_RADIUS * KEEP_RADIUS;
+            final boolean there = entity.blockPosition().distSqr(site) <= keep * keep;
+            // a Town Square's spots lie anywhere inside its 21 x 21 box, so "within the keep radius" is not "at his spot":
+            // there a colonist is walked on until he stands at his spot (the marker's crowd is on its ring by then)
+            final boolean arrived = square == null || entity.blockPosition().distSqr(spot) <= SETTLE_DIST_SQ;
             near += there ? 1 : 0;
             if (onLeisureTrip(entity)) {
                 if (there) {
@@ -311,7 +383,7 @@ public final class Gathering {
                 entity.getCitizenAI().reset();
                 tripsEnded++;
             }
-            if (!there || entity.getNavigation().isDone() && Math.floorMod(tick + i * 7L, MILL_TICKS) < PULL_TICKS) {
+            if (!there || !arrived || entity.getNavigation().isDone() && Math.floorMod(tick + i * 7L, MILL_TICKS) < PULL_TICKS) {
                 EntityNavigationUtils.walkToPos(entity, spot, 1, true);
                 pulls++;
             }
@@ -346,18 +418,31 @@ public final class Gathering {
         return entity.getCitizenAI() != null && entity.getCitizenAI().getState() instanceof EntityAICitizenWander.WanderState;
     }
 
-    /** During the hours the marker is one of the colony's leisure sites ([V]: only where its block entity is a blueprint-data provider). */
+    /**
+     * During the hours the festival centre is one of the colony's leisure sites: the Town Square's hut (design 4.5; its
+     * block entity is a blueprint-data provider, so MineColonies' idle walk strolls inside the square's corners and
+     * uses its {@code sit} tags), else the marker ([V]: only where its block entity is a blueprint-data provider).
+     * MineColonies' slow colony tick drops every site that is not its own decoration controller, so the next poll adds
+     * it again. A Town Square hut that is not the colony's centre now (another square, or outside the hours) leaves the list.
+     */
     private static void leisureSite(final ServerLevel level, final IColony colony, final boolean on) {
         final DecorLedger ledger = DecorLedger.peek(level);
-        final BlockPos marker = ledger == null ? null : Squares.marker(ledger, colony.getID());
-        if (marker == null || !level.hasChunkAt(marker)) {
+        final Squares.Centre centre = Squares.centre(ledger, colony.getID());
+        final IRegisteredStructureManager manager = colony.getServerBuildingManager();
+        for (final BlockPos listed : List.copyOf(manager.getLeisureSites())) {
+            if (manager.getBuilding(listed) instanceof BuildingTownSquare && (!on || centre == null || !listed.equals(centre.hut()))) {
+                manager.removeLeisureSite(listed);
+            }
+        }
+        final BlockPos site = centre == null ? null : centre.onSquare() ? centre.hut() : centre.anchor();
+        if (site == null || !level.hasChunkAt(site)) {
             return;
         }
-        final boolean listed = colony.getServerBuildingManager().getLeisureSites().contains(marker);
-        if (on && !listed && level.getBlockEntity(marker) instanceof IBlueprintDataProviderBE) {
-            colony.getServerBuildingManager().addLeisureSite(marker);
+        final boolean listed = manager.getLeisureSites().contains(site);
+        if (on && !listed && level.getBlockEntity(site) instanceof IBlueprintDataProviderBE) {
+            manager.addLeisureSite(site);
         } else if (!on && listed) {
-            colony.getServerBuildingManager().removeLeisureSite(marker);
+            manager.removeLeisureSite(site);
         }
     }
 
