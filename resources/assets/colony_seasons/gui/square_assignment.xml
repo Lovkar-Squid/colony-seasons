@@ -19,5 +19,7 @@
     <button id="recall" size="129 17" pos="30 92" color="black"
                  source="minecolonies:textures/gui/builderhut/builder_button_medium_large.png"
                  label="$(com.minecolonies.coremod.gui.workerhuts.recall)"/>
-    <text id="text" size="150 45" pos="30 120" color="black" text="$(com.colony_seasons.gui.square.decorator.desc)"/>
+    <text id="text" size="150 36" pos="30 114" color="black" text="$(com.colony_seasons.gui.square.decorator.desc)"/>
+    <!-- which square is the colony's main one (Q5); the window fills it in from the page's packet -->
+    <text id="main" size="150 54" pos="30 154" color="black"/>
 </window>

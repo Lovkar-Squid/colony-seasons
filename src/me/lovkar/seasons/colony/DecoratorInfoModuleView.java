@@ -34,6 +34,10 @@ public class DecoratorInfoModuleView extends AbstractBuildingModuleView {
             statusArgs.add(buf.readUtf());
         }
         final boolean squareProblem = buf.readBoolean();
+        final int squareKind = buf.readVarInt();
+        final int squareLevel = buf.readVarInt();
+        final String squareSet = buf.readUtf();
+        final int squareState = buf.readVarInt();
         final boolean decorateOn = buf.readBoolean();
         final int decorationsUp = buf.readVarInt();
         final int buildingsDone = buf.readVarInt();
@@ -60,7 +64,7 @@ public class DecoratorInfoModuleView extends AbstractBuildingModuleView {
         final double foodFactor = buf.readDouble();
         final boolean winter = buf.readBoolean();
         info = new DecoratorInfoModule.Info(season, dayOfYear, yearLength, festival, festivalDays, daysUntilNext, decorWindow,
-                daysWindow, statusKey, List.copyOf(statusArgs), squareProblem, decorateOn, decorationsUp, buildingsDone, usedToday, quota,
+                daysWindow, statusKey, List.copyOf(statusArgs), squareProblem, squareKind, squareLevel, squareSet, squareState, decorateOn, decorationsUp, buildingsDone, usedToday, quota,
                 needsMaterials, stockCap, List.copyOf(stock), nextKit, List.copyOf(missing), happinessOn, happinessBonus,
                 cropsOn, cropSkip, foodOn, foodFactor, winter);
     }
@@ -71,7 +75,7 @@ public class DecoratorInfoModuleView extends AbstractBuildingModuleView {
     }
 
     private static DecoratorInfoModule.Info empty() {
-        return new DecoratorInfoModule.Info(-1, 0, 0, "", false, -1, "", "", DecoratorTexts.NO_WORKER, List.of(), false, true, 0, 0,
+        return new DecoratorInfoModule.Info(-1, 0, 0, "", false, -1, "", "", DecoratorTexts.NO_WORKER, List.of(), false, DecoratorInfoModule.SQUARE_NONE, 0, "", 0, true, 0, 0,
                 0, 0, true, 0, List.of(), "", List.of(), false, 0, false, 0, false, 1, false);
     }
 

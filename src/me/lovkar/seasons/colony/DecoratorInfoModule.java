@@ -13,6 +13,7 @@ import me.lovkar.seasons.decor.DecorLedger;
 import me.lovkar.seasons.decor.DecorPhase;
 import me.lovkar.seasons.decor.DecorWork;
 import me.lovkar.seasons.decor.Kits;
+import me.lovkar.seasons.decor.Squares;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.server.level.ServerLevel;
@@ -39,6 +40,11 @@ import java.util.List;
  * a new season, a festival, the stock. Nothing changed, nothing is sent.</p>
  */
 public class DecoratorInfoModule extends AbstractBuildingModule implements ITickingModule {
+
+    /** The Calendar's square line: no square (the colony's centrepiece is its town hall, or nothing), the festival marker, a Town Square. */
+    public static final int SQUARE_NONE = 0;
+    public static final int SQUARE_MARKER = 1;
+    public static final int SQUARE_BUILDING = 2;
 
     /** The most kit rows and missing-ingredient rows a packet carries (a datapack can add kits). */
     public static final int MAX_ROWS = 24;
@@ -87,6 +93,11 @@ public class DecoratorInfoModule extends AbstractBuildingModule implements ITick
         }
         // the tree has no room at the festival marker (S10i)
         buf.writeBoolean(info.squareProblem());
+        // the one line about the colony's square (Q5): none, the festival marker, or the main Town Square, its set and state
+        buf.writeVarInt(info.squareKind());
+        buf.writeVarInt(info.squareLevel());
+        buf.writeUtf(info.squareSet());
+        buf.writeVarInt(info.squareState());
         // progress
         buf.writeBoolean(info.decorateOn());
         buf.writeVarInt(info.decorationsUp());
@@ -131,11 +142,13 @@ public class DecoratorInfoModule extends AbstractBuildingModule implements ITick
      * {@code decorWindow} and {@code daysWindow} are "MM-DD MM-DD" (from, until) or "" when there is no festival.
      * {@code squareProblem}: the ledger's note that the tree did not fit at the festival marker on his last look
      * ({@link DecorLedger#squareProblem}), shown only while a decoration window is open (outside it there is no tree
-     * to put up, and nobody looks at the square until the next window).
+     * to put up, and nobody looks at the square until the next window). {@code squareKind} is the Calendar's one square
+     * line (Q5): {@link #SQUARE_NONE}, {@link #SQUARE_MARKER}, or {@link #SQUARE_BUILDING} (the colony's main Town Square,
+     * with its level, the id of the set shown on it or "", and a {@link SquareStatus.State} id).
      */
     public record Info(int season, int dayOfYear, int yearLength, String festival, boolean festivalDays, int daysUntilNext,
                        String decorWindow, String daysWindow, String statusKey, List<String> statusArgs, boolean squareProblem,
-                       boolean decorateOn, int decorationsUp, int buildingsDone, int usedToday, int quota, boolean needsMaterials,
+                       int squareKind, int squareLevel, String squareSet, int squareState, boolean decorateOn, int decorationsUp, int buildingsDone, int usedToday, int quota, boolean needsMaterials,
                        int stockCap, List<StockRow> stock, String nextKit, List<MissingRow> missing,
                        boolean happinessOn, double happinessBonus, boolean cropsOn, double cropSkip, boolean foodOn,
                        double foodFactor, boolean winter) {
@@ -192,6 +205,10 @@ public class DecoratorInfoModule extends AbstractBuildingModule implements ITick
         int done = 0;
         int used = 0;
         boolean square = false;
+        int squareKind = SQUARE_NONE;
+        int squareLevel = 0;
+        String squareSet = "";
+        int squareState = SquareStatus.State.NOT_BUILT.ordinal();
         final IColony colony = building == null ? null : building.getColony();
         if (colony != null && colony.getWorld() instanceof ServerLevel serverLevel) {
             final DecorLedger ledger = DecorLedger.peek(serverLevel);
@@ -200,6 +217,18 @@ public class DecoratorInfoModule extends AbstractBuildingModule implements ITick
                 done = ledger.buildingsDone(colony.getID());
                 used = ledger.budgetUsed(colony.getID(), DecorWork.day(serverLevel));
                 square = ledger.squareProblem(colony.getID()) && DecorPhase.windowOpen(snapshot);
+            }
+            // the colony's centrepiece: its main Town Square (read only, never Squares.refresh) or the festival marker
+            final Squares.Square centre = Squares.of(serverLevel, colony, ledger);
+            if (centre.source() == Squares.Source.BUILDING
+                    && colony.getServerBuildingManager().getBuilding(centre.building()) instanceof BuildingTownSquare main) {
+                final SquareStatus.Status status = SquareStatus.of(main);
+                squareKind = SQUARE_BUILDING;
+                squareLevel = status.level();
+                squareSet = status.shown() == null ? "" : status.shown().id();
+                squareState = status.state().ordinal();
+            } else if (centre.source() == Squares.Source.MARKER) {
+                squareKind = SQUARE_MARKER;
             }
         }
 
@@ -239,7 +268,7 @@ public class DecoratorInfoModule extends AbstractBuildingModule implements ITick
 
         final boolean winter = snapshot != null && snapshot.season().season() == Season.WINTER;
         return new Info(season, day, year, festival, days, until, decorWindow, daysWindow, statusKey, List.copyOf(statusArgs), square,
-                hut == null || hut.decorateEnabled(), up, done, used, DecorWork.quota(level), SeasonsConfig.needsMaterials(),
+                squareKind, squareLevel, squareSet, squareState, hut == null || hut.decorateEnabled(), up, done, used, DecorWork.quota(level), SeasonsConfig.needsMaterials(),
                 hut == null ? 0 : hut.stockCap(), List.copyOf(stock), nextKit, List.copyOf(missing),
                 SeasonsConfig.festivalHappiness(), SeasonsConfig.festivalHappinessBonus(), SeasonsConfig.winterCropSlowdown(),
                 SeasonsConfig.winterCropSkipChance(), SeasonsConfig.winterFoodNeed(), SeasonsConfig.winterFoodNeedFactor(), winter);
@@ -249,7 +278,7 @@ public class DecoratorInfoModule extends AbstractBuildingModule implements ITick
      * The next festival whose decoration window has not opened yet: {@code {id, days until}} or {@code null}. A window
      * that opens next year counts too (the date wraps).
      */
-    private static String[] nextFestival(final LocalDate today) {
+    static String[] nextFestival(final LocalDate today) {
         String best = null;
         long bestDays = Long.MAX_VALUE;
         for (final String id : SeasonsConfig.FESTIVAL_IDS) {

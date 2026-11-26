@@ -55,6 +55,8 @@ public class SquareAssignmentModule extends AbstractBuildingModule
     /** The assigned citizens' ids, in the order they came. */
     private final Set<Integer> ids = new LinkedHashSet<>();
     private HiringMode hiringMode = HiringMode.DEFAULT;
+    /** The main square as the last colony tick read it (never saved); the page is marked for sending when it changes. */
+    private SquareStatus.Main lastMain;
 
     @Override
     public JobEntry getJobEntry() {
@@ -218,6 +220,12 @@ public class SquareAssignmentModule extends AbstractBuildingModule
     @Override
     public void onColonyTick(final IColony colony) {
         prune();
+        // another square became (or stopped being) the main one: the page is sent again (nothing changed, nothing is sent)
+        final SquareStatus.Main main = main();
+        if (!main.equals(lastMain)) {
+            lastMain = main;
+            markDirty();
+        }
         if (isFull() || colony == null || !BuildingUtils.canAutoHire(getBuilding(), hiringMode, getJobEntry())) {
             return;
         }
@@ -277,6 +285,16 @@ public class SquareAssignmentModule extends AbstractBuildingModule
         }
         buf.writeInt(hiringMode.ordinal());
         buf.writeInt(getModuleMax());
+        // which square is the colony's main one, for the page's line (Q5): the standing, its hut's position, its level
+        final SquareStatus.Main main = main();
+        buf.writeVarInt(main.standing().ordinal());
+        buf.writeBlockPos(main.pos());
+        buf.writeVarInt(main.level());
+    }
+
+    /** The colony's main square as this square's page shows it (reads only; {@link SquareStatus.Main#NONE} without a building). */
+    private SquareStatus.Main main() {
+        return getBuilding() instanceof BuildingTownSquare square ? SquareStatus.mainOf(square) : SquareStatus.Main.NONE;
     }
 
     /** Every Town Square of the colony whose module lists {@code citizen}, lowest building position first. */

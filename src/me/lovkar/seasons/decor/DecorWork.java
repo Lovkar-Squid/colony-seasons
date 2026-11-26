@@ -543,17 +543,21 @@ public final class DecorWork {
 
     /**
      * The colony's centrepiece as a place to work on now ({@link Squares#of}): the main Town Square while it is located
-     * and free and {@code assigned} is that square ([B] design 4.3: it is worked only by the Decorator its module lists;
-     * a busy square gets nothing, and the marker is not used meanwhile), else the festival marker's square
-     * ({@link #squareTarget}, open to any Decorator), else {@code null}.
+     * and free and {@code assigned} is a Town Square whose Decorator module lists the Decorator ([B] design 4.3: it is
+     * worked only by a Decorator its modules list; a busy square gets nothing, and the marker is not used meanwhile),
+     * else the festival marker's square ({@link #squareTarget}, open to any Decorator), else {@code null}. A Decorator
+     * listed on a square that is not the colony's main one works the main square (the owner item of Q2, taken in Q5: the
+     * square's Decorator page says which square is the main one).
      */
     public static Target centrepiece(final ServerLevel level, final IColony colony, final DecorLedger ledger, final BuildingTownSquare assigned) {
         final Squares.Square square = Squares.of(level, colony, ledger);
         if (square.source() == Squares.Source.BUILDING) {
-            if (!square.located() || square.busy() || assigned == null || !assigned.getPosition().equals(square.building())) {
+            if (!square.located() || square.busy() || assigned == null) {
                 return null;
             }
-            return Target.townSquare(assigned, square.anchor());
+            final BuildingTownSquare main = assigned.getPosition().equals(square.building()) ? assigned
+                    : colony.getServerBuildingManager().getBuilding(square.building()) instanceof BuildingTownSquare found ? found : null;
+            return main == null ? null : Target.townSquare(main, square.anchor());
         }
         return squareTarget(level, ledger, colony.getID());
     }
@@ -954,6 +958,9 @@ public final class DecorWork {
         final String fruit = fruitless(level, ledger, colony, target, day, tending, placed, open, result);
         tended(ledger, colony, target, day, tending);
         ledger.flush(level);
+        if (target.building() instanceof BuildingTownSquare square) {
+            square.noteMissing(missing);              // the square's info page says what he is short of (Q5)
+        }
         return new Outcome(placed, open, complete, "square: " + placed + " placed, " + open + " still open" + fruit, Map.copyOf(missing));
     }
 
