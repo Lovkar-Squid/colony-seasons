@@ -1049,6 +1049,12 @@ public class CsSquareLife {
                         touched + " touched, " + (ledger().writes() - writes) + " writes");
                 check("switch: nothing of ours is listed for the colony any more, no square target",
                         ledger().countOutdoor(cid()) == 0 && DecorWork.squareTarget(level, ledger(), cid()) == null, ledger().countOutdoor(cid()) + " listed");
+                // the Decorator's AI keeps its target while he walks: one who chose the marker before the switch arrives now
+                final DecorWork.Outcome late = DecorWork.decorate(level, cid(), DecorWork.Target.square(m1, Direction.NORTH,
+                        me.lovkar.seasons.decor.PieceLoader.PACK), 1, DecorPlacer.Stock.FREE, DecorWork.day(level), ledger());
+                check("switch: a Decorator who chose the marker before the switch places nothing there when he arrives", late.placed() == 0
+                        && late.status().startsWith("a Town Square is the colony's centrepiece") && ledger().group(cid(), sq(m1)) == null
+                        && ledger().countOutdoor(cid()) == 0, late.status());
             }
         });
     }

@@ -623,6 +623,12 @@ public final class DecorWork {
         // or on a Town Square the player built (Q3 puts the square's own target here); the marker may have been broken
         // while he walked here
         final BlockPos marker = target.owner().pos();
+        // [B] design 4.8, one centrepiece: a target chosen before a Town Square took over (he was walking here) gets
+        // nothing; while a square is the main one the marker is only the fallback (Squares.marker)
+        final DecorLedger.SquareMark main = ledger.squareMark(colony);
+        if (main != null && !main.anchor().equals(marker)) {
+            return Outcome.of(0, 0, false, "a Town Square is the colony's centrepiece now: nothing at the festival marker");
+        }
         if (!level.hasChunkAt(marker)) {
             return Outcome.of(0, 0, false, "waiting for the square's chunks to load");
         }
