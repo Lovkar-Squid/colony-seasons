@@ -1660,8 +1660,10 @@ public class CsSquareLife {
                     wrong.isEmpty(), cleared + " cleared, " + kept + " kept, " + notes + (wrong.isEmpty() ? "" : ", " + wrong.subList(0, Math.min(3, wrong.size()))));
             note("NOTE FINDING H3 owner:tech point 6: Structurize's placer with MineColonies' CLEAR_NON_SOLIDS skip rule leaves our blocks in "
                     + "structurize:blocksubstitution cells and clears those in air cells ({} and {} of 27). The first build's CLEAR stage and REMOVE's "
-                    + "skipRemoval are read from the bytecode only; the [B] protection is the take-down before every work order, and the real "
-                    + "blueprints (Q6) put the set volumes in substitution cells", cleared, kept);
+                    + "skipRemoval are read from the bytecode only; the [B] protection is the take-down before every work order. The real "
+                    + "blueprints (Q6) keep the tree's 11 x 11 column as air, not substitution cells (design 4.6 [A]): the first build then clears "
+                    + "whatever stands there, and the take-down (proven below and in mode builder with MineColonies' own Builder) keeps our tree "
+                    + "out of every later order's way", cleared, kept);
             final int[] lost = new int[1];
             DecorPlacer.remove(level, ledger(), cid(), sq(a3), DecorWork.sinkOf(colony, lost));
             check("point 6: the rest of the group comes down by the rule, the cleared cells forgotten", ledger().group(cid(), sq(a3)) == null

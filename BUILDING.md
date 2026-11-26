@@ -63,7 +63,8 @@ bash tools/probe.sh cspaste                   # every blueprint of the pack load
                                               # world read back against tools/cspaste/res/cspaste/manifest.json; Q3: the
                                               # Winter Festival's pieces as the Town Square reads them in its eight rotations
                                               # (the mirror stripped) equal the marker's of that facing and an independent
-                                              # turn, and the level-1 piece stands on the square's free cells round its tree tag
+                                              # turn; Q6: on each of the five square levels, in all eight orientations, every centrepiece up to the level stands on
+                                              # the square's free cells round its tree tag
 bash tools/probe.sh csdecorgate               # placing, the ledger and taking down: real huts of six style packs, edge cases,
                                               # the square with the probe's test piece, a real colony and the Decorator's AI,
                                               # the grand tree with grass on a planter cell (a lantern that cannot stand)
@@ -230,15 +231,19 @@ bash tools/restart.sh csstoreroom  # a check stopped half done in a forced windo
                                    # restart the ledger equals the world and the next check ends at the festival set
 ```
 
-The Town Square (0.2.0, Q1). `cssquare` builds a colony with a town hall, two Workshops pasted with the command a player
+The Town Square (0.2.0, Q1, Q6). `cssquare` builds a colony with a town hall, two Workshops pasted with the command a player
 types, a lumberjack's hut and two Decorators; every hire and fire is MineColonies' `HireFireMessage` and every hiring mode
 its `BuildingHiringModeMessage`, built from bytes and run through the server handler with the owner standing near the
 building, and the probe runs MineColonies' building colony tick itself, as `cshire` does. The square's tags are checked
 against `tools/cssquare/res/cssquare/square_tags.json`, which `build_pack.py` writes.
 
 ```bash
-bash tools/probe.sh cssquare     # the hut block, item, building and module registered, our block-entity type for both huts; eight
-                                 # squares pasted (four turned, four mirrored): every tag through getLocationsFromTag turned with the
+bash tools/probe.sh cssquare     # the hut block, item, building and module registered, our block-entity type for both huts; Q6: the
+                                 # tag file has levels 1 to 5, each level's counts are the table of design 4.2 (`SquareSets.slots`, the
+                                 # crate's slot at every level), every tag cell of a level is still there at the next, `tree`, `gift` and
+                                 # `launch` never move, every `townsquareN.blueprint` loads with its own tags; squares pasted (level 1
+                                 # and level 5 in all eight orientations, four turned and four mirrored; levels 2, 3 and 4 in two):
+                                 # every tag through getLocationsFromTag turned with the
                                  # building, air in the world (a `sit` tag on its bench's stair), solid ground under `tree`, the same
                                  # after safeUpdateTEDataFromSchematic; two squares placed through MineColonies' survival placement
                                  # handler with the hut item (level 0: nobody assigned, no auto-hire; a second square is not stopped)
@@ -290,7 +295,12 @@ bash tools/probe.sh cssquarelife     # the ledger's files (no version, version 1
                                      # inherits neither)
 bash tools/probe.sh cssquarelife builder   # section 8 point 7 with MineColonies' own Builder AI: the square's plaza set as built, the builder
                                      # given an entity, two REPAIR orders (the hut window with this Builder named, and one through the work
-                                     # manager, which the watch sees); the ticks from each order to our group empty, to the Builder's first
+                                     # manager, which the watch sees), and (Q6) a real UPGRADE 1 to 2 through the hut's own route (his hut
+                                     # raised to level 2, which the work manager asks for; he is given the blocks the order's own list
+                                     # needs, the terrain's dirt among them): the same measures, and CLEAR_NON_SOLIDS must be reached;
+                                     # after it level 2, the mark and anchor unchanged, the stored path unchanged (MineColonies keeps it),
+                                     # the next orders naming levels 2 and 3, `getLocationsFromTag` equal to level 2's tags and the plaza
+                                     # equal to level 2's blueprint (about 5 minutes); the ticks from each order to our group empty, to the Builder's first
                                      # stage, his CLEAR_NON_SOLIDS, his first change in the box (a torch on the paving) and the order done;
                                      # our group down before his first stage, no block of ours touched by him, every item back, nothing lost
                                      # (the rig's colony is never active, so the probe runs the work manager at MineColonies' 20 ticks)
@@ -412,15 +422,28 @@ run (`tools/nbt.py` is a small NBT writer, so the scripts need no packages and r
   a barrel and never hung, hung pieces beside a whole wall block, both sets, the walk with either set placed; the
   barrels into the blueprint's air and none above a rack or behind a window, `workshop(level, barrels=False)`) after a
   self-test that plants each fault once, and writes `tools/csspots/res/csspots/spots.json` for the `csspots` probe.
-- `tools/square_hut.py` (0.2.0, Q1): the Town Square, look A "Village plaza", `square/townsquare1.blueprint`: one
-  placeholder level 21 x 21 (box y 0..19, so the grand tree fits) with every tag of design 4.1 (`tree` at the centre,
-  `gift`, `launch`, 8 `gather`, 2 `sit` on the benches' seats, 4 `lamp` over fence posts, 4 `bed` over a planter, 2
-  `stall`) and the notice board as its hut block at (2, 1, 8); Q6 draws the five real levels on the same box and cells.
-  `build_pack.py` checks it (`check_square` after a self-test: the anchor and its name tag only, the box, the tag counts,
-  tags on air except `sit`, standing room, solid ground under `tree`, the 11 x 11 column over it empty, the hut block
-  reachable from the south entrance) and writes `tools/cssquare/res/cssquare/square_tags.json`.
+- `tools/square_hut.py` (0.2.0, Q1, Q6): the Town Square, look A "Village plaza", `square/townsquare1..5.blueprint`: five
+  levels 21 x 21 (box y 0..19, so the grand tree fits) drawn block for block as `design/src/squares.py` shows them
+  (vanilla ids only, the real hut block, the notice board, at (2, 1, 8)). Every tag keeps its cell at every level and a
+  higher level only adds cells (`SLOTS`, the table of design 4.2; `launch` is one cell at every level): `tree` at the
+  centre (air), `gift`, `launch`, 8 to 24 `gather`, 2 to 12 `sit` on the benches' seats, 0 to 8 `lamp` over the posts'
+  lanterns, 0 to 8 `bed` over the planters' grass, 0 to 4 `stall` on the pad planks. `touch(season)` makes the four
+  seasonal touches (`pieces/bed_spring|summer|autumn|winter.blueprint`): a 1 x 1 piece whose air anchor, tagged
+  `invisible`, goes on the planter's soil cell (the `bed` tag cell minus one) so the tag cell gets the block.
+  `build_pack.py` checks it (`check_square` per level and `square_level_problems` across the levels, after a self-test that
+  plants each fault once: the anchor and its name tag only, the box, the tag counts and cells, tags on air except `sit`,
+  standing room and a full block under the standing tags (never a dirt path), open sky over `launch`, the posts' logs
+  with air round them, the planters' grass, no block over a dirt path, every bottom cell set, solid ground under
+  `tree`, the 11 x 11 column over it empty, the hut block and every standing tag reachable from the south entrance;
+  one size and anchor, the same `tree`, `gift` and `launch`, tags only added, the paving never going back; the touches
+  and the Winter centrepieces on the square; each level against the picked look A, where only the hut block differs)
+  and writes `tools/cssquare/res/cssquare/square_tags.json`.
   `python -I tools/gen_square_hut.py` writes the hut block's blockstate, block and item models and its notes texture (our
   own pixels over vanilla wood, a PNG writer of its own); `--check` is a step of `checks.sh`.
+- `tools/render_q6.py` (`bash tools/render_q6.sh`, Q6): the shipped square blueprints read back and drawn with the design
+  renderer on the picture round's camera: `docs/renders/q6/level1..5.png` by day and `level5-night-winter.png` (the level-5
+  square with the grand tree lit, the gift pile and the crate, as the Decorator's code places them). One Blender process:
+  never beside a probe.
 - `tools/tree_pieces.py`: the tree pieces the Decorator places at the festival marker, `pieces/village_spruce_small`,
   `village_spruce_full`, `village_spruce_rich` (tree A) and `grand_tree` (tree B) of `design/src/trees.py`. A piece is
   drawn facing north; its anchor is the marker's cell and stays air; tags `gift_pile`, `firework_crate`, `star`

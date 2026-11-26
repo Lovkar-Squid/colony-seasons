@@ -47,6 +47,23 @@ build chunk.
   main one works the main square. Nothing on these pages writes the ledger or sends chat. Probes `cssquare`,
   `cssquarelife`, `csdecorgate`, `csclient` (the pages' views read on a dedicated server, no window class loaded)
   extended; `check_packets.py` and `check_windows.py` cover the new module and layout.
+- **Q6, the five levels of the Town Square.** `square/townsquare1..5.blueprint` draw the owner's look A (village
+  plaza, 21 x 21 at every level, the notice board as the hut block) as the picture round showed it: level 1 a paved
+  centre with its path ring and two benches; 2 wider paving and four lamp posts; 3 a low edge wall, four planters and
+  four more benches; 4 two stall pads and four more lamp posts; 5 full paving, the bandstand in the corner, two more
+  planters, two more benches and two more stall pads. Every level has the same box and anchor and the `tree`, `gift`
+  and `launch` cells; a slot's cell never moves and a higher level only adds cells (the counts are the table of design
+  4.2, `SquareSets.slots`; `launch` is one cell at every level). Standing slots (`gift`, `launch`, `gather`, `stall`)
+  stand on the stone mix or the pad planks, never on a dirt path. Four tiny seasonal touches for the planters ship as
+  `pieces/bed_spring|summer|autumn|winter.blueprint` with their placement contract; nothing places them yet.
+  `BuildingTownSquare.BUILT_LEVELS` is 5, so a square can be upgraded. `build_pack.py` checks every level, the levels
+  against each other, the pieces on the square and each level against the picked pictures, after a self-test of every
+  rule. Probes: `cspaste` (all five squares in eight orientations with every centrepiece up to the level on free
+  cells), `cssquare` (five levels in the tag file, levels 1 and 5 pasted in all eight orientations, 2 to 4 in two),
+  `cssquarelife builder` (a real UPGRADE 1 to 2 worked by MineColonies' own Builder AI: our group down in 2 ticks,
+  before his first stage at about 370, his first change in the box at about 560 and his CLEAR_NON_SOLIDS at about
+  4450; the result is level 2's plaza and tags). Renders by day and at night in `docs/renders/q6/`
+  (`tools/render_q6.sh`).
 
 ## 0.1.0-beta.1 - unreleased - seasons and festivals for MineColonies
 

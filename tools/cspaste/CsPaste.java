@@ -51,7 +51,7 @@ import java.util.TreeSet;
  * itself, judged as Structurize read it, pasted into the world through Structurize's own placer, and the world is
  * read back against what tools/build_pack.py wrote (res/cspaste/manifest.json, made by the same build).
  *
- * <p>The files are the Decorator's hut, the Town Square (0.2.0, one placeholder level in Q1) and the tree pieces;
+ * <p>The files are the Decorator's hut, the Town Square (0.2.0, five levels from Q6) and the tree pieces;
  * a hut's and the square's building type, folder and anchor block come from their manifest entry.</p>
  *
  * <p>For every file: the pack is there with its name, description, authors and icon; the blueprint loads with its
