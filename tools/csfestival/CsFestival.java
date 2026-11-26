@@ -1284,6 +1284,9 @@ public class CsFestival {
         final boolean mixin = !"nomixin".equals(mode);
         final int[] brought0 = new int[1];
         final int[] calls0 = new int[1];
+        // his hosting visits counted from the morning: he may enter Hosting on the very tick the hours begin, before the
+        // hours step starts, and then stays in it the whole afternoon (one visit, which a count from that step would miss)
+        final int[] hosting0 = new int[1];
         final Set<String> workerStates = new LinkedHashSet<>();
         step(new Step("gathering: 25 Dec, the morning before the hours", 700, true) {
             @Override
@@ -1293,6 +1296,7 @@ public class CsFestival {
                 near.clear();
                 brought0[0] = Gathering.broughtWorkers();
                 calls0[0] = Gathering.mixinCalls();
+                hosting0[0] = job() == null ? 0 : job().visits(EntityAIWorkDecorator.DecoratorState.HOSTING);
             }
 
             @Override
@@ -1312,7 +1316,6 @@ public class CsFestival {
         });
         step(new Step("gathering: the festival hours", 2300, true) {
             boolean leisure;
-            int hosting0;
             int handed0;
             int songs0;
             int trips0;
@@ -1322,7 +1325,6 @@ public class CsFestival {
 
             @Override
             void start() {
-                hosting0 = job() == null ? 0 : job().visits(EntityAIWorkDecorator.DecoratorState.HOSTING);
                 handed0 = job() == null ? 0 : job().giftsHanded();
                 songs0 = Gathering.songs();
                 trips0 = Gathering.tripsEnded();
@@ -1372,7 +1374,7 @@ public class CsFestival {
                     checkSpots();
                 }
                 check("the song played", Gathering.songs() > songs0, (Gathering.songs() - songs0) + " times");
-                final int hosting = job() == null ? 0 : job().visits(EntityAIWorkDecorator.DecoratorState.HOSTING) - hosting0;
+                final int hosting = job() == null ? 0 : job().visits(EntityAIWorkDecorator.DecoratorState.HOSTING) - hosting0[0];
                 final int handed = job() == null ? 0 : job().giftsHanded() - handed0;
                 check("the Decorator hosts at the tree and hands colonists gifts (hearts, a line)", hosting > 0 && handed > 0,
                         hosting + " hosting visits, " + handed + " gifts, status '" + (job() == null ? "-" : job().status()) + "'");
