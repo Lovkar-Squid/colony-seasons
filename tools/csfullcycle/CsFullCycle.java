@@ -124,7 +124,9 @@ import java.util.concurrent.TimeUnit;
  * <p>Modes (the rig writes the word to probe-mode.txt): "" the base cycle; nodecorator, nomarker, emptywarehouse,
  * effects (with rigconfig-effects), serene (the Serene Seasons stand-in of tools/sereneshim); restart-save, restart-mid
  * and restart-load (tools/restart.sh with phases.txt: one kept world, two restarts); edges-low and edges-high (config
- * edge values, a shortened cycle); hostile-items, hostile-free and hostile-world ({@link Hostile}). Prints
+ * edge values, a shortened cycle); hostile-items, hostile-free and hostile-world ({@link Hostile}); Q7's Town Square modes
+ * square-building, trade-post, migrate-marker, builder-over-tree, wand, touches, the restart sets square-r1 to square-r7 and
+ * migrate-save, migrate-load ({@link SquareCycle}) and hostile-square ({@link HostileSquare}). Prints
  * "[csfullcycle] CHECK ...: OK|FAIL", "NOTE ..." and last "[csfullcycle] RESULT csfullcycle: PASS|FAIL", then halts.
  * The probe never reads the real clock; the words the rig greps for stay out of the details.</p>
  */
@@ -821,7 +823,7 @@ public class CsFullCycle {
                     placeMarker();
                     checkEq("the marker is the colony's square", ledger.marker(colonyId), marker);
                 }
-                if (sc != null) {
+                if (sc != null && variant.square()) {
                     sc.placeInSetup();                // Q7: the Town Square (pasted, registered, its Decorator assigned)
                 }
                 players();
@@ -1021,6 +1023,9 @@ public class CsFullCycle {
             final java.util.function.Predicate<ItemStack> is = s -> s.is(item);
             int c = hut == null ? 0 : BuildingDecorator.countIn(hut.getItemHandlerCap(), is);
             for (final ICitizenData citizen : colony.getCitizenManager().getCitizens()) {
+                if (sc != null && citizen == sc.excluded) {
+                    continue;                         // Q7 builder-over-tree: the Builder's own supplies
+                }
                 c += BuildingDecorator.countIn(citizen.getInventory(), is);
             }
             n.put(item, c + held.getOrDefault(item, 0));
@@ -1090,6 +1095,9 @@ public class CsFullCycle {
             @Override
             boolean tick() {
                 hook.tick(t);
+                if (sc != null && sc.street != null) {
+                    sc.street.tick(t);                // Q7 wand: who stands in the marks' cells
+                }
                 return timeOfDay() >= until || hook.done();
             }
 

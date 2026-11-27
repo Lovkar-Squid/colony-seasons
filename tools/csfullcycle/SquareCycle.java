@@ -104,6 +104,8 @@ final class SquareCycle {
     /** Crowd samples on the gathering days: [samples of colonists standing still near the square, those on a gather spot]. */
     final int[] crowd = new int[2];
     final StreetLegs street;
+    /** builder-over-tree: the builder, whose pack holds the plaza's blocks, not the colony's decorations (left out of I3). */
+    ICitizenData excluded;
     /** What a restart phase saves beyond the facts of {@link #saveFacts} (the dusk's stock, ...). */
     final CompoundTag extra = new CompoundTag();
 
@@ -221,11 +223,16 @@ final class SquareCycle {
         built.setBlueprintPath("square/townsquare" + Math.max(1, lv) + ".blueprint");
         built.assignment().setHiringMode(HiringMode.MANUAL);
         built.markDirty();
-        if (p.decorator != null) {
-            p.check("the Decorator is assigned to the square (he stays employed at his Workshop)", built.assignment().assignCitizen(p.decorator)
-                    && p.decorator.getWorkBuilding() == p.hut && p.decorator.getJob() instanceof JobDecorator j && j.findSquare() == built, "");
+        if (p.decorator != null && lv >= 1) {
+            assign(built);                            // a square not built yet (level 0) takes nobody: assigned once it is
         }
         return built;
+    }
+
+    /** The colony's Decorator assigned to {@code built} (he stays employed at his Workshop). */
+    void assign(final BuildingTownSquare built) {
+        p.check("the Decorator is assigned to the square (he stays employed at his Workshop)", built.assignment().assignCitizen(p.decorator)
+                && p.decorator.getWorkBuilding() == p.hut && p.decorator.getJob() instanceof JobDecorator j && j.findSquare() == built, "");
     }
 
     /** Setup, after the citizens: the level 5 square on its plot (the square modes). */
@@ -244,6 +251,9 @@ final class SquareCycle {
             inClaim &= p.claimed(new BlockPos(corner.getX(), p.ground + 1, corner.getZ()));
         }
         check("the square's four corners lie in the colony's claim", inClaim, plot.toShortString());
+        if (street != null) {
+            street.build();                           // mode wand: the street, before the first snapshot
+        }
     }
 
     /** The four corners of the square's box at its own height range (low and high). */
@@ -812,19 +822,21 @@ final class SquareCycle {
                 markerEntries = size(tree);
                 if (tree != null) {
                     for (final Map.Entry<BlockPos, DecorLedger.Entry> e : tree.entries().entrySet()) {
-                        if (changedCell == null && e.getValue().paid() && e.getValue().state().is(Blocks.SPRUCE_LOG)) {
+                        if (changedCell == null && e.getValue().paid()
+                                && "minecraft".equals(BuiltInRegistries.BLOCK.getKey(e.getValue().state().getBlock()).getNamespace())) {
                             changedCell = e.getKey();
+                            changedItem = DecorPlacer.itemOf(e.getValue().state());
                         }
                     }
                 }
                 if (changedCell != null) {
-                    changedItem = Items.SPRUCE_LOG;
                     p.set(changedCell, Blocks.OAK_PLANKS.defaultBlockState());
                     p.held.merge(changedItem, 1, Integer::sum);       // the player broke the log and kept it
                     p.probeChanged.add(changedCell);
                 }
                 square.setBuildingLevel(1);
                 square.markDirty();
+                assign(square);                       // the player (or the square's auto-hire) assigns his Decorator once it stands
                 DecorEvents.squareChanged(square);
                 DecorEvents.drain(p.server);
                 final Squares.Square s = Squares.of(p.level, p.colony, p.ledger);
@@ -872,10 +884,12 @@ final class SquareCycle {
             @Override
             void start() {
                 // the changed cell goes back as it was (the player's planks taken away), so the end can equal the snapshot
-                p.set(changedCell, Blocks.AIR.defaultBlockState());
-                p.held.merge(changedItem, -1, Integer::sum);
-                p.start.merge(changedItem, -1, Integer::sum);       // that log left the colony with the player
-                p.probeChanged.remove(changedCell);
+                if (changedCell != null) {
+                    p.set(changedCell, Blocks.AIR.defaultBlockState());
+                    p.held.merge(changedItem, -1, Integer::sum);
+                    p.start.merge(changedItem, -1, Integer::sum);   // that log left the colony with the player
+                    p.probeChanged.remove(changedCell);
+                }
                 before = Squares.markerUnusedNotices();
                 p.level.setBlock(realMarker, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
                 checkEq(d11 + ": the broken marker is unregistered", p.ledger.marker(p.colonyId), null);

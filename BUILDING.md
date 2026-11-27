@@ -174,6 +174,15 @@ bash tools/probe.sh csfullcycle hostile-free    # decorations free: what a playe
 bash tools/probe.sh csfullcycle hostile-world   # the grand tree with short stock, sliced take-downs, unloading chunks, five years, a
                                                 # deleted colony, touching claims, a second marker, the marker broken in the hours, the
                                                 # hut destroyed while he hosts, a broken tree, decor remove mid-festival, a newer ledger file
+bash tools/probe.sh csfullcycle square-building # Q7: the cycle on a level 5 Town Square (order Follow), I5 to I8 daily, only its touches left
+bash tools/probe.sh csfullcycle trade-post      # Q7: the same with the Trade Post jar: the stalls sell 24 to 26 Dec, goods times prices = balance
+bash tools/probe.sh csfullcycle migrate-marker  # Q7: a 0.1.0 colony with its marker tree up gets a square on 8 Dec (level 0, then 1)
+bash tools/probe.sh csfullcycle builder-over-tree  # Q7: MineColonies' own Builder upgrades the square 1 to 2 while its lit tree stands
+bash tools/probe.sh csfullcycle wand            # Q7: rigconfig-wand: a marked street through the cycle (lights on, removal, a hut over a mark)
+bash tools/probe.sh csfullcycle touches         # Q7: the planters' touches across seasons, Bare and Always, the window and its take-down
+bash tools/probe.sh csfullcycle hostile-square  # Q7: the attacks H20 to H27 (set swaps, ghosts, two squares, claims, money, a carved pumpkin)
+bash tools/restart.sh csfullcycle square        # Q7: phases-square.txt: square-building's colony cut in every phase (r1 to r7)
+bash tools/restart.sh csfullcycle migrate       # Q7: phases-migrate.txt: cut on 8 Dec, the ledger file rewritten as 0.1.0 writes it
 ```
 
 The festival market and its Trade Post bridge (0.2.0, Q10). `cstradepost` builds a colony with a town hall, the Workshop at level 5

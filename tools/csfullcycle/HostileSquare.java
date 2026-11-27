@@ -396,6 +396,8 @@ final class HostileSquare {
             p.check("H26 M3: sales stop at the day's cap", paid <= cap && paid > cap - smallest && sales > 0 && goods() > 0,
                     sales + " sales, " + paid + " of " + cap + " paid today, " + goods() + " goods left");
             reconcile("M3 to the cap", before, b0);
+            finding("H26", "fyi", "the market's cap counts per colony day ({} points here for four stalls): a real festival date whose nights are "
+                    + "skipped has a fresh cap on every colony day it spans (design 7.2 accepts it); the cap was reached after {} sales", cap, sales);
             // a stall cell broken: three stand, the cap is three coins, and what was paid is more than that already
             final BlockPos stallCell = firstStallCell();
             if (stallCell != null) {

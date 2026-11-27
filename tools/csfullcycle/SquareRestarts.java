@@ -227,10 +227,14 @@ final class SquareRestarts {
                     p.brokenWreath = wreath;
                 }
                 p.check(phase + ": a wreath broken this game day (tending puts it back after the restart)", wreath != null, String.valueOf(wreath));
-                p.colony.getWorkManager().addWorkOrder(WorkOrderBuilding.create(WorkOrderType.REPAIR, sc.square), false);
             }
         }));
         p.step(new CsFullCycle.Step(phase + ": the order takes the square's groups down", DecorEvents.SQUARE_WATCH * 4) {
+            @Override
+            void start() {
+                p.colony.getWorkManager().addWorkOrder(WorkOrderBuilding.create(WorkOrderType.REPAIR, sc.square), false);
+            }
+
             @Override
             boolean tick() {
                 return SquareCycle.size(sc.set()) + SquareCycle.size(sc.touches()) == 0;
