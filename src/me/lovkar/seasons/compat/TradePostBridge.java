@@ -162,7 +162,7 @@ public class TradePostBridge {
      *
      * <p>Once the write went through and the balance rose, the colony has been paid, so the answer is true (the caller
      * keeps the sale: the good stays sold and the paid record stays), also when the read-back shows another amount than
-     * asked or cannot be read at all; those still write the one WARN line and turn the bridge off (Q7, H26: an answer of
+     * asked or cannot be read at all, or when marking the colony dirty threw; those still write the one WARN line and turn the bridge off (Q7, H26: an answer of
      * false there gave the good back after the money was in, money from nothing).</p>
      */
     public boolean credit(final IColony colony, final int amount) {
@@ -188,7 +188,13 @@ public class TradePostBridge {
             fallBack("paying the colony failed (" + describe(failed) + ")", failed);
             return false;
         }
-        colony.markDirty();
+        try {
+            markDirty(colony);
+        } catch (final Throwable failed) {
+            // the write went through (Q7b): the colony is paid, so the sale stands; the Town Hall figure refreshes later
+            fallBack("marking the colony dirty after a payment failed (" + describe(failed) + ")", failed);
+            return true;
+        }
         final long moved;
         try {
             moved = (long) read(colony) - before;
@@ -207,6 +213,11 @@ public class TradePostBridge {
     /** The one write: MineColonies' own statistic, on the colony's day. The probe overrides it to make it throw. */
     protected void write(final IColony colony, final int amount) {
         colony.getStatisticsManager().incrementBy(STAT, amount, colony.getDay());
+    }
+
+    /** The one refresh of the Town Hall figure after a payment. The probe overrides it to make it throw. */
+    protected void markDirty(final IColony colony) {
+        colony.markDirty();
     }
 
     /** The one read: the statistic's total (the self-test, the read-back). The probe overrides it to make it throw. */

@@ -208,19 +208,10 @@ public final class Fireworks {
             DecorWork.sinkOf(colony, lost).give(p.paid().copy());
             if (lost[0] > 0) {
                 ColonySeasons.LOGGER.info("A queued firework rocket of colony {} did not fly and had no Workshop to go back to: lost", p.colony());
-            } else {
-                refunded++;
             }
         } catch (final RuntimeException failed) {
             ColonySeasons.LOGGER.warn("A queued firework rocket of colony {} could not go back to its Workshop: lost", p.colony(), failed);
         }
-    }
-
-    private static int refunded;
-
-    /** Queued rockets given back to a Workshop since the server started (the probe reads it). */
-    public static int refunded() {
-        return refunded;
     }
 
     static void reset() {

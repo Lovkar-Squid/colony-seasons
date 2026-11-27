@@ -523,7 +523,7 @@ public final class DecorEvents {
     private static int dropMarksOutOfClaim(final ServerLevel level, final DecorLedger ledger, final IColony colony) {
         final int id = colony.getID();
         int removed = 0;
-        for (final StreetMarks.Mark mark : List.copyOf(ledger.marks(id))) {
+        for (final StreetMarks.Mark mark : ledger.marks(id)) {
             if (ledger.markAt(id, mark.pos()) != null && StreetWork.outOfClaim(level, colony, mark) && StreetMarks.remove(level, id, mark.pos())) {
                 removed++;
                 ColonySeasons.LOGGER.info("A street mark of colony {} at {} lies outside the colony's claim now: removed", id, mark.pos().toShortString());

@@ -2,6 +2,7 @@ package me.lovkar.seasons.decor;
 
 import com.ldtteam.structurize.api.RotationMirror;
 import com.minecolonies.api.colony.IColony;
+import me.lovkar.seasons.ColonySeasons;
 import me.lovkar.seasons.calendar.CalendarManager;
 import me.lovkar.seasons.calendar.Season;
 import me.lovkar.seasons.festival.Gathering;
@@ -386,7 +387,7 @@ public final class StreetWork {
     /**
      * The sweep's rule for a mark's group: it goes when the mark no longer exists, when a loaded cell of it lies outside
      * this colony's claim, or when a building's box covers one of its cells now. A cell in an unloaded chunk alone never
-     * makes it go.
+     * makes it go, nor does a cell whose claim lookup failed (Q7b, {@link #outOfClaim}).
      */
     static boolean gone(final ServerLevel level, final IColony colony, final DecorLedger ledger, final BlockPos pos) {
         final StreetMarks.Mark mark = ledger.markAt(colony.getID(), pos);
@@ -395,8 +396,11 @@ public final class StreetWork {
         }
         final List<DoorFinder.Box> boxes = StreetMarks.buildingBoxes(colony);
         for (final BlockPos cell : StreetPieces.cells(mark)) {
-            if (level.hasChunkAt(cell) && DecorPlacer.colonyAt(level, cell) != colony.getID()) {
-                return true;
+            if (level.hasChunkAt(cell)) {
+                final int at = claimOf(level, colony, cell, pos);
+                if (at != DecorPlacer.LOOKUP_FAILED && at != colony.getID()) {
+                    return true;
+                }
             }
             if (StreetMarks.inside(boxes, cell)) {
                 return true;
@@ -407,17 +411,41 @@ public final class StreetWork {
 
     /**
      * True when a loaded cell of the mark lies outside its colony's claim now (the claim shrank or moved under it; Q7,
-     * H25). A cell in an unloaded chunk never counts. Such a mark can no longer be served, nor removed with the wand
-     * (a click there belongs to the colony that claims the cell, or to none), so the sweep drops it
-     * ({@link DecorEvents#sweep}).
+     * H25). A cell in an unloaded chunk never counts, and neither does one whose lookup failed (Q7b: a passing failure
+     * of MineColonies' claim lookup is no proof of "no colony", and the mark is a player's work: it stays, one log line
+     * the first time, and the next sweep asks again). Such a mark can no longer be served, nor removed with the wand (a
+     * click there belongs to the colony that claims the cell, or to none), so the sweep drops it ({@link DecorEvents#sweep}).
      */
     static boolean outOfClaim(final ServerLevel level, final IColony colony, final StreetMarks.Mark mark) {
         for (final BlockPos cell : StreetPieces.cells(mark)) {
-            if (level.hasChunkAt(cell) && DecorPlacer.colonyAt(level, cell) != colony.getID()) {
-                return true;
+            if (level.hasChunkAt(cell)) {
+                final int at = claimOf(level, colony, cell, mark.pos());
+                if (at != DecorPlacer.LOOKUP_FAILED && at != colony.getID()) {
+                    return true;
+                }
             }
         }
         return false;
+    }
+
+    private static boolean lookupFailureLogged;
+    private static int lookupFailureLines;
+
+    /** The claim at a loaded cell of a mark; a failed lookup is logged once per server run (the sweep asks every pass). */
+    private static int claimOf(final ServerLevel level, final IColony colony, final BlockPos cell, final BlockPos mark) {
+        final int at = DecorPlacer.colonyAtChecked(level, cell);
+        if (at == DecorPlacer.LOOKUP_FAILED && !lookupFailureLogged) {
+            lookupFailureLogged = true;
+            lookupFailureLines++;
+            ColonySeasons.LOGGER.warn("The claim lookup failed at a cell of the street mark of colony {} at {}: the mark stays, "
+                    + "the next sweep asks again (logged once)", colony.getID(), mark.toShortString());
+        }
+        return at;
+    }
+
+    /** For the probe: how many lookup-failure lines were logged. */
+    public static int lookupFailureLines() {
+        return lookupFailureLines;
     }
 
     /** For the probe: every mark's group of a colony in one map (mark position, entries). */

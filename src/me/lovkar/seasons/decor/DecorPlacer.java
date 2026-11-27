@@ -161,16 +161,37 @@ public final class DecorPlacer {
 
     // ---------------------------------------------------------------- the cell rule
 
+    /** Colony id for "the lookup threw" ({@link #colonyAtChecked}); never a real colony id. */
+    public static final int LOOKUP_FAILED = -2;
+
+    private static java.util.function.BiFunction<ServerLevel, BlockPos, IColony> lookup =
+            (level, pos) -> IColonyManager.getInstance().getIColony(level, pos);
+
+    /** The probe swaps the claim lookup to make it throw ({@code null}: MineColonies' own again). */
+    public static void setLookupForProbe(final java.util.function.BiFunction<ServerLevel, BlockPos, IColony> replacement) {
+        lookup = replacement != null ? replacement : (level, pos) -> IColonyManager.getInstance().getIColony(level, pos);
+    }
+
     /** The colony whose claim holds {@code pos}; never loads a chunk (an unloaded one gives {@link #NO_COLONY}). */
     public static int colonyAt(final ServerLevel level, final BlockPos pos) {
+        final int colony = colonyAtChecked(level, pos);
+        return colony == LOOKUP_FAILED ? NO_COLONY : colony;
+    }
+
+    /**
+     * {@link #colonyAt} that tells "no colony here" ({@link #NO_COLONY}, also an unloaded chunk) from "the lookup failed"
+     * ({@link #LOOKUP_FAILED}). A caller that would destroy something on "no colony here" (the sweep that drops a street
+     * mark, Q7b) keeps it on a failure; the rules that refuse a placement still treat both as "not ours".
+     */
+    public static int colonyAtChecked(final ServerLevel level, final BlockPos pos) {
         if (!level.hasChunkAt(pos)) {
             return NO_COLONY;
         }
         try {
-            final IColony colony = IColonyManager.getInstance().getIColony(level, pos);
+            final IColony colony = lookup.apply(level, pos);
             return colony == null ? NO_COLONY : colony.getID();
         } catch (final RuntimeException unavailable) {
-            return NO_COLONY;
+            return LOOKUP_FAILED;
         }
     }
 
