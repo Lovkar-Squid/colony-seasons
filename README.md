@@ -173,8 +173,9 @@ Upgrade Storage (see above).
 
 The tree stands where you want it. Place a **Festival Marker** on the square, inside the colony's claim, and the
 Decorator builds the tree there, facing the way the marker faces. The marker counts only when a player places it by
-hand: a marker set with a command or pasted with a blueprint does not. Without a marker there is no tree, no gift
-pile and no fireworks, but the buildings are still decorated. A colony has one marker: if you place a second one,
+hand: a marker set with a command or pasted with a blueprint does not. A Town Square takes the marker's place (see
+below). Without a marker or a Town Square there is no tree, no gift pile and no fireworks, but the buildings are
+still decorated. A colony has one marker: if you place a second one,
 the colony's managers get one chat line saying that only the first one counts. Break the marker and the tree comes
 down with it; a second marker that stands elsewhere does not take over, so place one again. If something is in the
 way of the tree, he builds the rest when at most a tenth of it is blocked and none of that is the trunk. Otherwise
