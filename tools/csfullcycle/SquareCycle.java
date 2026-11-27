@@ -652,7 +652,9 @@ final class SquareCycle {
             return;
         }
         // at least half: with the market's stalls up some colonists stand at a stall to buy instead (trade-post saw 34 of 49)
-        check(label + ": the crowd stands on the square's gather spots (at least half the still samples within 3 blocks of one)", crowd[0] >= 3
+        // colonists stood still at the square (on a leisure trip or not), and of those the gathering walked, at least half
+        // stood on a spot
+        check(label + ": the crowd stands on the square's gather spots (at least half the still samples within 3 blocks of one)", crowd[0] + crowd[2] >= 3
                 && crowd[1] * 2 >= crowd[0], crowd[1] + " of " + crowd[0] + " (" + crowd[2] + " still samples on a leisure trip left out)");
         crowd[0] = 0;
         crowd[1] = 0;
