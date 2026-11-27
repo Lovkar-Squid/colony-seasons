@@ -180,8 +180,8 @@ bash tools/probe.sh csfullcycle migrate-marker  # Q7: a 0.1.0 colony with its ma
 bash tools/probe.sh csfullcycle builder-over-tree  # Q7: MineColonies' own Builder upgrades the square 1 to 2 while its lit tree stands
 bash tools/probe.sh csfullcycle wand            # Q7: rigconfig-wand: a marked street through the cycle (lights on, removal, a hut over a mark)
 bash tools/probe.sh csfullcycle touches         # Q7: the planters' touches across seasons, Bare and Always, the window and its take-down
-bash tools/probe.sh csfullcycle hostile-square  # Q7: the attacks H20 to H27 (set swaps, ghosts, two squares, claims, money, a carved pumpkin)
-bash tools/restart.sh csfullcycle square        # Q7: phases-square.txt: square-building's colony cut in every phase (r1 to r7)
+bash tools/probe.sh csfullcycle hostile-square  # Q7: the attacks H20 to H28 (set swaps, ghosts, two squares, claims, money, a carved pumpkin, a colonist in a mark)
+bash tools/restart.sh csfullcycle square        # Q7: phases-square.txt: square-building's colony cut in every phase (r1 to r7; H29, the show's rockets back at a stop)
 bash tools/restart.sh csfullcycle migrate       # Q7: phases-migrate.txt: cut on 8 Dec, the ledger file rewritten as 0.1.0 writes it
 ```
 
@@ -237,7 +237,8 @@ bash tools/probe.sh cswand            # marking all five types (a body in a cell
                                       # broken post half taking its garland down, then all back, a body in one garland cell keeping
                                       # that thin cell open); a season change swapping only the
                                       # planter; a mark removed mid-window by a shift-click (a hand-changed cell stays, the garland goes
-                                      # with its post); decor list and decor remove (the marks stay); the Decorator's own AI putting
+                                      # with its post); decor list and decor remove (the marks stay); a colonist standing in a mark's
+                                      # cell moved out and the mark up the same visit (H28); the Decorator's own AI putting
                                       # every mark up and taking it down after the window on one slot; the sweep with no Decorator
 bash tools/probe.sh cswand lights     # rigconfig-lights (decorator.streetLights = true): after the buildings the lights are the next
                                       # target; lights on every third post of the fence and the wall beside the path and nowhere else

@@ -102,7 +102,7 @@ import java.util.UUID;
  *       slot of the day's budget for all marks, a body in a snowman's cell and in a post's upper half; the ledger's file
  *       with marks and an unknown mark type; a dirt path under a snowman and a post after a neighbour update; a sweep that
  *       removes nothing; tending; a season change that swaps only the planter; a mark removed mid-window; decor list and
- *       decor remove; the Decorator's own AI decorating and taking down after the window; the sweep with no Decorator;
+ *       decor remove; a colonist in a mark's cell moved out and the mark up the same visit (Q7, H28); the Decorator's own AI decorating and taking down after the window; the sweep with no Decorator;
  *       no street lights although fences stand beside the path;</li>
  *   <li>{@code lights} (rigconfig-lights: {@code decorator.streetLights = true}): only thin {@code street_lights} on the
  *       fences and the wall beside the path (every third post), none on a fence away from paths, on a column of four or
@@ -1159,6 +1159,36 @@ public class CsWand {
                 }
             }
             check("every mark's cells are air", air, "");
+        });
+        now("window: a colonist standing in a mark's cell steps out first and the mark goes up (Q7, H28)", () -> {
+            final StreetMarks.Mark m = mark(sa);
+            final ICitizenData c = colony.getCitizenManager().createAndRegisterCivilianData();
+            colony.getCitizenManager().spawnOrCreateCitizen(c, level, sa);
+            final com.minecolonies.api.entity.citizen.AbstractEntityCitizen body = c.getEntity().orElse(null);
+            final List<AABB> cells = new ArrayList<>();
+            for (final BlockPos cell : StreetPieces.cells(m)) {
+                cells.add(new AABB(cell));
+            }
+            if (body != null) {
+                body.teleportTo(sa.getX() + 0.5, sa.getY(), sa.getZ() + 0.5);
+            }
+            final boolean stoodIn = body != null && cells.stream().anyMatch(body.getBoundingBox()::intersects);
+            final int evictions0 = DecorWork.evictions();
+            DecorWork.decorate(level, colonyId, StreetWork.target(level, m, null), 1, DecorPlacer.Stock.FREE, day(), ledger);
+            final boolean out = body != null && cells.stream().noneMatch(body.getBoundingBox()::intersects);
+            final String up = up(m);
+            check("H28: a colonist in a mark's cell is moved out and the mark goes up the same visit (his body does not keep it open)",
+                    stoodIn && DecorWork.evictions() > evictions0 && out && up.isEmpty(), "stood in " + stoodIn + ", evictions +"
+                            + (DecorWork.evictions() - evictions0) + ", out " + out + ", " + (up.isEmpty() ? "up" : up));
+            // as before: the pieces down, the colonist gone
+            command("colonyseasons decor remove " + colonyId);
+            colony.getCitizenManager().removeCivilian(c);
+            if (body != null && body.isAlive()) {
+                body.discard();
+            }
+            check("H28: the mark is down again and the colonist gone", down(m) && streetEntries() == 0
+                    && colony.getCitizenManager().getCivilian(c.getId()) == null, "down " + down(m) + ", " + streetEntries() + " street entries, colonist "
+                    + (colony.getCitizenManager().getCivilian(c.getId()) == null ? "gone" : "still listed"));
         });
     }
 
