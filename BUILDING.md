@@ -237,7 +237,8 @@ bash tools/probe.sh cswand            # marking all five types (a body in a cell
                                       # broken post half taking its garland down, then all back, a body in one garland cell keeping
                                       # that thin cell open); a season change swapping only the
                                       # planter; a mark removed mid-window by a shift-click (a hand-changed cell stays, the garland goes
-                                      # with its post); decor list and decor remove (the marks stay); the Decorator's own AI putting
+                                      # with its post); decor list and decor remove (the marks stay); a colonist standing in a mark's
+                                      # cell moved out and the mark up the same visit (H28); the Decorator's own AI putting
                                       # every mark up and taking it down after the window on one slot; the sweep with no Decorator
 bash tools/probe.sh cswand lights     # rigconfig-lights (decorator.streetLights = true): after the buildings the lights are the next
                                       # target; lights on every third post of the fence and the wall beside the path and nowhere else

@@ -443,6 +443,11 @@ public final class StreetWork {
         return at;
     }
 
+    /** The server stopped: the next server run logs a failed lookup once again. */
+    static void clear() {
+        lookupFailureLogged = false;
+    }
+
     /** For the probe: how many lookup-failure lines were logged. */
     public static int lookupFailureLines() {
         return lookupFailureLines;

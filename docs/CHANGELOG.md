@@ -134,8 +134,8 @@ build chunk.
   stops or the launch site is not loaded (H29).
 - **Q7b, small defects Q7's verify left.** The sweep keeps a street mark (and its pieces) when the claim lookup fails, with
   one log line, where it removed it; a `markDirty` that throws after the Trade Post payment still answers "paid"; the unread
-  rocket-refund counter is gone; `hostile-square` has a line for H28, for the throwing `markDirty` and for the failing claim
-  lookup; the crowd check needs one colonist on a gather spot.
+  rocket-refund counter is gone; `hostile-square` and `cswand` have a line for H28, `hostile-square`
+  one for the throwing `markDirty` and one for the failing claim lookup; the crowd check needs one colonist on a gather spot.
 
 ## 0.1.0-beta.1 - unreleased - seasons and festivals for MineColonies
 

@@ -433,6 +433,7 @@ public final class DecorEvents {
         MANAGER_LOADS.set(0);
         PieceLoader.clear();
         StreetLights.clear();
+        StreetWork.clear();
     }
 
     private static void onLevelTick(final LevelTickEvent.Post event) {

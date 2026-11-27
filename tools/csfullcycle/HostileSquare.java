@@ -954,7 +954,7 @@ final class HostileSquare {
             final int lines = me.lovkar.seasons.decor.StreetWork.lookupFailureLines() - lines0;
             p.check("H25 lookup: a claim lookup that throws during three sweeps removes no mark and no piece, and logs at most one line", p.ledger.markAt(
                     p.colonyId, markCell) != null && p.ledger.marks(p.colonyId).size() == marks0 && kept != null && kept.entries().size() == pieces0
-                    && pieces0 > 0 && lines <= 1, "mark " + (p.ledger.markAt(p.colonyId, markCell) != null) + ", pieces " + pieces0 + " -> "
+                    && pieces0 > 0 && lines <= 1 && me.lovkar.seasons.decor.StreetWork.lookupFailureLines() >= 1, "mark " + (p.ledger.markAt(p.colonyId, markCell) != null) + ", pieces " + pieces0 + " -> "
                     + (kept == null ? 0 : kept.entries().size()) + ", " + lines + " lines");
             // the colony's claim shrinks (MineColonies' own unclaim of one chunk, what an admin's claim command does)
             com.minecolonies.core.util.ChunkDataHelper.staticClaimInRange((com.minecolonies.core.colony.Colony) p.colony, false, markCell, 0, p.level, true);
