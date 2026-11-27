@@ -69,7 +69,10 @@ import java.util.function.BooleanSupplier;
  * gathering hours and in the dusk; H23 two squares (a tie, one raised above, the main hut broken, both busy, the Decorator
  * listed on the lower one or on none); H24 the square's box reaching into colony B's claim; H25 marks and claims; H26 money
  * (a write that pays one point too many, a read-back that throws, the cap with stalls broken, the set swapped and a second
- * main square, five stall take-downs, a sale while busy); H27 a touch pumpkin carved by a player. After each leg the daily
+ * main square, five stall take-downs, a sale while busy, a markDirty that throws after the write); H27 a touch pumpkin carved
+ * by a player; H28 a colonist standing in a mark's cell (inside the H25 leg); also in H25, the claim lookup that throws
+ * during the sweep (the mark stays, one log line). H29, the rockets of a stopped show, is read by the restart sets
+ * ({@code restart.sh csfullcycle square}: what left the stock equals what flew). After each leg the daily
  * invariants I1 to I8 (I3 exact).
  */
 final class HostileSquare {
@@ -204,6 +207,11 @@ final class HostileSquare {
 
     /** A bridge told Trade Post is there; {@code extra} points more than asked are written, {@code throwAfter} makes the read-back throw. */
     private static TradePostBridge bridge(final int extra, final boolean throwAfter) {
+        return bridge(extra, throwAfter, false);
+    }
+
+    /** ... and {@code throwDirty} makes the colony's markDirty after the write throw (Q7b). */
+    private static TradePostBridge bridge(final int extra, final boolean throwAfter, final boolean throwDirty) {
         return new TradePostBridge(() -> true, () -> true) {
             boolean wrote;
 
@@ -211,6 +219,14 @@ final class HostileSquare {
             protected void write(final IColony colony, final int amount) {
                 super.write(colony, amount + extra);
                 wrote = true;
+            }
+
+            @Override
+            protected void markDirty(final IColony colony) {
+                if (throwDirty) {
+                    throw new IllegalStateException("probe: markDirty fails");
+                }
+                super.markDirty(colony);
             }
 
             @Override
@@ -380,6 +396,20 @@ final class HostileSquare {
                     "balance +" + (balance() - b0) + ", goods gone worth " + goodsValueGone(before));
             p.checkEq("H26 M2: one bridge line and the bridge off", (TradePostBridge.logLines() - lines) + " " + MarketStalls.bridge().fellBack(), "1 true");
             reconcile("M2", before, b0);
+        });
+        now("H26 M2b: a markDirty that throws after the write (Q7b)", () -> {
+            MarketStalls.setBridge(bridge(0, false, true));
+            final Map<Item, Integer> before = goodsNow();
+            final int b0 = balance();
+            final int lines = TradePostBridge.logLines();
+            final MarketStalls.Sale sale = MarketStalls.sellOne(p.level, p.colony, sc.square, p.hut, p.colony.getDay());
+            CsFullCycle.note("H26 M2b: sale {}, balance +{}, goods gone worth {}, bridge lines +{}", sale, balance() - b0, goodsValueGone(before),
+                    TradePostBridge.logLines() - lines);
+            p.check("H26 M2b: the write went through, so the sale stands: the good is gone and paid for, never given back with the money kept",
+                    sale != null && balance() - b0 == sale.price() && goodsValueGone(before) == sale.price(),
+                    (sale == null ? "no sale" : sale.price() + " points") + ", balance +" + (balance() - b0) + ", goods gone worth " + goodsValueGone(before));
+            p.checkEq("H26 M2b: one bridge line and the bridge off", (TradePostBridge.logLines() - lines) + " " + MarketStalls.bridge().fellBack(), "1 true");
+            reconcile("M2b", before, b0);
         });
         now("H26 M3: the cap, then a stall broken and the set swapped", () -> {
             MarketStalls.setBridge(bridge(0, false));
@@ -802,10 +832,28 @@ final class HostileSquare {
                     refused != null && refused.startsWith("com.colony_seasons.wand.refused") && p.ledger.markAt(p.colonyId, inB) == null
                             && p.ledger.markAt(b.getID(), inB) == null, String.valueOf(refused));
             final StreetMarks.Mark mark = p.ledger.markAt(p.colonyId, markCell);
+            // H28: a colonist (the Decorator at the end of his walk, here a jobless one) stands in the mark's cell: he steps out first
+            final com.minecolonies.api.entity.citizen.AbstractEntityCitizen walker = mark == null ? null : p.spawn(markCell).getEntity().orElse(null);
+            final List<AABB> cells = new ArrayList<>();
+            if (mark != null) {
+                for (final BlockPos c : me.lovkar.seasons.decor.StreetPieces.cells(mark)) {
+                    cells.add(new AABB(c));
+                }
+            }
+            if (walker != null) {
+                walker.teleportTo(markCell.getX() + 0.5, markCell.getY(), markCell.getZ() + 0.5);
+            }
+            final boolean stoodIn = walker != null && cells.stream().anyMatch(walker.getBoundingBox()::intersects);
+            final int evictions0 = DecorWork.evictions();
             if (mark != null) {
                 DecorWork.decorate(p.level, p.colonyId, me.lovkar.seasons.decor.StreetWork.target(p.level, mark, null), CsFullCycle.HUT_LEVEL, stock(),
                         p.day(), p.ledger);
             }
+            final DecorLedger.GroupView up = p.ledger.group(p.colonyId, DecorLedger.Owner.street(markCell));
+            p.check("H28: a colonist standing in a mark's cell steps out first and the mark goes up the same visit (not kept open by his body)",
+                    stoodIn && DecorWork.evictions() > evictions0 && cells.stream().noneMatch(walker.getBoundingBox()::intersects) && up != null
+                            && !up.entries().isEmpty(), "stood in " + stoodIn + ", evictions +" + (DecorWork.evictions() - evictions0) + ", group "
+                            + (up == null ? "-" : up.entries().size()));
             final DecorLedger.GroupView g = p.ledger.group(p.colonyId, DecorLedger.Owner.street(markCell));
             p.check("H25: the mark's snowman stands", g != null && !g.entries().isEmpty(), g == null ? "no group" : g.entries().size() + " entries");
         });
@@ -887,6 +935,27 @@ final class HostileSquare {
                 return;
             }
             final int marks0 = p.ledger.marks(p.colonyId).size();
+            // Q7b: MineColonies' claim lookup throws for a moment while the sweep runs: that is no "no colony here", so the mark and its
+            // pieces stay, and the failure is logged once, not on every sweep
+            final DecorLedger.GroupView standing = p.ledger.group(p.colonyId, DecorLedger.Owner.street(markCell));
+            final int pieces0 = standing == null ? 0 : standing.entries().size();
+            final int lines0 = me.lovkar.seasons.decor.StreetWork.lookupFailureLines();
+            DecorPlacer.setLookupForProbe((lvl, at) -> {
+                throw new IllegalStateException("probe: the claim lookup fails");
+            });
+            try {
+                DecorEvents.sweep(p.level);
+                DecorEvents.sweep(p.level);
+                DecorEvents.sweep(p.level);
+            } finally {
+                DecorPlacer.setLookupForProbe(null);
+            }
+            final DecorLedger.GroupView kept = p.ledger.group(p.colonyId, DecorLedger.Owner.street(markCell));
+            final int lines = me.lovkar.seasons.decor.StreetWork.lookupFailureLines() - lines0;
+            p.check("H25 lookup: a claim lookup that throws during three sweeps removes no mark and no piece, and logs at most one line", p.ledger.markAt(
+                    p.colonyId, markCell) != null && p.ledger.marks(p.colonyId).size() == marks0 && kept != null && kept.entries().size() == pieces0
+                    && pieces0 > 0 && lines <= 1, "mark " + (p.ledger.markAt(p.colonyId, markCell) != null) + ", pieces " + pieces0 + " -> "
+                    + (kept == null ? 0 : kept.entries().size()) + ", " + lines + " lines");
             // the colony's claim shrinks (MineColonies' own unclaim of one chunk, what an admin's claim command does)
             com.minecolonies.core.util.ChunkDataHelper.staticClaimInRange((com.minecolonies.core.colony.Colony) p.colony, false, markCell, 0, p.level, true);
             final int now = DecorPlacer.colonyAt(p.level, markCell);

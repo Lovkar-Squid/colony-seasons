@@ -125,24 +125,17 @@ build chunk.
   off. Probe `cswand` (default, `lights`, `restart.sh`); `csblocks`, `csconfig` and `cssquarelife` extended; renders in
   `docs/renders/q11/` (`tools/render_q11.sh`).
 - **Q7, the full cycle on a Town Square and the hostile review.** `csfullcycle` gains the Town Square modes
-  `square-building` (the 0.1.0 cycle from 28 Nov to 10 Jan on a level 5 square, order Follow), `trade-post` (the same next
-  to Trade Post: the stalls sell only on 24 to 26 Dec, the goods that left times their prices equal the balance gained and
-  the paid record), `migrate-marker` (a 0.1.0 colony with its marker tree up gets a square on 8 Dec: nothing changes at
-  level 0, at level 1 the marker tree comes down by the exact-state rule and the Decorator builds the square's set from its
-  items), `builder-over-tree` (MineColonies' own Builder upgrades the square 1 to 2 while its lit tree stands), `wand` (a
-  marked street through the cycle, the street lights on), `touches` (the planters across the seasons and the orders) and
-  `hostile-square` (findings H20 to H27), and the restart sets `restart.sh csfullcycle square` (seven server runs, one cut
-  in every phase of the Decorator's year) and `migrate` (the ledger file rewritten as 0.1.0 writes it before it loads);
-  `tools/restart.sh` takes the optional set name. A square mode checks one centrepiece, the fixtures, the money and the
-  plaza (I5 to I8) after every game day on top of I1 to I4. Four fixes, each after its probe line failed: a market sale
-  whose payment went through but whose read-back showed another amount or failed gave the good back while the colony kept
-  the points; it now stands (the bridge still falls back with its one WARN line); a street mark whose cell left its
-  colony's claim stayed in the colony's record for good (counted against the cap, out of the wand's reach): the sweep now
-  removes it as a shift-click does; the Decorator stood in the cells of marks on a path at the end of his walk and kept them
-  open the whole window: colonists in a mark's open cells step out first, as at the square; a restart in the middle of a
-  dusk show lost the rockets taken from the stock that had not flown yet (15 of 16): queued rockets now go back to the
-  Workshop when the server stops, or when the site's chunk is not loaded at launch time (a rocket that cannot go back is
-  logged and dropped, so it never stops the server's stop and its world save, nor comes back on the next tick).
+  `square-building`, `trade-post`, `migrate-marker`, `builder-over-tree`, `wand`, `touches` and `hostile-square` (findings
+  H20 to H28), and the restart sets `restart.sh csfullcycle square` (seven server runs, one cut in every phase of the
+  Decorator's year) and `migrate`; a square mode checks one centrepiece, the fixtures, the money and the plaza (I5 to I8)
+  after every game day. Fixes: a market sale whose payment went through stays a sale when the read-back is odd (H26); a
+  street mark whose cell left its colony's claim is removed by the sweep as a shift-click does (H25); colonists in a mark's
+  open cells step out before it goes up (H28); the rockets of a show still queued go back to the Workshop when the server
+  stops or the launch site is not loaded (H29).
+- **Q7b, small defects Q7's verify left.** The sweep keeps a street mark (and its pieces) when the claim lookup fails, with
+  one log line, where it removed it; a `markDirty` that throws after the Trade Post payment still answers "paid"; the unread
+  rocket-refund counter is gone; `hostile-square` has a line for H28, for the throwing `markDirty` and for the failing claim
+  lookup; the crowd check needs one colonist on a gather spot.
 
 ## 0.1.0-beta.1 - unreleased - seasons and festivals for MineColonies
 
