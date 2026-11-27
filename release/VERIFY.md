@@ -455,3 +455,42 @@ picture that does not exist. Renders that exist and could go to the gallery as r
 `docs/renders/s5/2026-11-19-s5-hut-levels.png` (the five Workshop levels), `docs/renders/s5/2026-11-19-s5-tree-grand.png`,
 `docs/renders/s6/s6-colours-2026-11-19.png` (the scarves), `docs/renders/s7/2026-11-19-s7-gifts.png`,
 `docs/renders/s10g/2026-11-21-s10g2-l5-festival.png` (the storeroom in the festival).
+
+## Added by Q9 (0.2.0-beta.1: the Town Square, the stalls and the wand)
+
+State: Q1 to Q7b, Q10, Q11 and Q12 merged (main 1edbbe3). The new CurseForge paragraphs are in
+`release/curseforge-0.2.0-changes.md`, marked NEW or CHANGED for the owner's approval; README.md and
+`CHANGELOG-0.2.0-beta.1.md` carry the same claims. "Proof" names the probe and mode (BUILDING.md lists each one). The
+claims that only an in-game look can prove are marked "Look" (Q8, the lead's in-game test).
+
+| # | Claim | Proof | Look |
+| --- | --- | --- | --- |
+| T1 | The Town Square is a hut of five levels, 21 x 21 at every level, built by the Builder; the plaza, benches, lamp posts, planters, stall pads and bandstand come by level | `cssquare` (five levels in the tag file, pasted in eight orientations), `cspaste`, `cssquarelife builder` (a real UPGRADE 1 to 2 by MineColonies' Builder); `tools/build_pack.py` | yes: the plaza |
+| T2 | One Decorator is assigned to the square, in its window or by auto-hire, and stays employed at his Workshop | `cssquare` (assign by `assignCitizen` and by a hire message, a non-Decorator refused, auto-hire, a dead or re-jobbed one dropped), `restart.sh cssquare` | |
+| T3 | The colony's main square is the built one of the highest level (a tie kept by the one that has it); a second square is told once; a removed square hands back to the marker | `cssquarelife`, `csfullcycle hostile-square` (two squares, a square in another colony's claim) | |
+| T4 | The tree on the square is the Winter Festival's tree, sized by the lower of the two levels, equal cell for cell to the marker's, with a foot in the centre cell | `csdecorgate square`, `cspaste`, `cssquarelife` (level 3 square, the Decorator's own AI) | yes: the tree on the plaza |
+| T5 | The order (Follow the calendar, Always Winter Festival, Bare); a changed order takes the old set down first; an unknown stored value reads as Follow with one log line | `csdecorgate square`, `cssquare` | |
+| T6 | The events never depend on the order: the gift pile at the `gift` cell, the crate at `launch`, the gathering, the lighting and the shows follow the calendar, Bare included | `csfestival square`, `csfullcycle square-building` (I5 to I8 after every game day) | yes: the gathering |
+| T7 | The gathering stands on the square's `gather` spots and its hut is the leisure site in the gathering hours | `csfestival square` | yes |
+| T8 | The square's info page and the Workshop's one line show the facts the page lists; nothing on them writes a ledger or sends chat | `cssquare`, `cssquarelife`, `csdecorgate`, `csclient` (the pages' views on a dedicated server), `tools/check_packets.py`, `tools/check_windows.py` | yes: the layout |
+| T9 | A work order on the square takes the decorations down at once, by the exact-state rule | `cssquarelife builder`, `csfullcycle builder-over-tree` | |
+| T10 | Between the festivals the in-game season's touch stands in each planter; they come down for the Winter Festival's window, under Bare and for a work order; a 0.1.0 world skips their group with one warning | `cssquarelife`, `restart.sh cssquarelife`, `csfullcycle touches` | yes: `docs/renders/q12/` are renders, not screenshots |
+| T11 | Moving from the marker: nothing converts by itself; with a square at level 1 the marker's tree comes down, the items go to the Workshop, the managers get one line, the Decorator builds the set on the square; the marker stays as the fallback; a colony never has two centrepieces | `csfullcycle migrate-marker`, `cssquarelife` (marker to square and back, a restart in the middle) | |
+| T12 | The decoration record is format 3; files of 0.1.0 load unchanged; 0.1.0 reads a 0.2.0 file | `cssquarelife` (files with no version, version 1, 2 and 3), `tools/checks.sh` (the 0.1.0 reader) | |
+| T13 | `decor list <colony>` gives a `Centrepiece:` line first (the Town Square and its tree cell, the marker, or none), then the marked spots and the street lights | `cssquarelife`, `cswand`; `resources/assets/colony_seasons/lang/en_us.json` (`command.decor.list.square.*`) | |
+| T14 | With Trade Post for MineColonies and `compat.tradePostBridge` on, a level 4 or 5 square has 2 or 4 stalls while a festival set stands; colonists buy festival goods in the gathering hours; each sale pays its price into Trade Post's balance; at most one Trade Coin per stall per colony day | `cstradepost with`, `csfullcycle trade-post`, `MarketMathTest`, `tools/check_market.py` | yes: the stalls |
+| T15 | The mod keeps no money of its own: a payment is made on the server thread, read back, and written to the record first, so a restart pays nothing twice; on any failure the stalls stop until the next start with one warning | `cstradepost with`, `restart.sh cstradepost` (save, mid, and the jar taken out), `csfullcycle hostile-square` (H26, the throwing `markDirty`) | |
+| T16 | Without Trade Post, or with the switch off, nothing changes: no Trade Post class is looked at, no stall, no money line, no log line; no compile dependency | `cstradepost without`, `tools/check_nodeps.py` | |
+| T17 | The wand: right-click in the air picks the mode (snowman, snowman with a top hat, lantern post, garland between two posts, seasonal planter), right-click a block marks, sneak and right-click removes and takes the pieces down at once | `cswand` (all five types, every refusal with its key, removal) | yes: the item in hand |
+| T18 | A mark needs the colony's claim, the right to manage huts, empty air, ground under a snowman or post (a dirt path counts) or a full block under a planter; it is refused inside any building's box and within 5 blocks of the festival marker; at most 64 marks | `cswand`, `csfullcycle hostile-square` (H25, H28), `csfullcycle wand` (a hut over a mark) | |
+| T19 | In every window the Decorator dresses the marks after the town hall and the square, on one slot of the day's budget; the pieces are free, have collision and are not solid; after the window they come down by the ledger rule and the marks stay | `cswand`, `restart.sh cswand`, `csfullcycle wand` | yes: a street |
+| T20 | `decorator.streetLights` (off by default): thin lights on every third fence or wall post beside a path block, at most 48, no collision, one group, never with the hut's lights kind off | `cswand lights`, `csconfig defaults`, `csconfig seeded` | yes: the lights at night |
+| T21 | The holder of a wand sees the colony's marks as outlines (client side; network protocol 3) | `tools/check_packets.py`, `csclient` | yes |
+| T22 | Config: `decorator.streetLights` false, `compat.tradePostBridge` true | `csconfig defaults`, `csconfig seeded`; `SeasonsConfig.java` | |
+| T23 | The version is 0.2.0-beta.1 | `resources/META-INF/neoforge.mods.toml`; `tools/build.sh` builds `colony_seasons-0.2.0-beta.1.jar`; `csboot` | |
+| T24 | Without a Decorator's Workshop the colonists gather at a built Town Square, else the marker, else the town hall (CHANGED sentence of "What it does not do") | code only: `Gathering.site` takes the main square's stored tree cell first, and `Squares.refresh` stores it on the square's construction event with no Decorator check; `csfestival square` proves the square's gathering with a Decorator, no probe runs one without | yes: a colony with a square and no Workshop |
+| T25 | Taken out without `decor remove`, the stalls' posts, slabs and wool and the planters' leaves or pumpkin stay (CHANGED removal paragraph); `decor remove` takes them down with every other group | code: `MarketStalls` (stripped spruce posts, slabs, wool), `tools/square_hut.py` `TOUCHES` (vanilla blocks), `DecorPlacer.removeColony` (every group of the colony) | |
+
+Replaces item P34 ("Streets are not decorated"): since 0.2.0 streets are decorated where the player marks them with the
+wand (T17 to T20). The Decorator still never picks a street spot himself. The CurseForge sentence is the one CHANGED entry
+in `release/curseforge-0.2.0-changes.md`; the README's "What it does not do" carries the same change.
