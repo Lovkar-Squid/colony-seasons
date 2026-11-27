@@ -155,6 +155,35 @@ final class Snap {
         return out;
     }
 
+    /**
+     * Reads the cells of the box {@code from} to {@code to} (clipped to this snapshot's box) from the world again (Q7: a
+     * square pasted after the first snapshot, its box listing no entry); returns the cells re-read.
+     */
+    int reread(final ServerLevel level, final BlockPos from, final BlockPos to) {
+        final Map<BlockState, Integer> index = new HashMap<>();
+        for (int i = 0; i < palette.size(); i++) {
+            index.putIfAbsent(palette.get(i), i);
+        }
+        final BlockPos.MutableBlockPos at = new BlockPos.MutableBlockPos();
+        int n = 0;
+        for (int y = Math.max(min.getY(), from.getY()); y <= Math.min(max.getY(), to.getY()); y++) {
+            for (int z = Math.max(min.getZ(), from.getZ()); z <= Math.min(max.getZ(), to.getZ()); z++) {
+                for (int x = Math.max(min.getX(), from.getX()); x <= Math.min(max.getX(), to.getX()); x++) {
+                    final BlockState state = living(level.getBlockState(at.set(x, y, z)));
+                    Integer p = index.get(state);
+                    if (p == null) {
+                        p = palette.size();
+                        palette.add(state);
+                        index.put(state, p);
+                    }
+                    cells[index(x, y, z)] = p;
+                    n++;
+                }
+            }
+        }
+        return n;
+    }
+
     void save(final Path file) throws IOException {
         final CompoundTag root = new CompoundTag();
         root.putLong("min", min.asLong());

@@ -29,7 +29,7 @@ step "windows"     python -I tools/check_windows.py
 step "links"       python -I tools/check_links.py
 step "0.1.0 reader" python -I tools/check_reader.py
 step "market prices" python -I tools/check_market.py
-step "script syntax" bash -c 'for f in tools/packboot.sh tools/probe.sh tools/restart.sh tools/build.sh tools/cstradepost/prepare.sh tools/cstradepost/cleanup.sh; do bash -n "$f" || exit 1; done'
+step "script syntax" bash -c 'for f in tools/packboot.sh tools/probe.sh tools/restart.sh tools/build.sh tools/cstradepost/prepare.sh tools/cstradepost/cleanup.sh tools/csfullcycle/prepare.sh tools/csfullcycle/cleanup.sh; do bash -n "$f" || exit 1; done'
 
 version="$(sed -n 's/^version="\([^"]*\)".*/\1/p' resources/META-INF/neoforge.mods.toml | head -1)"
 jar="colony_seasons-$version.jar"

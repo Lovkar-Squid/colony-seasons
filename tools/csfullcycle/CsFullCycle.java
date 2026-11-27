@@ -164,9 +164,16 @@ public class CsFullCycle {
             {"Nordic Spruce", "education/library1"},
             {"Shire", "fundamentals/house1"}};
 
-    /** What a mode changes: a Decorator's hut, a marker, stock in the hut, the effects config, the Serene Seasons stand-in. */
-    record Variant(boolean hut, boolean marker, boolean stock, boolean effects, boolean serene) {
+    /**
+     * What a mode changes: a Decorator's hut, a marker, stock in the hut, the effects config, the Serene Seasons stand-in,
+     * and (Q7) a Town Square instead of the marker ({@link SquareCycle}).
+     */
+    record Variant(boolean hut, boolean marker, boolean stock, boolean effects, boolean serene, boolean square) {
         static final Variant BASE = new Variant(true, true, true, false, false);
+
+        Variant(final boolean hut, final boolean marker, final boolean stock, final boolean effects, final boolean serene) {
+            this(hut, marker, stock, effects, serene, false);
+        }
     }
 
     int ticks;
@@ -174,6 +181,8 @@ public class CsFullCycle {
     boolean finished;
     final String mode;
     final Variant variant;
+    /** Q7: the Town Square modes and their harness; {@code null} in every 0.1.0 mode (they run exactly as before). */
+    final SquareCycle sc;
     long setupNanos;
 
     MinecraftServer server;
@@ -211,13 +220,17 @@ public class CsFullCycle {
             case "emptywarehouse" -> new Variant(true, true, false, false, false);
             case "effects" -> new Variant(true, true, true, true, false);
             case "serene" -> new Variant(true, true, true, false, true);
-            default -> Variant.BASE;
+            default -> SquareCycle.handles(mode) ? SquareCycle.variant(mode) : Variant.BASE;
         };
+        sc = SquareCycle.handles(mode) ? new SquareCycle(this) : null;
+        if (mode.equals("migrate-load")) {
+            SquareRestarts.rewriteTo010();            // Q7: the world's ledger file as 0.1.0 writes it, before the world loads
+        }
         // the calendar never sees the real date: the first date of the phase from the server's first poll on
         CalendarManager.setDateSource(DateSource.fixed(switch (mode) {
             case "restart-mid" -> LocalDate.of(2026, 12, 12);
             case "restart-load" -> LocalDate.of(2027, 1, 7);
-            default -> FIRST;
+            default -> sc != null ? SquareCycle.firstDate(mode) : FIRST;
         }));
         NeoForge.EVENT_BUS.addListener(this::onTick);
     }
@@ -371,6 +384,11 @@ public class CsFullCycle {
         steps.add(step);
     }
 
+    /** Ticks the running step has run (a day hook's {@code done()} reads it). */
+    int t() {
+        return stepIndex < steps.size() ? steps.get(stepIndex).t : 0;
+    }
+
     private void plan() {
         switch (mode) {
             case "", "nodecorator", "nomarker", "emptywarehouse", "effects", "serene" -> {
@@ -400,6 +418,8 @@ public class CsFullCycle {
             default -> {
                 if (mode.startsWith("hostile-")) {
                     new Hostile(this).plan(mode);
+                } else if (sc != null) {
+                    sc.plan(mode);
                 } else {
                     check("known mode", false, "'" + mode + "'");
                     finish();
@@ -687,7 +707,7 @@ public class CsFullCycle {
     // ================================================================ setup
 
     /** The colony with all its buildings, citizens and the marker; then the stock and the first snapshot. */
-    private void planSetup() {
+    void planSetup() {
         final List<Pasted> pasted = new ArrayList<>();
         step(new Step("setup: the colony, its buildings, citizens and the marker", 120, true) {
             @Override
@@ -801,6 +821,9 @@ public class CsFullCycle {
                     placeMarker();
                     checkEq("the marker is the colony's square", ledger.marker(colonyId), marker);
                 }
+                if (sc != null) {
+                    sc.placeInSetup();                // Q7: the Town Square (pasted, registered, its Decorator assigned)
+                }
                 players();
                 setTimeOfDay(MORNING);
             }
@@ -813,6 +836,9 @@ public class CsFullCycle {
         step(new Step("setup: the tree piece, the stock and the first snapshot", 400, true) {
             @Override
             boolean tick() {
+                if (sc != null && !sc.locate()) {
+                    return false;                     // Q7: the square's tags first (marker is its tree cell then)
+                }
                 return marker == null || PieceLoader.request(level, PieceLoader.PACK, PieceLoader.pathFor(HUT_LEVEL), Direction.NORTH) != null;
             }
 
@@ -842,6 +868,9 @@ public class CsFullCycle {
                     for (int i = 0; i < 3; i++) {
                         fit &= ItemHandlerHelper.insertItemStacked(store, new ItemStack(Items.FIREWORK_ROCKET, Fireworks.SHOW_ROCKETS), false).isEmpty();
                     }
+                    if (sc != null) {
+                        fit &= sc.extraStock(store);  // Q7: goods for the market (trade-post)
+                    }
                     check("the stock fits in the hut: what the buildings and the tree need, a spare wreath, three shows of rockets", fit,
                             text(need) + ", rockets " + rocketsInStock());
                 }
@@ -856,6 +885,12 @@ public class CsFullCycle {
                 final BlockPos sq = marker != null ? marker : new BlockPos(2, ground + 1, 32);
                 lo = new BlockPos(Math.min(lo.getX(), sq.getX() - 9), lo.getY(), Math.min(lo.getZ(), sq.getZ() - 9));
                 hi = new BlockPos(Math.max(hi.getX(), sq.getX() + 9), Math.max(hi.getY(), sq.getY() + 20), Math.max(hi.getZ(), sq.getZ() + 9));
+                if (sc != null) {
+                    for (final BlockPos corner : sc.snapshotCorners()) {   // Q7: the square's box (and a mode's street) too
+                        lo = new BlockPos(Math.min(lo.getX(), corner.getX()), Math.min(lo.getY(), corner.getY()), Math.min(lo.getZ(), corner.getZ()));
+                        hi = new BlockPos(Math.max(hi.getX(), corner.getX()), Math.max(hi.getY(), corner.getY()), Math.max(hi.getZ(), corner.getZ()));
+                    }
+                }
                 first = Snap.take(level, lo.offset(-2, 0, -2), hi.offset(2, 2, 2));
                 note("first snapshot: {} cells, {} to {}", first.size(), first.min.toShortString(), first.max.toShortString());
                 saveFacts("setup");
@@ -887,7 +922,9 @@ public class CsFullCycle {
                 }
             }
         }
-        if (marker != null) {
+        if (sc != null && sc.square != null) {
+            sc.addNeeds(need);                        // Q7: the Town Square's set, fixtures and stalls
+        } else if (marker != null) {
             final PieceLoader.Piece piece = PieceLoader.request(level, PieceLoader.PACK, PieceLoader.pathFor(HUT_LEVEL), Direction.NORTH);
             if (piece != null) {
                 final PieceLoader.SquarePlan plan = PieceLoader.plan(level, piece, marker, HUT_LEVEL, ledger, colonyId, square(), true);
@@ -935,7 +972,7 @@ public class CsFullCycle {
         // I2
         if (first != null) {
             final int[] total = new int[1];
-            final List<BlockPos> unlisted = first.diff(level, p -> ledger.at(p) == null && !probeChanged.contains(p), 20, total);
+            final List<BlockPos> unlisted = first.diff(level, p -> ledger.at(p) == null && !probeChanged.contains(p) && (sc == null || !sc.tape(p)), 20, total);
             if (total[0] > 0) {
                 final StringBuilder b = new StringBuilder();
                 for (final BlockPos p : unlisted) {
@@ -949,6 +986,9 @@ public class CsFullCycle {
         final Map<Item, Integer> now = conservation();
         for (final Map.Entry<Item, Integer> e : start.entrySet()) {
             final int got = now.getOrDefault(e.getKey(), 0);
+            if (sc != null && sc.sold(e.getKey())) {
+                continue;                             // Q7: a good the market sells: I7 counts it (sc.daily)
+            }
             if (got != e.getValue()) {
                 wrong.add("I3 " + BuiltInRegistries.ITEM.getKey(e.getKey()).getPath() + " " + got + " of " + e.getValue());
             }
@@ -962,6 +1002,9 @@ public class CsFullCycle {
         }
         if (i4 > 0) {
             wrong.add("I4 " + i4 + " entries outside the claim");
+        }
+        if (sc != null) {
+            sc.daily(wrong, now);                     // Q7: I5 to I8
         }
         check("daily invariants " + when, wrong.isEmpty(), entries.size() + " entries, phase " + (job() == null ? "-" : job().phase())
                 + (wrong.isEmpty() ? "" : "; " + String.join("; ", wrong)));
@@ -1077,7 +1120,7 @@ public class CsFullCycle {
         }
     }
 
-    private void planDate(final LocalDate d, final boolean stopEarly) {
+    void planDate(final LocalDate d, final boolean stopEarly) {
         final int m = d.getMonthValue();
         final int dom = d.getDayOfMonth();
         final String label = d.toString();
@@ -1095,6 +1138,9 @@ public class CsFullCycle {
                     check(label + ": before the window nothing is up, gifts are closed, nobody is called", ledger.countOutdoor(colonyId) == 0
                                     && !Gifts.season(CalendarManager.current()) && Gathering.pulls() == pulls0,
                             ledger.count(colonyId) + " entries, gifts season " + Gifts.season(CalendarManager.current()) + ", " + (Gathering.pulls() - pulls0) + " pulls");
+                    if (sc != null) {
+                        sc.november(label, dom);      // Q7: only the season's touches on the square
+                    }
                 }
             }));
             return;
@@ -1111,6 +1157,9 @@ public class CsFullCycle {
                                 job() == null ? "-" : job().status());
                         if (dom == 2 && lastOfDate) {
                             decoratedByNow(label);
+                            if (sc != null) {
+                                sc.decorated(label);  // Q7: the square's set, fixtures and touches
+                            }
                         }
                     }
                 }));
@@ -1238,7 +1287,7 @@ public class CsFullCycle {
 
                 @Override
                 void start() {
-                    before = ledger.count(colonyId);
+                    before = counted();
                     visits0 = job() == null ? 0 : job().visits(EntityAIWorkDecorator.DecoratorState.TAKING_DOWN);
                     if (dom == 7) {
                         final BlockPos pile = pile();
@@ -1251,12 +1300,12 @@ public class CsFullCycle {
                 @Override
                 boolean done() {
                     return stopEarly && job() != null && job().visits(EntityAIWorkDecorator.DecoratorState.TAKING_DOWN) > visits0
-                            && ledger.count(colonyId) < before && !ledger.groups(colonyId).isEmpty();
+                            && counted() < before && !ledger.groups(colonyId).isEmpty();
                 }
 
                 @Override
                 void end(final boolean done) {
-                    final int after = ledger.count(colonyId);
+                    final int after = counted();
                     if (stopEarly) {
                         check(label + ": the first take-down visit: some groups down, others still listed", done && after < before && after > 0,
                                 before + " -> " + after + " entries, " + ledger.groups(colonyId).size() + " groups");
@@ -1285,8 +1334,13 @@ public class CsFullCycle {
         }));
     }
 
+    /** The entries the take-down counts: all of them, or (Q7, a Town Square) the outdoor ones, as the square's touches come back meanwhile. */
+    int counted() {
+        return sc == null ? ledger.count(colonyId) : ledger.countOutdoor(colonyId);
+    }
+
     /** End of 2 Dec: what the variant says should be up is up. */
-    private void decoratedByNow(final String label) {
+    void decoratedByNow(final String label) {
         if (!variant.hut()) {
             checkEq(label + ": with no Decorator nothing is placed", ledger.count(colonyId), 0);
             final BlockPos own = marker.offset(2, 0, 2);
@@ -1354,7 +1408,7 @@ public class CsFullCycle {
     }
 
     /** 24 to 26 Dec: the gathering hours. */
-    private DayHook gathering(final LocalDate d, final String label) {
+    DayHook gathering(final LocalDate d, final String label) {
         final int dom = d.getDayOfMonth();
         return new DayHook() {
             int songs0;
@@ -1405,9 +1459,12 @@ public class CsFullCycle {
                         seen = where(off, site);
                     }
                     int near = 0;
+                    if (sc != null) {
+                        sc.sampleCrowd(off);          // Q7: who stands on the square's gather spots
+                    }
                     for (final ICitizenData c : off) {
                         final double dist = distTo(c, site);
-                        near += dist <= WITHIN ? 1 : 0;
+                        near += dist <= within() ? 1 : 0;
                         if (dist != Double.MAX_VALUE) {
                             farthest = Math.max(farthest, dist);
                         }
@@ -1423,7 +1480,7 @@ public class CsFullCycle {
                 final BlockPos want = expectedSite(dom);
                 check(label + ": the off-duty colonists gather at " + (want == null ? "-" : want.toShortString()) + " in the hours",
                         site != null && site.equals(want) && samples > 0 && bestNear * 2 >= Math.max(1, sampleSize) && farthest <= Gathering.CALL_RADIUS,
-                        "site " + (site == null ? "-" : site.toShortString()) + ", at best " + bestNear + " of " + sampleSize + " within " + WITHIN
+                        "site " + (site == null ? "-" : site.toShortString()) + ", at best " + bestNear + " of " + sampleSize + " within " + within()
                                 + " in " + samples + " samples, farthest " + String.format("%.0f", farthest) + ", " + (Gathering.pulls() - pullsAt0) + " pulls"
                                 + (bestNear * 2 >= Math.max(1, sampleSize) ? "" : "; mid-hours: " + seen));
                 check(label + ": the song plays", Gathering.songs() > songs0, (Gathering.songs() - songs0) + " songs");
@@ -1438,6 +1495,9 @@ public class CsFullCycle {
                 if (!variant.hut()) {
                     clothes(label);
                 }
+                if (sc != null) {
+                    sc.crowdChecked(label);           // Q7: the crowd on the square's gather spots
+                }
                 if (dom == 25 && mode.equals("nodecorator") && marker != null) {
                     level.setBlock(marker, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
                     probeChanged.add(marker);
@@ -1445,6 +1505,11 @@ public class CsFullCycle {
                 }
             }
         };
+    }
+
+    /** How near the site a colonist counts as gathered: {@link #WITHIN}, on a Town Square (Q7) its keep radius (the crowd stands on its gather spots). */
+    int within() {
+        return sc == null || sc.square == null ? WITHIN : Gathering.SQUARE_KEEP_RADIUS;
     }
 
     /** For a failing gathering check: each colonist's AI state, distance to the site and whether his path is done. */
@@ -1464,7 +1529,7 @@ public class CsFullCycle {
     }
 
     /** Where the colony should gather on the given festival day. */
-    private BlockPos expectedSite(final int dom) {
+    BlockPos expectedSite(final int dom) {
         if (marker == null || mode.equals("nodecorator") && dom == 26) {
             return townHall.getPosition();
         }
@@ -1480,7 +1545,7 @@ public class CsFullCycle {
     }
 
     /** 31 Dec and 1 Jan: the day and its dusk show. */
-    private DayHook newYearDusk(final LocalDate d, final String label, final boolean eve) {
+    DayHook newYearDusk(final LocalDate d, final String label, final boolean eve) {
         return new DayHook() {
             int stock0;
             int flown0;
@@ -1540,6 +1605,9 @@ public class CsFullCycle {
                     check(label + ": the dusk show goes up from the Decorator's stock", used > 0 && flown == used && seen > 0,
                             used + " from stock, " + flown + " flew, " + seen + " rocket entities seen");
                 }
+                if (sc != null) {
+                    sc.dusk(label);                   // Q7: the show left from the square's launch cell
+                }
                 if (!eve) {
                     final int allUsed = stockNewYear + rocketsAdded - rocketsInStock();
                     final int allFlown = Fireworks.rockets() - flownNewYear;
@@ -1550,7 +1618,7 @@ public class CsFullCycle {
         };
     }
 
-    private void planMidnight() {
+    void planMidnight() {
         final LocalDateTime startAt = LocalDateTime.of(2026, 12, 31, 23, 59, 50);
         step(new Step("31 Dec: the midnight show (the fake clock steps over midnight)", 600, true) {
             LocalDateTime now = startAt;
@@ -1595,9 +1663,12 @@ public class CsFullCycle {
     }
 
     /** What every variant checks after each game day, on top of the invariants. */
-    private void variantDaily(final LocalDate d) {
+    void variantDaily(final LocalDate d) {
         final CalendarManager.Snapshot s = CalendarManager.current();
         final String label = d.toString();
+        if (sc != null) {
+            sc.variantDaily(d);                       // Q7: what a square mode checks after every game day
+        }
         if (!variant.hut() || !variant.stock() && hut != null) {
             if (ledger.count(colonyId) != 0) {
                 checkEq(label + ": nothing is ever placed (" + (hut == null ? "no Decorator" : "no materials") + ")", ledger.count(colonyId), 0);
@@ -1644,7 +1715,11 @@ public class CsFullCycle {
 
     // ================================================================ the end
 
-    private void planEnd() {
+    void planEnd() {
+        if (sc != null) {
+            sc.planEnd();                             // Q7: the square's touches stay listed; everything else is down
+            return;
+        }
         step(new Step("10 Jan: everything is down and the world equals the first snapshot", 1) {
             @Override
             void start() {
@@ -1674,12 +1749,12 @@ public class CsFullCycle {
     }
 
     /** Start counts as they should read now: what the probe holds is counted in conservation() already. */
-    private Map<Item, Integer> withHeld(final Map<Item, Integer> base) {
+    Map<Item, Integer> withHeld(final Map<Item, Integer> base) {
         return new LinkedHashMap<>(base);
     }
 
     /** The three switches set off through the config spec: a pass later nothing of the effects is left. */
-    private void effectsOff() {
+    void effectsOff() {
         CalendarManager.setForcedFestival(server, SeasonsConfig.WINTER_FESTIVAL);
         CalendarManager.setSeason(server, Season.WINTER);
         Effects.pass();
@@ -1748,6 +1823,9 @@ public class CsFullCycle {
         final FestivalData.ColonyState s = FestivalData.of(level).peek(colonyId);
         f.putBoolean("lit", s != null && s.treeLit());
         f.putInt("lights", lights()[0]);
+        if (sc != null) {
+            sc.saveFacts(f);                          // Q7: the square, its anchor and what the next phase compares
+        }
         try {
             NbtIo.writeCompressed(f, server.getWorldPath(LevelResource.ROOT).resolve(FACTS));
             if (phase.equals("setup")) {
@@ -1779,7 +1857,7 @@ public class CsFullCycle {
         return map;
     }
 
-    private void planSave(final String phase) {
+    void planSave(final String phase) {
         step(new Step(phase + ": save", 1) {
             @Override
             void start() {
@@ -1792,7 +1870,7 @@ public class CsFullCycle {
     }
 
     /** After a restart: the colony, its buildings and the probe's facts again. */
-    private void planFind(final String phase) {
+    void planFind(final String phase) {
         step(new Step(phase + ": find the colony again", 2400) {
             @Override
             boolean tick() {
@@ -1841,6 +1919,9 @@ public class CsFullCycle {
                     check(phase + ": the first snapshot reads back", false, "");
                 }
                 players();
+                if (sc != null) {
+                    sc.find(phase, facts);            // Q7: the square back, its anchor, the saved facts compared
+                }
                 check(phase + ": the buildings, the hut and the Decorator are back", buildings.size() == facts.getLongArray("buildings").length
                         && hut != null && decorator != null, buildings.size() + " buildings, Decorator " + (decorator == null ? "-" : decorator.getName()));
                 checkEq(phase + ": the ledger reads back the same entries", ledger.count(colonyId), facts.getInt("entries"));

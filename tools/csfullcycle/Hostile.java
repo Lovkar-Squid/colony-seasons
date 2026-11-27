@@ -119,6 +119,7 @@ final class Hostile {
                 setup(true);
                 planWorld();
             }
+            case "hostile-square" -> new HostileSquare(p, p.sc).plan();
             default -> {
                 p.check("known mode", false, "'" + mode + "'");
                 p.finish();
