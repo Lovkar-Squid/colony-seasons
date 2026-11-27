@@ -266,7 +266,7 @@ The lighting ritual (player right-click, or the Decorator after two game days) i
   position, or the world position of the `tree` tag. `Gathering.treeRadius`, `Fireworks`, `TreeLighting`, `Gifts`
   and `DecorCommands` then keep working.
 - [A] Resolver `decor/Squares.of(colony)`: (anchor, `RotationMirror`, kind MARKER or BUILDING, building id). Stored in
-  `ColonyRecord` as `squareAnchor`, `squareKind`, `squareBuilding`; `DecorLedger.VERSION` 1 to 2, keys only added.
+  `ColonyRecord` as `squareAnchor`, `squareKind`, `squareBuilding`; `DecorLedger.VERSION` 2 to 3 (S10g2 of 0.1.0 had already taken 1 to 2; keys only added, and version 1 and 2 files load unchanged).
   Every reader of `ledger.marker(id)` switches to it: `DecorWork.squareTarget`, `Target.square`, `targetOf`;
   `DecorEvents.markerPlaced`, `markerRemoved`, `ownerGoneOrBusy`, `gone`; `Gathering.site`, `treeRadius`,
   `leisureSite`, `markerGone`; `TreeLighting.tree`, `light`; `Fireworks.site` (drop its `instanceof
@@ -369,6 +369,9 @@ Built with /ekipa-agentov as 0.1.0 was (worktree per chunk, independent verify, 
 | Q7 Full cycle and hostile review | find what the chunk tests missed | `tools/csfullcycle` modes `square-building`, `migrate-marker`, `builder-over-tree`, `trade-post` | the 0.1.0 full cycle on a square, with restarts; a reviewer told to break it (dupes through set swaps, ledger ghosts on upgrade, two squares, square in another colony's claim, money from nothing at the stalls) | Opus, high | 2.5 |
 | Q8 In-game test | proof in the real client, pictures | lead | the S10 routine with a square | lead, high | 1.5 |
 | Q9 Docs | design, README, changelog | `docs/design.md`, `README.md`, `docs/CHANGELOG.md` | text matches what Q7 proved | Sonnet, normal | 0.5 |
+| Q11 Marking wand (row added by Q9) | the Decorator's wand, snowmen, lantern posts, garland, seasonal planter, thin street lights | `item/DecoratorWandItem`, `decor/StreetMarks`, `decor/StreetPieces`, `decor/StreetWork`, `decor/StreetLights`, `DecorLedger` (`marks`, kinds `STREET`, `LIGHTS`), blocks `snowman`, `snowman_b`, `lantern_post`, `street_garland`, `street_lights`, `SeasonsConfig` (`decorator.streetLights`) | probe `cswand` (modes default, `lights`, `restart.sh`); `csblocks`, `csconfig`, `cssquarelife` extended | Opus, high | 3 |
+| Q12 Seasonal touches and the tree's foot (added by Q9) | the [B] "small seasonal touches" answer; the tree's foot in the `tree` cell | `decor/DecorWork` and `SquareSets` (the touches), ledger kind `TOUCHES`, `pieces/bed_<season>.blueprint`, `festival_trunk` in the centre cell | probe `cssquarelife` extended and its restart, `csdecorgate square` | Sonnet, high | 1.5 |
+| Q7b Small fixes from Q7's verify (added by Q9) | the street-mark sweep, the throwing `markDirty`, the rocket-refund counter, probe lines for H28 | `decor/DecorEvents`, `compat/TradePostBridge`, `csfullcycle` `hostile-square`, `cswand` | `csfullcycle hostile-square`, `cswand` | Sonnet, normal | 0.5 |
 
 **Total: about 19.5 points (range 14.5 to 26)**, of which Q10 is 2 (1.5 to 3). Order: Q0 and Q1 first (Q1 runs on a
 placeholder blueprint), then Q2, then Q3 and Q4; Q5 and Q6 beside them once Q1 is in; Q10 once Q3 and Q5 are in (it
@@ -545,7 +548,7 @@ Each with its fallback if it fails.
 
 - [B] The Decorator may place blocks with collision (the tree, stalls) on a Town Square building the player built, as at a festival marker.
 - [B] The tree size on the square follows the lower of the square level and the Workshop level.
-- [B] Between festivals the square gets small seasonal touches (planters and the like); the full sets come only in festival windows.
+- [B] Between festivals the square gets small seasonal touches (planters and the like); the full sets come only in festival windows. (Built by Q12: the planters' touches, one per in-game season.)
 - [B] The square window offers: follow the calendar, always one chosen set, or bare.
 - Still open, with pictures: the look of the square, its size, the hut block on the square, the name, and the Trade Post questions T1 to T3.
 

@@ -136,6 +136,14 @@ build chunk.
   one log line, where it removed it; a `markDirty` that throws after the Trade Post payment still answers "paid"; the unread
   rocket-refund counter is gone; `hostile-square` and `cswand` have a line for H28, `hostile-square`
   one for the throwing `markDirty` and one for the failing claim lookup; the crowd check needs one colonist on a gather spot.
+- **Q9, the docs and the version.** README (the Town Square, its order, the events at the square, the planters' touches,
+  moving from the festival marker, the Trade Post stalls, the wand and the street pieces, the new config keys and the
+  `Centrepiece:` line of `decor list`), `CHANGELOG-0.2.0-beta.1.md` for players, the CurseForge description with the 0.2.0
+  sections added and one untrue sentence changed (every change in `release/curseforge-0.2.0-changes.md`, for the owner's
+  approval), `release/VERIFY.md` with the new claims and their probes. The design file says ledger format 2 to 3 (4.6),
+  has rows for Q11, Q12 and Q7b, and marks the seasonal touches built. The five Q12 renders in `docs/screenshots/` were
+  byte copies of `docs/renders/q12/`: moved out of the repository (to the untracked `_to_delete/`). The version is
+  0.2.0-beta.1. No code changed.
 
 ## 0.1.0-beta.1 - unreleased - seasons and festivals for MineColonies
 

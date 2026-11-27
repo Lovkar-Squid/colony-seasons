@@ -10,6 +10,7 @@ Decorator takes it all down again, and next year he does it again.
 
 **Requires:** NeoForge 1.21.1 and MineColonies 1.1.1420 or newer in the 1.1 line, with Structurize and Domum
 Ornamentum. Serene Seasons is optional. Install it on the server and on every client.
+Trade Post for MineColonies is optional too: with it, the Town Square's festival stalls pay the colony. Nothing else changes without it.
 
 ## The Decorator
 
@@ -51,6 +52,45 @@ colony takes one small gift a day from it. On 24 to 26 December the colonists wa
 and 1 January there are fireworks at dusk, and a countdown and a big show at midnight if the server runs through
 it. The gifts come from loot tables, so a pack maker can change what is in them.
 
+## The Town Square
+
+New in 0.2.0. The Town Square is a building of its own, levels 1 to 5, 21 x 21 blocks at every level: a paved plaza
+with benches, lamp posts, planters, a low edge wall, stall pads and, at level 5, a bandstand in the corner. Craft the
+hut block (the notice board), place it in the colony and let the Builder build it. One Decorator is assigned to it, in
+its window or by the usual auto-hire, and he stays employed at his Workshop. The colony's main square (the built one of
+the highest level) takes over from the festival marker: the Decorator builds the Winter Festival's tree on the square,
+sized by the lower of the square's level and the Workshop's level, and the gift pile and the firework crate stand at
+their own places on it. The gathering, the lighting of the tree and the New Year shows are at the square too.
+
+In its Settings page you choose an order: Follow the calendar (the default), Always Winter Festival, or Bare. The order
+never changes the events, which follow the real calendar. Between the festivals the Decorator puts the season's touch
+in the square's planters: flowering azalea in spring, azalea leaves in summer, a pumpkin in autumn, spruce boughs in
+winter. The square's window has an info page with its level, the order, what stands on the square and what the next
+level adds.
+
+A colony with only a festival marker works exactly as before. When a Town Square is built, the marker's tree comes down
+(the items go back to the Workshop), the managers get one chat line, and the Decorator builds the set on the square. The
+marker stays as the fallback if the square is removed.
+
+## The Decorator's wand
+
+New in 0.2.0. The Decorator's wand (a stick, a string and a red dye) marks spots for street decorations. Right-click in
+the air to pick a snowman, a snowman with a top hat, a lantern post, a garland between two posts or a seasonal planter;
+right-click a block to mark a spot; sneak and right-click a mark to remove it. In every festival window the Decorator
+puts the pieces up, after the town hall and the square, and takes them down afterwards; the marks stay for next year. A
+colony has up to 64 marks, and the wand's holder sees them as outlines. A mark must be inside the colony's claim, in
+empty air, outside every building and at least 5 blocks from the festival marker, and you need the right to manage the
+colony's huts. `decorator.streetLights` (off by default) adds thin fairy lights on every third fence or wall post beside
+a path.
+
+## Festival stalls (Trade Post for MineColonies)
+
+New in 0.2.0, optional. With Trade Post for MineColonies installed, a Town Square of level 4 or 5 puts up festival
+market stalls with striped awnings while a festival set stands. On festival days colonists buy the Decorator's festival
+goods there (each sale takes one good from his Workshop above one batch of it), and each sale pays the colony into Trade
+Post's balance, at most one Trade Coin per stall per day. The mod keeps no money of its own. `compat.tradePostBridge =
+false` turns the stalls off. Without Trade Post nothing changes.
+
 ## Clothes
 
 In the game's winter colonists and visitors wear a knitted scarf in one of five colours, and a wool hat if their
@@ -90,6 +130,8 @@ In `colony_seasons-server.toml`:
 | --- | --- | --- |
 | `decorator.needsMaterials` | true | false: decorations are free |
 | `decorator.storeroomDressing` | true | false: the Workshop's storeroom stays bare |
+| `decorator.streetLights` | false | true: thin fairy lights beside paths in the festival windows |
+| `compat.tradePostBridge` | true | false: the Town Square's festival stalls and their payments are off |
 | `events.whoComes` | everyone_once_a_day | who comes to the gathering: everyone but the guards once per real day, else off-duty colonists (or `off_duty`, `everyone`) |
 | `events.midnightShow` | true | the countdown and the midnight show on New Year |
 | `events.giftsPerPlayerPerDay` | 1 | gifts a player takes per real day; 0 turns them off |
@@ -106,7 +148,7 @@ does in that colony.
 
 Only the Winter Festival and New Year are in this version; other festivals come later. Without a Decorator's
 Workshop there is no tree, no gifts and no fireworks, though the colonists still dress for the season and gather at
-the festival marker (or the town hall) on the Winter Festival days. Streets are not decorated. The happiness bonus
+the festival marker (or the town hall) on the Winter Festival days. Streets are decorated only where you mark them with the Decorator's wand. The happiness bonus
 is in the happiness number of the citizen window, but the window does not list it among the reasons; the
 Decorator's hut window shows it. MineColonies' own crops grow through their own code and are not slowed in winter.
 The text is English only.
