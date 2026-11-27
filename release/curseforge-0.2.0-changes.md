@@ -54,16 +54,37 @@ false` turns the stalls off. Without Trade Post nothing changes.
 | `decorator.streetLights` | false | true: thin fairy lights beside paths in the festival windows |
 | `compat.tradePostBridge` | true | false: the Town Square's festival stalls and their payments are off |
 
-## CHANGED: in "What it does not do"
+## CHANGED: in "What it does not do", the streets
 
 Old: `Streets are not decorated.`
 
 New: `Streets are decorated only where you mark them with the Decorator's wand.`
 
 Why: the wand now decorates the spots a player marks. The Decorator still never picks a street spot himself, and the
-rest of the paragraph (the sentence about the other limits) is unchanged.
+other sentences of the paragraph are unchanged, except the gathering line below.
+
+## CHANGED: in "What it does not do", the gathering without a Workshop (added by the Q9 review)
+
+Old: `the festival marker (or the town hall) on the Winter Festival days.`
+
+New: `the Town Square or the festival marker (or the town hall) on the Winter Festival days.`
+
+Why: a built Town Square is the colony's gathering place also without a Decorator (the gathering's place is the main
+square's tree cell first, then the marker, then the town hall).
+
+## CHANGED: the paragraph on removing the mod (added by the Q9 review)
+
+Old: `the stone bricks, podzol and lanterns of the grand tree's planter.`
+
+New: `the stone bricks, podzol and lanterns of the grand tree's planter. On a Town Square the stalls' posts, slabs and
+wool and the planters' leaves or pumpkin stay too.`
+
+Why: the stalls and the planters' touches are vanilla blocks, so they stay in the world if the mod is taken out
+without `/colonyseasons decor remove` first (that command takes them down with the rest).
 
 ## Not changed on purpose
 
 The 0.1.0 text about the festival marker still holds: the marker works, and a colony with only a marker behaves as before.
+"From Workshop level 2 a gift pile stands at the foot of the tree" stays: it is true at the marker, and the new Town
+Square section says that on the square the gift pile and the crate stand at their own places.
 `release/summary.txt` (one line, at most 120 characters) is unchanged.

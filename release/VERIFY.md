@@ -488,6 +488,8 @@ claims that only an in-game look can prove are marked "Look" (Q8, the lead's in-
 | T21 | The holder of a wand sees the colony's marks as outlines (client side; network protocol 3) | `tools/check_packets.py`, `csclient` | yes |
 | T22 | Config: `decorator.streetLights` false, `compat.tradePostBridge` true | `csconfig defaults`, `csconfig seeded`; `SeasonsConfig.java` | |
 | T23 | The version is 0.2.0-beta.1 | `resources/META-INF/neoforge.mods.toml`; `tools/build.sh` builds `colony_seasons-0.2.0-beta.1.jar`; `csboot` | |
+| T24 | Without a Decorator's Workshop the colonists gather at a built Town Square, else the marker, else the town hall (CHANGED sentence of "What it does not do") | code only: `Gathering.site` takes the main square's stored tree cell first, and `Squares.refresh` stores it on the square's construction event with no Decorator check; `csfestival square` proves the square's gathering with a Decorator, no probe runs one without | yes: a colony with a square and no Workshop |
+| T25 | Taken out without `decor remove`, the stalls' posts, slabs and wool and the planters' leaves or pumpkin stay (CHANGED removal paragraph); `decor remove` takes them down with every other group | code: `MarketStalls` (stripped spruce posts, slabs, wool), `tools/square_hut.py` `TOUCHES` (vanilla blocks), `DecorPlacer.removeColony` (every group of the colony) | |
 
 Replaces item P34 ("Streets are not decorated"): since 0.2.0 streets are decorated where the player marks them with the
 wand (T17 to T20). The Decorator still never picks a street spot himself. The CurseForge sentence is the one CHANGED entry

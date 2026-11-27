@@ -148,14 +148,15 @@ does in that colony.
 
 Only the Winter Festival and New Year are in this version; other festivals come later. Without a Decorator's
 Workshop there is no tree, no gifts and no fireworks, though the colonists still dress for the season and gather at
-the festival marker (or the town hall) on the Winter Festival days. Streets are decorated only where you mark them with the Decorator's wand. The happiness bonus
+the Town Square or the festival marker (or the town hall) on the Winter Festival days. Streets are decorated only where you mark them with the Decorator's wand. The happiness bonus
 is in the happiness number of the citizen window, but the window does not list it among the reasons; the
 Decorator's hut window shows it. MineColonies' own crops grow through their own code and are not slowed in winter.
 The text is English only.
 
 If you remove the mod from a world, run `/colonyseasons decor remove` for each colony first. The decoration blocks
 disappear with the mod (the tree's trunk too), but the spruce leaves of the tree stay in the world, and at level 5
-the stone bricks, podzol and lanterns of the grand tree's planter.
+the stone bricks, podzol and lanterns of the grand tree's planter. On a Town Square the stalls' posts, slabs and
+wool and the planters' leaves or pumpkin stay too.
 
 ## Links
 
