@@ -18,6 +18,7 @@ import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.server.ServerStoppedEvent;
+import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
 import java.util.HashSet;
@@ -52,6 +53,7 @@ public final class FestivalDirector {
         // LOW: MineColonies' colony protection (NORMAL) answers first, so only a player who may use blocks in the colony
         // lights its tree, and a click it refused never reaches us
         NeoForge.EVENT_BUS.addListener(EventPriority.LOW, FestivalDirector::onRightClickBlock);
+        NeoForge.EVENT_BUS.addListener(FestivalDirector::onServerStopping);
         NeoForge.EVENT_BUS.addListener(FestivalDirector::onServerStopped);
     }
 
@@ -142,6 +144,11 @@ public final class FestivalDirector {
             event.setCanceled(true);
             event.setCancellationResult(InteractionResult.SUCCESS);
         }
+    }
+
+    /** The rockets of a show still in the air's queue go back to their Workshops before the world is saved (Q7, H29). */
+    private static void onServerStopping(final ServerStoppingEvent event) {
+        Fireworks.returnQueued(event.getServer());
     }
 
     private static void onServerStopped(final ServerStoppedEvent event) {
