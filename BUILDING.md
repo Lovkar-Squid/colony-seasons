@@ -517,7 +517,9 @@ run (`tools/nbt.py` is a small NBT writer, so the scripts need no packages and r
   self-test that plants each fault once, and writes `tools/csspots/res/csspots/spots.json` for the `csspots` probe.
 - `tools/square_hut.py` (0.2.0, Q1, Q6): the Town Square, look A "Village plaza", `square/townsquare1..5.blueprint`: five
   levels 21 x 21 (box y 0..19, so the grand tree fits) drawn block for block as `design/src/squares.py` shows them
-  (vanilla ids only, the real hut block, the notice board, at (2, 1, 8)). Every tag keeps its cell at every level and a
+  (vanilla ids only, the real hut block, the notice board, at (2, 1, 8) in the design's centred frame, which is
+  (12, 1, 18) from the box corner: `/structurize paste x y z Colony.Seasons square.townsquareN` puts the notice board on
+  x y z and the box's corner at x-12, y-1, z-18). Every tag keeps its cell at every level and a
   higher level only adds cells (`SLOTS`, the table of design 4.2; `launch` is one cell at every level): `tree` at the
   centre (air), `gift`, `launch`, 8 to 24 `gather`, 2 to 12 `sit` on the benches' seats, 0 to 8 `lamp` over the posts'
   lanterns, 0 to 8 `bed` over the planters' grass, 0 to 4 `stall` on the pad planks. `touch(season)` makes the four

@@ -402,7 +402,7 @@ marker is written.
 | `/colonyseasons season set <season>` | operators | moves the game calendar to a season |
 | `/colonyseasons festival force <id>` | operators | starts a festival outside its dates; it stays on, and is saved with the world, until you clear it |
 | `/colonyseasons festival clear` | operators | ends a forced festival |
-| `/colonyseasons decor list [colony]` | operators | counts the decorations the Decorator has placed in this dimension; with a colony id, a `Centrepiece:` line first (the Town Square and its tree cell, the festival marker, or none), then each building, square, storeroom, marked spot and the street lights on its own line |
+| `/colonyseasons decor list [colony]` | operators | counts the decorations the Decorator has placed in this dimension; with a colony id, a `Centrepiece:` line first (the Town Square and its tree cell, the festival marker, or none), then each building, square, storeroom, marked spot and the street lights that has decorations up on its own line (a marked spot shows up once its piece stands) |
 | `/colonyseasons decor remove <colony>` | operators | removes every decoration the list holds for that colony in this dimension, by the same rule as the take-down |
 
 The festival ids are `winter_festival` and `new_year`. With Serene Seasons installed, `season set` leaves
