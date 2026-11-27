@@ -192,18 +192,27 @@ public final class Fireworks {
         QUEUE.clear();
     }
 
-    /** One queued rocket that will not fly: the rocket taken from the stock for it goes back to its colony's Workshop. */
+    /**
+     * One queued rocket that will not fly: the rocket taken from the stock for it goes back to its colony's Workshop. Never
+     * throws: a failure here must neither stop the server's stop (and its world save) nor keep the rocket in the queue,
+     * where the next tick would give it back again.
+     */
     private static void refund(final MinecraftServer server, final Pending p) {
         if (p.paid().isEmpty()) {
             return;                                   // a free rocket: nothing was taken
         }
-        final ServerLevel level = server.getLevel(p.dimension());
-        final IColony colony = level == null ? null : IColonyManager.getInstance().getColonyByWorld(p.colony(), level);
-        final int[] lost = new int[1];
-        DecorWork.sinkOf(colony, lost).give(p.paid().copy());
-        refunded++;
-        if (lost[0] > 0) {
-            ColonySeasons.LOGGER.info("A queued firework rocket of colony {} did not fly and had no Workshop to go back to: lost", p.colony());
+        try {
+            final ServerLevel level = server.getLevel(p.dimension());
+            final IColony colony = level == null ? null : IColonyManager.getInstance().getColonyByWorld(p.colony(), level);
+            final int[] lost = new int[1];
+            DecorWork.sinkOf(colony, lost).give(p.paid().copy());
+            if (lost[0] > 0) {
+                ColonySeasons.LOGGER.info("A queued firework rocket of colony {} did not fly and had no Workshop to go back to: lost", p.colony());
+            } else {
+                refunded++;
+            }
+        } catch (final RuntimeException failed) {
+            ColonySeasons.LOGGER.warn("A queued firework rocket of colony {} could not go back to its Workshop: lost", p.colony(), failed);
         }
     }
 

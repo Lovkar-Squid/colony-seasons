@@ -141,7 +141,8 @@ build chunk.
   removes it as a shift-click does; the Decorator stood in the cells of marks on a path at the end of his walk and kept them
   open the whole window: colonists in a mark's open cells step out first, as at the square; a restart in the middle of a
   dusk show lost the rockets taken from the stock that had not flown yet (15 of 16): queued rockets now go back to the
-  Workshop when the server stops, or when the site's chunk is not loaded at launch time.
+  Workshop when the server stops, or when the site's chunk is not loaded at launch time (a rocket that cannot go back is
+  logged and dropped, so it never stops the server's stop and its world save, nor comes back on the next tick).
 
 ## 0.1.0-beta.1 - unreleased - seasons and festivals for MineColonies
 
