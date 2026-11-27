@@ -195,6 +195,15 @@ public final class StreetWork {
         return DecorWork.Outcome.of(placed, open, complete, "street: " + serve.size() + " marks, " + placed + " placed, " + open + " still open");
     }
 
+    /** The box of the slots' cells (whole blocks). */
+    private static AABB cellsBox(final List<DecorPlacer.Slot> slots) {
+        AABB box = null;
+        for (final DecorPlacer.Slot slot : slots) {
+            box = box == null ? new AABB(slot.pos()) : box.minmax(new AABB(slot.pos()));
+        }
+        return box;
+    }
+
     /** True when the post whose lower half is at {@code post} stands whole: its group lists both halves. */
     static boolean whole(final DecorLedger ledger, final int colony, final BlockPos post) {
         final DecorLedger.GroupView group = ledger.group(colony, DecorLedger.Owner.street(post));
@@ -248,6 +257,11 @@ public final class StreetWork {
             if (group == null || !group.entries().containsKey(slot.pos())) {
                 todo.add(slot);
             }
+        }
+        // colonists standing in a cell of the mark step out first, the Decorator himself among them, as at the square (S10c;
+        // Q7, H28: at the end of his walk he stood in a mark's cell on a path at every visit, and kept it open all window)
+        if (!todo.isEmpty()) {
+            DecorWork.evict(level, cellsBox(todo), mark.pos());
         }
         // a body in a cell keeps that cell open, a thin garland's cell too (never into a cell a body stands in); a post
         // waits whole
