@@ -101,8 +101,11 @@ final class SquareCycle {
     final Map<Item, Integer> prices = new LinkedHashMap<>();
     /** The balance after the last game day (trade-post: it may move only on the gathering days). */
     int lastBalance = Integer.MIN_VALUE;
-    /** Crowd samples on the gathering days: [samples of colonists standing still near the square, those on a gather spot]. */
-    final int[] crowd = new int[2];
+    /**
+     * Crowd samples on the gathering days: [samples of colonists standing still near the square, those on a gather spot,
+     * still samples left out as on MineColonies' own leisure trip].
+     */
+    final int[] crowd = new int[3];
     final StreetLegs street;
     /** builder-over-tree: the builder, whose pack holds the plaza's blocks, not the colony's decorations (left out of I3). */
     ICitizenData excluded;
@@ -631,6 +634,14 @@ final class SquareCycle {
             if (e == null || !e.getNavigation().isDone() || CsFullCycle.distTo(c, anchor) > Gathering.SQUARE_KEEP_RADIUS) {
                 continue;
             }
+            if (e instanceof com.minecolonies.core.entity.citizen.EntityCitizen ec && ec.getCitizenAI() != null
+                    && ec.getCitizenAI().getState() instanceof com.minecolonies.core.entity.ai.minimal.EntityAICitizenWander.WanderState) {
+                // on MineColonies' own leisure trip round the square (a bench at a sit tag, a stroll): the gathering leaves
+                // him to it inside the keep radius (Gathering.tick), so he is no sample of the walk to the spots (review: a
+                // seated colonist failed migrate-load's 24 Dec with 17 of 37)
+                crowd[2]++;
+                continue;
+            }
             crowd[0]++;
             crowd[1] += spots.stream().anyMatch(sp -> e.position().distanceToSqr(Vec3.atBottomCenterOf(sp)) <= 9.0) ? 1 : 0;
         }
@@ -642,9 +653,10 @@ final class SquareCycle {
         }
         // at least half: with the market's stalls up some colonists stand at a stall to buy instead (trade-post saw 34 of 49)
         check(label + ": the crowd stands on the square's gather spots (at least half the still samples within 3 blocks of one)", crowd[0] >= 3
-                && crowd[1] * 2 >= crowd[0], crowd[1] + " of " + crowd[0]);
+                && crowd[1] * 2 >= crowd[0], crowd[1] + " of " + crowd[0] + " (" + crowd[2] + " still samples on a leisure trip left out)");
         crowd[0] = 0;
         crowd[1] = 0;
+        crowd[2] = 0;
     }
 
     void dusk(final String label) {
