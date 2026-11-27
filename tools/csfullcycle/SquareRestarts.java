@@ -440,6 +440,9 @@ final class SquareRestarts {
             groups.add(one);
         }
         f.put("groupList", groups);
+        final DecorLedger.SquareMark up = p.ledger.squareMark(p.colonyId);
+        final DecorLedger.GroupView tree = up == null ? null : p.ledger.group(p.colonyId, DecorLedger.Owner.square(up.anchor()));
+        f.putBoolean("treeUp", tree != null && !tree.entries().isEmpty());
         f.putInt("budget", p.ledger.budgetUsed(p.colonyId, p.day()));
         f.putLong("gameDay", p.day());
         final DecorLedger.SquareMark mark = p.ledger.squareMark(p.colonyId);
@@ -469,9 +472,12 @@ final class SquareRestarts {
         final String got = mark == null ? "-" : mark.building().toShortString() + " " + mark.anchor().toShortString();
         p.checkEq(phase + ": the square's mark reads back the same", got, want);
         p.checkEq(phase + ": the day's budget reads back the same", p.ledger.budgetUsed(p.colonyId, f.getLong("gameDay")), f.getInt("budget"));
+        // the lit state belongs to a standing tree: with the square's set down (a work order) the festival's poll resets it
+        // on its next look, which may come after the save (TreeLighting.tick), so it is compared only for a standing tree
         final FestivalData.ColonyState s = FestivalData.of(p.level).peek(p.colonyId);
-        p.check(phase + ": the tree's lit state and its lit lights read back the same", (s != null && s.treeLit()) == f.getBoolean("lit")
-                && p.lights()[0] == f.getInt("lights"), "lit " + (s != null && s.treeLit()) + ", " + p.lights()[0] + " lit lights, saved "
-                + f.getBoolean("lit") + " and " + f.getInt("lights"));
+        final boolean treeUp = f.getBoolean("treeUp");
+        p.check(phase + ": the tree's lit state" + (treeUp ? "" : " (no tree stood at the save)") + " and its lit lights read back the same",
+                (!treeUp || (s != null && s.treeLit()) == f.getBoolean("lit")) && p.lights()[0] == f.getInt("lights"), "lit "
+                        + (s != null && s.treeLit()) + ", " + p.lights()[0] + " lit lights, saved " + f.getBoolean("lit") + " and " + f.getInt("lights"));
     }
 }
