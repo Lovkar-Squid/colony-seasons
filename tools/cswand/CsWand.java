@@ -677,6 +677,24 @@ public class CsWand {
         return visits;
     }
 
+    /**
+     * Tending visits as the Decorator makes them, with {@code stock}, while there is a group to tend today (at most
+     * {@code max}), counted per group in {@code at}; returns the visits made ({@code max} when it never ran out).
+     */
+    private int tendCounting(final Map<DecorLedger.Owner, Integer> at, final int max, final int hutLevel, final DecorPlacer.Stock stock) {
+        int visits = 0;
+        DecorWork.Target next;
+        while (visits < max && (next = DecorWork.nextToTend(level, colony, hut.getPosition(), ledger, day())) != null) {
+            final DecorWork.Outcome o = DecorWork.tend(level, colonyId, next, hutLevel, stock, day(), ledger);
+            if (visits < 12) {
+                note("tending at {} {}: {}", next.owner().kind(), next.owner().pos().toShortString(), o.status());
+            }
+            at.merge(next.owner(), 1, Integer::sum);
+            visits++;
+        }
+        return visits;
+    }
+
     private void keepWell() {
         worker.setSaturation(ICitizenData.MAX_SATURATION);
         if (worker.getCitizenDiseaseHandler().isSick()) {
@@ -1014,6 +1032,25 @@ public class CsWand {
             tendAll(12);
             checkEq("the next day's tending put it back", up(mark(sa)), "");
             invariant("after tending");
+        });
+        now("window: a finished mark its rule turns away is tended once a day, not on every call", () -> {
+            // the ground under the finished snowman taken away by hand: the snowman stands (it needs no support), the rule refuses the spot
+            final BlockPos ground = sa.below();
+            final BlockState was = level.getBlockState(ground);
+            level.setBlock(ground, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+            check("the snowman still stands, listed, on no ground", level.getBlockState(sa).getBlock() instanceof SnowmanBlock && ledger.at(sa) != null
+                    && !StreetMarks.ground(level, ground), String.valueOf(level.getBlockState(sa)));
+            nextMorning();
+            final Map<DecorLedger.Owner, Integer> at = new LinkedHashMap<>();
+            final int max = 40;
+            final int visits = tendCounting(at, max, 1, DecorPlacer.Stock.FREE);
+            note("{} tending visits: {}", visits, at);
+            check("the day's tending comes to an end", visits < max, visits + " visits, " + at.getOrDefault(street(sa), 0) + " at the snowman");
+            check("the turned-away snowman was looked at once at most, and its day is noted",
+                    at.getOrDefault(street(sa), 0) <= 1 && ledger.group(colonyId, street(sa)).tendedDay() == day(), at.getOrDefault(street(sa), 0) + " visits");
+            checkEq("the snowman is as it was", up(mark(sa)), "");
+            level.setBlock(ground, was, Block.UPDATE_ALL);
+            invariant("after the ground came back");
         });
         now("window: a broken post half takes the garland down, then all come back", () -> {
             level.destroyBlock(p1, true, owner);
@@ -1395,6 +1432,15 @@ public class CsWand {
             final DecorWork.Outcome off = DecorWork.tend(level, colonyId, StreetLights.target(level, colony, ledger), 3,
                     DecorPlacer.Stock.withKinds(DecorPlacer.Stock.FREE, new DecorKinds(true, true, false, true)), day(), ledger);
             check("with the Workshop's lights kind off tending puts nothing back", off.placed() == 0 && level.getBlockState(one).isAir(), off.status());
+            final DecorLedger.GroupView looked = ledger.group(colonyId, StreetLights.owner(colony));
+            check("and that visit notes the day", looked != null && looked.tendedDay() == day(), looked == null ? "no group" : "tended " + looked.tendedDay() + ", today " + day());
+            final Map<DecorLedger.Owner, Integer> at = new LinkedHashMap<>();
+            final int max = 30;
+            final int visits = tendCounting(at, max, 3, DecorPlacer.Stock.withKinds(DecorPlacer.Stock.FREE, new DecorKinds(true, true, false, true)));
+            note("{} tending visits with the lights kind off: {}", visits, at);
+            check("with the lights kind off the day's tending comes to an end and the lights are not offered again",
+                    visits < max && !at.containsKey(StreetLights.owner(colony)), visits + " visits, " + at.getOrDefault(StreetLights.owner(colony), 0) + " at the lights");
+            nextMorning();
             tendAll(10);
             check("the next day's tending put it back", level.getBlockState(one).is(SeasonsBlocks.STREET_LIGHTS.get()) && ledger.at(one) != null, "");
         });

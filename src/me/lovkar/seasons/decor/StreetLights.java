@@ -162,7 +162,8 @@ public final class StreetLights {
      * unlit), up to {@link #MAX_LIGHTS} in the group. The group is finished for this window once a whole pass of the scan
      * is done and nothing it found is open; the day's budget is counted once (the group is its own slot) when anything
      * was placed and he was not tending. With the hut's lights kind off ({@code placing} false) nothing goes up: what
-     * stands is left as it is, as with every other kind's switch.
+     * stands is left as it is, as with every other kind's switch, and a tending visit still notes the day (the group is
+     * tended again the next day, not on every call today).
      */
     public static DecorWork.Outcome visit(final ServerLevel level, final int colony, final DecorWork.Target target, final long day,
                                           final DecorLedger ledger, final boolean tending, final boolean placing) {
@@ -170,6 +171,10 @@ public final class StreetLights {
             return DecorWork.Outcome.of(0, 0, false, "street lights are switched off");
         }
         if (!placing) {
+            if (tending) {
+                ledger.setTended(colony, target.owner(), day);
+                ledger.flush(level);
+            }
             return DecorWork.Outcome.of(0, 0, false, "the Workshop's lights are switched off");
         }
         final IColony owner = StreetMarks.colonyOf(level, colony);

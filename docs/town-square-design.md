@@ -570,6 +570,9 @@ the 0.2.0 picture round.
   Square's included, and within 5 blocks of the festival marker (the tree).
 - The planter stands only in the festival windows, as the other street pieces; its block follows the in-game season (the
   Town Square's touches). The lantern posts and the street lights come on with the tree's lighting, or by hand.
+- Tending, once a game day, serves the marks finished on an earlier day; a mark that is not done goes up only on a
+  decorating visit, inside the day's budget. A tending visit notes the day also when it was turned away (the ground under
+  a snowman gone, the Workshop's lights kind off), so the same group is not offered again on every call that day.
 - The server switch is `decorator.streetLights` (the brief's `decor.streetLights`: the section is `decorator`), off by
   default.
 

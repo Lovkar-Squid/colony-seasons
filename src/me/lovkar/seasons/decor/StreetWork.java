@@ -137,9 +137,11 @@ public final class StreetWork {
 
     /**
      * One visit for the mark at {@code target} (decorating, or tending once a game day): that mark and every other mark
-     * within {@link #STREET_REACH} that is open (or, tending, due), each into its own group, the garlands after the
-     * posts. The day's budget is counted once ({@link DecorLedger.Owner#STREET_BUDGET}) when anything was placed and he
-     * was not tending; the ledger is written once.
+     * within {@link #STREET_REACH} that is open (decorating) or due (tending: a mark that is not done waits for a
+     * decorating visit, inside the day's budget), each into its own group, the garlands after the posts. A tending visit
+     * notes the day on every mark it served, also on one its rule turned away (the ground under it gone, ...), so the
+     * same mark is not offered again and again that day. The day's budget is counted once
+     * ({@link DecorLedger.Owner#STREET_BUDGET}) when anything was placed and he was not tending; the ledger is written once.
      */
     public static DecorWork.Outcome visit(final ServerLevel level, final int colony, final DecorWork.Target target, final long day,
                                           final DecorLedger ledger, final boolean tending) {
@@ -159,7 +161,7 @@ public final class StreetWork {
                     || Math.abs(mark.pos().getZ() - first.pos().getZ()) > STREET_REACH) {
                 continue;
             }
-            if (!done(ledger, colony, mark, season) || tending && due(ledger, colony, mark, day)) {
+            if (tending ? due(ledger, colony, mark, day) : !done(ledger, colony, mark, season)) {
                 serve.add(mark);
             }
         }
@@ -278,21 +280,22 @@ public final class StreetWork {
         final boolean complete = !slots.isEmpty() && open == 0;
         if (group != null && group.entries().isEmpty()) {
             ledger.dropGroup(colony, key);            // nothing up (a body in the cell, no season yet): no empty group left behind
-        } else if (group != null) {
-            if (complete) {
-                ledger.setDecorated(colony, key, day);
-            }
-            if (tending) {
-                ledger.setTended(colony, key, day);
-            }
+        } else if (group != null && complete) {
+            ledger.setDecorated(colony, key, day);
         }
         return fruit(ledger, colony, key, day, tending, placed, open, complete);
     }
 
-    /** The fruitless count of a decorating visit (tending is not counted): anything placed starts it again. */
+    /**
+     * The end of every visit at one mark: a tending visit notes the day on the mark's group (when it still has one),
+     * whatever came of it, so a mark turned away is tended again only the next day; a decorating visit counts towards the
+     * fruitless limit, and anything placed starts that count again.
+     */
     private static One fruit(final DecorLedger ledger, final int colony, final DecorLedger.Owner key, final long day, final boolean tending,
                              final int placed, final int open, final boolean complete) {
-        if (!tending) {
+        if (tending) {
+            ledger.setTended(colony, key, day);
+        } else {
             if (placed > 0) {
                 ledger.clearFruitless(colony, key);
             } else if (open > 0) {

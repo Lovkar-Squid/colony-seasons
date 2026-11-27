@@ -224,6 +224,7 @@ bash tools/probe.sh cswand            # marking all five types (a body in a cell
                                       # file (save, load, save the same; an unknown mark type warns once; a file without marks); a dirt
                                       # path under a snowman and a post stays one after a neighbour update (a control turns to dirt); a
                                       # sweep that removes nothing; no street lights with the switch off; tending (a broken snowman, a
+                                      # finished snowman whose ground went is looked at once a day and the day's tending ends, a
                                       # broken post half taking its garland down, then all back, a body in one garland cell keeping
                                       # that thin cell open); a season change swapping only the
                                       # planter; a mark removed mid-window by a shift-click (a hand-changed cell stays, the garland goes
@@ -232,8 +233,9 @@ bash tools/probe.sh cswand            # marking all five types (a body in a cell
 bash tools/probe.sh cswand lights     # rigconfig-lights (decorator.streetLights = true): after the buildings the lights are the next
                                       # target; lights on every third post of the fence and the wall beside the path and nowhere else
                                       # (not on the far fence, the column of four or the fence in the field plot), each thin, unlit,
-                                      # free, at most 48; a state with collision refused for the lights' owner; the lights kind off;
-                                      # a light broken by hand back the next day; the switch off and the sweep; the take-down
+                                      # free, at most 48; a state with collision refused for the lights' owner; the lights kind off
+                                      # (tending then notes the day and the day's tending ends); a light broken by hand back the next
+                                      # day; the switch off and the sweep; the take-down
 bash tools/restart.sh cswand          # restart-save (seven marks and their pieces, the ledger file on disk before any autosave) and
                                       # restart-load (the same marks and entries, nothing open, a visit to every mark places nothing,
                                       # the take-down keeps the marks)

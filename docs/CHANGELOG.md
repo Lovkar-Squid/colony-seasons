@@ -116,7 +116,9 @@ build chunk.
   blocks; the pieces are free, have collision (a spot the player chose) and are not solid (a dirt path under them stays);
   a body in a cell keeps that mark open, a post goes up whole or not at all, a garland only between two whole posts; the
   planter swaps with the in-game season (the Town Square's touches). They come down after the window by the ledger rule (by
-  him, or by the sweep with no Decorator), and the marks stay. New blocks `snowman`, `snowman_b`, `lantern_post` (items,
+  him, or by the sweep with no Decorator), and the marks stay. Tending, once a game day, serves only the marks finished on
+  an earlier day and notes the day also when a visit was turned away (no ground left under a snowman, the hut's lights kind
+  off). New blocks `snowman`, `snowman_b`, `lantern_post` (items,
   recipes, loot; the owner's picks A, B and the crook) and the block-only `street_garland` and `street_lights`. New server
   switch `decorator.streetLights` (off): thin lights on every third fence or wall post beside a path block in the claim,
   outside the buildings, at most 48, no collision, one group taken down like the others, never with the hut's lights kind
