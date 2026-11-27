@@ -49,8 +49,9 @@ import java.util.function.Predicate;
  * (flags 18) and read back. A cell that reads back as another state of the same block keeps its entry with that
  * state; one that reads back as anything else is forgotten and its item refunded. Nothing
  * with collision is placed for a building; only the square's group and its seasonal touches (Q12) may have it, at a
- * player's festival marker or on a Town Square the player built (the owner's answer of 20 Nov 2026), and never into a
- * cell where an entity stands (S10c: the cell waits for a later visit).</p>
+ * player's festival marker or on a Town Square the player built (the owner's answer of 20 Nov 2026), and the pieces at
+ * a spot the player marked with the Decorator's wand (Q11, {@link DecorLedger.Owner#collides}), and never into a cell
+ * where an entity stands (S10c: the cell waits for a later visit). The street lights (Q11) never may.</p>
  *
  * <p>Removing, per entry: a cell in an unloaded chunk waits; a cell whose state equals the record exactly is
  * forgotten first, then set to air with no drops, and its item handed back if it was paid for. One exception, the
@@ -235,8 +236,9 @@ public final class DecorPlacer {
     }
 
     /**
-     * The entities ({@link #blocks}) whose bounding box reaches into the cells of {@code slots}, in one query over
-     * their box. It reads loaded entity sections only and never loads a chunk.
+     * The entities ({@link #blocks}) whose bounding box reaches into the cells of {@code slots}, or up to
+     * {@link #SHAPE_REACH} above them (a collision shape taller than its cell, a snowman's head or a fence, reaches
+     * there), in one query over their box. It reads loaded entity sections only and never loads a chunk.
      */
     public static List<Entity> blockers(final ServerLevel level, final List<Slot> slots) {
         if (slots.isEmpty()) {
@@ -246,12 +248,16 @@ public final class DecorPlacer {
         for (final Slot slot : slots) {
             box = box == null ? new AABB(slot.pos()) : box.minmax(new AABB(slot.pos()));
         }
-        return level.getEntities((Entity) null, box, DecorPlacer::blocks);
+        return level.getEntities((Entity) null, box.expandTowards(0, SHAPE_REACH, 0), DecorPlacer::blocks);
     }
+
+    /** How far a collision shape may reach above its cell (vanilla's tallest, a fence or a wall, 24 px; Q11's snowman too). */
+    private static final double SHAPE_REACH = 0.5;
 
     /** True when an entity's box strictly overlaps the block's collision shape set at {@code pos} (a body standing on top of it does not). */
     private static boolean inEntity(final ServerLevel level, final BlockPos pos, final VoxelShape shape, final List<Entity> near) {
-        final List<Entity> who = near != null ? near : level.getEntities((Entity) null, new AABB(pos), DecorPlacer::blocks);
+        final List<Entity> who = near != null ? near
+                : level.getEntities((Entity) null, new AABB(pos).expandTowards(0, SHAPE_REACH, 0), DecorPlacer::blocks);
         if (who.isEmpty()) {
             return false;
         }

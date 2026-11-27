@@ -103,6 +103,27 @@ build chunk.
   Bare and not at the festival marker; a centre cell the player or snow filled never refuses the tree, the foot follows
   on a later tending visit. Probe `cssquarelife` extended (a level 3 square in a colony of its own, the Decorator's own
   AI included) and its restart, `csdecorgate square`; renders in `docs/renders/q12/` (`tools/render_q12.sh`).
+- **Q11, the Decorator's wand, the street pieces and the street lights.** A new item, the Decorator's wand (a stick, a
+  string and a red dye): right-click in the air picks what goes on a spot (snowman A, the default; snowman B; the festive
+  lantern post; a garland across a street between two marked posts; a seasonal planter), right-click on a block marks the
+  cell in front of the clicked face, shift-right-click removes a mark and takes its pieces down at once (a post takes its
+  garland with it). A mark needs the colony's claim, the right to manage huts, empty air, no building's box, 5 blocks from
+  the festival marker, ground under a snowman or a post (a dirt path counts) and a full block under a planter; 64 marks per
+  colony. The holder of a wand sees the colony's marks as outlines (client side; a new packet, network protocol 3). The marks
+  live in the decoration ledger (key `marks`, two new group kinds `STREET` and `LIGHTS`, the format stays 3; 0.1.0 skips
+  them with its one warning). In every festival window the Decorator dresses the marks after the town hall and the square,
+  before the other buildings, on one slot of the day's budget for all of them; one visit serves every open mark within 16
+  blocks; the pieces are free, have collision (a spot the player chose) and are not solid (a dirt path under them stays);
+  a body in a cell keeps that mark open, a post goes up whole or not at all, a garland only between two whole posts; the
+  planter swaps with the in-game season (the Town Square's touches). They come down after the window by the ledger rule (by
+  him, or by the sweep with no Decorator), and the marks stay. Tending, once a game day, serves only the marks finished on
+  an earlier day and notes the day also when a visit was turned away (no ground left under a snowman, the hut's lights kind
+  off). New blocks `snowman`, `snowman_b`, `lantern_post` (items,
+  recipes, loot; the owner's picks A, B and the crook) and the block-only `street_garland` and `street_lights`. New server
+  switch `decorator.streetLights` (off): thin lights on every third fence or wall post beside a path block in the claim,
+  outside the buildings, at most 48, no collision, one group taken down like the others, never with the hut's lights kind
+  off. Probe `cswand` (default, `lights`, `restart.sh`); `csblocks`, `csconfig` and `cssquarelife` extended; renders in
+  `docs/renders/q11/` (`tools/render_q11.sh`).
 
 ## 0.1.0-beta.1 - unreleased - seasons and festivals for MineColonies
 

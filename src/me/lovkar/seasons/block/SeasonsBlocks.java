@@ -78,9 +78,30 @@ public final class SeasonsBlocks {
     public static final DeferredBlock<StorageCoilBlock> STORAGE_COIL = ColonySeasons.BLOCKS.register("storage_coil",
             () -> new StorageCoilBlock(storagePiece(SoundType.GRASS, MapColor.PLANT).noLootTable()));
 
-    /** Every decoration block, in creative-tab order. */
+    // ---- the street pieces (0.2.0, Q11): the Decorator puts them on the spots the player marks with his wand; players
+    // may craft and place them by hand too. They have collision (a spot the player chose, the owner's answer of 20 Nov
+    // 2026) and are not "solid" (forceSolidOff), so a dirt path under them stays a dirt path.
+    public static final DeferredBlock<SnowmanBlock> SNOWMAN = ColonySeasons.BLOCKS.register("snowman",
+            () -> new SnowmanBlock(snowman()));
+    public static final DeferredBlock<SnowmanBlock> SNOWMAN_B = ColonySeasons.BLOCKS.register("snowman_b",
+            () -> new SnowmanBlock(snowman()));
+    public static final DeferredBlock<LanternPostBlock> LANTERN_POST = ColonySeasons.BLOCKS.register("lantern_post",
+            () -> new LanternPostBlock(BlockBehaviour.Properties.of().mapColor(MapColor.COLOR_BLACK).strength(1.0F)
+                    .sound(SoundType.LANTERN).noOcclusion().forceSolidOff().pushReaction(PushReaction.DESTROY)
+                    .lightLevel(LanternPostBlock::light)));
+    // block only, placed by the Decorator for free (no item, no recipe, noLootTable: they drop nothing), not in ALL: the
+    // garland across a street between two marked posts, and the thin lights on fences (decorator.streetLights)
+    public static final DeferredBlock<StreetGarlandBlock> STREET_GARLAND = ColonySeasons.BLOCKS.register("street_garland",
+            () -> new StreetGarlandBlock(wall(SoundType.GRASS, MapColor.PLANT).noLootTable()));
+    public static final DeferredBlock<StreetLightsBlock> STREET_LIGHTS = ColonySeasons.BLOCKS.register("street_lights",
+            () -> new StreetLightsBlock(wall(SoundType.CHAIN, MapColor.COLOR_GRAY).lightLevel(Lights.whenLit(Lights.STREET_LIGHTS)).noLootTable()));
+
+    /** Every decoration block with an item, in creative-tab order. */
     public static final List<DeferredBlock<? extends Block>> ALL = List.of(WREATH, GARLAND, LANTERN_STRING, FAIRY_LIGHTS,
-            ORNAMENT_LEAVES, TINSEL_LEAVES, TREE_STAR, LARGE_STAR, GIFT_PILE, FIREWORK_CRATE, FESTIVAL_MARKER);
+            ORNAMENT_LEAVES, TINSEL_LEAVES, TREE_STAR, LARGE_STAR, GIFT_PILE, FIREWORK_CRATE, FESTIVAL_MARKER, SNOWMAN, SNOWMAN_B,
+            LANTERN_POST);
+    /** The street pieces with an item (Q11): the two snowmen and the lantern post. */
+    public static final List<DeferredBlock<? extends Block>> STREET = List.of(SNOWMAN, SNOWMAN_B, LANTERN_POST);
     /** The wall blocks (no collision, instant break, support behind). */
     public static final List<DeferredBlock<? extends WallDecorationBlock>> WALL = List.of(WREATH, GARLAND, LANTERN_STRING, FAIRY_LIGHTS);
 
@@ -95,11 +116,21 @@ public final class SeasonsBlocks {
     public static final DeferredItem<BlockItem> GIFT_PILE_ITEM = ColonySeasons.ITEMS.registerSimpleBlockItem(GIFT_PILE);
     public static final DeferredItem<BlockItem> FIREWORK_CRATE_ITEM = ColonySeasons.ITEMS.registerSimpleBlockItem(FIREWORK_CRATE);
     public static final DeferredItem<BlockItem> FESTIVAL_MARKER_ITEM = ColonySeasons.ITEMS.registerSimpleBlockItem(FESTIVAL_MARKER);
+    public static final DeferredItem<BlockItem> SNOWMAN_ITEM = ColonySeasons.ITEMS.registerSimpleBlockItem(SNOWMAN);
+    public static final DeferredItem<BlockItem> SNOWMAN_B_ITEM = ColonySeasons.ITEMS.registerSimpleBlockItem(SNOWMAN_B);
+    public static final DeferredItem<BlockItem> LANTERN_POST_ITEM = ColonySeasons.ITEMS.registerSimpleBlockItem(LANTERN_POST);
 
     /** Every decoration item, in creative-tab order (the same order as {@link #ALL}). */
     public static final List<DeferredItem<BlockItem>> ITEMS = List.of(WREATH_ITEM, GARLAND_ITEM, LANTERN_STRING_ITEM,
             FAIRY_LIGHTS_ITEM, ORNAMENT_LEAVES_ITEM, TINSEL_LEAVES_ITEM, TREE_STAR_ITEM, LARGE_STAR_ITEM, GIFT_PILE_ITEM,
-            FIREWORK_CRATE_ITEM, FESTIVAL_MARKER_ITEM);
+            FIREWORK_CRATE_ITEM, FESTIVAL_MARKER_ITEM, SNOWMAN_ITEM, SNOWMAN_B_ITEM, LANTERN_POST_ITEM);
+
+    /**
+     * The Decorator's wand (0.2.0, Q11): the player marks spots round the colony with it and picks what goes there
+     * ({@link me.lovkar.seasons.item.DecoratorWandItem}). One per stack; in the creative tab after the decorations.
+     */
+    public static final DeferredItem<me.lovkar.seasons.item.DecoratorWandItem> DECORATORS_WAND = ColonySeasons.ITEMS.register("decorators_wand",
+            () -> new me.lovkar.seasons.item.DecoratorWandItem(new net.minecraft.world.item.Item.Properties().stacksTo(1)));
 
     // ---- block entities: each type lists exactly its own block
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<GiftPileBlockEntity>> GIFT_PILE_ENTITY =
@@ -114,7 +145,10 @@ public final class SeasonsBlocks {
             () -> CreativeModeTab.builder()
                     .title(Component.translatable("itemGroup.colony_seasons"))
                     .icon(() -> new ItemStack(WREATH_ITEM.get()))
-                    .displayItems((parameters, output) -> ITEMS.forEach(item -> output.accept(item.get())))
+                    .displayItems((parameters, output) -> {
+                        ITEMS.forEach(item -> output.accept(item.get()));
+                        output.accept(DECORATORS_WAND.get());
+                    })
                     .build());
 
     private SeasonsBlocks() {
@@ -128,6 +162,11 @@ public final class SeasonsBlocks {
     private static BlockBehaviour.Properties wall(final SoundType sound, final MapColor color) {
         return BlockBehaviour.Properties.of().mapColor(color).noCollission().instabreak().noOcclusion()
                 .sound(sound).pushReaction(PushReaction.DESTROY);
+    }
+
+    private static BlockBehaviour.Properties snowman() {
+        return BlockBehaviour.Properties.of().mapColor(MapColor.SNOW).strength(0.4F).sound(SoundType.SNOW).noOcclusion()
+                .forceSolidOff().pushReaction(PushReaction.DESTROY);
     }
 
     private static BlockBehaviour.Properties storagePiece(final SoundType sound, final MapColor color) {

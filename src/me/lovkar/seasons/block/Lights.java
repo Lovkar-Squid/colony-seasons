@@ -34,6 +34,11 @@ public final class Lights {
     public static final int TINSEL_LEAVES = 5;
     public static final int TREE_STAR = 14;
     public static final int LARGE_STAR = 15;
+    /** 0.2.0, Q11: the festive lantern post's lantern (its upper half) and the bulbs in the garland round its lower half. */
+    public static final int LANTERN_POST = 14;
+    public static final int LANTERN_POST_BULBS = 6;
+    /** 0.2.0, Q11: the thin street lights on a fence. */
+    public static final int STREET_LIGHTS = 9;
 
     private Lights() {
     }

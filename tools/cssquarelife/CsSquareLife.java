@@ -906,6 +906,7 @@ public class CsSquareLife {
                 && v3.clearSquareMark(FILE_COLONY) && v3.squareMark(FILE_COLONY) == null && !v3.clearSquareMark(FILE_COLONY), "");
         downgrade(provider, saved);
         touchesFile(provider, saved);
+        streetFile(provider, saved);
     }
 
     /**
@@ -2406,6 +2407,54 @@ public class CsSquareLife {
         check("files: Q12 the 0.1.0 reader lists the touches' two entries nowhere (skipped), the marker and the budget as written",
                 reader.count(FILE_COLONY) == ours.count(FILE_COLONY) - 2 && FILE_MARKER.equals(reader.marker(FILE_COLONY)) && reader.budgetUsed(FILE_COLONY, 12) == 2,
                 reader.count(FILE_COLONY) + " of " + ours.count(FILE_COLONY));
+    }
+
+    // ---------------------------------------------------------------- Q11 in the ledger's files
+
+    /**
+     * A version 3 file with the wand's marks, a marked spot's group and the street lights' group: it round trips; the
+     * 0.1.0 reader warns once, skips both groups, ignores the marks and throws nothing.
+     */
+    private void streetFile(final HolderLookup.Provider provider, final CompoundTag v3file) {
+        final DecorLedger ours = DecorLedger.load(v3file, provider);
+        final BlockPos spot = FILE_ANCHOR.offset(12, 0, 12);
+        final me.lovkar.seasons.decor.StreetMarks.Mark mark = new me.lovkar.seasons.decor.StreetMarks.Mark(spot,
+                me.lovkar.seasons.decor.StreetMarks.Type.SNOWMAN_A, Direction.NORTH, null);
+        check("files: Q11 a mark is stored once", ours.addMark(FILE_COLONY, mark) && !ours.addMark(FILE_COLONY, mark), "");
+        final DecorLedger.Owner street = DecorLedger.Owner.street(spot);
+        final DecorLedger.Owner lights = DecorLedger.Owner.lights(FILE_ANCHOR.offset(-12, 0, 0));
+        check("files: Q11 a marked spot's snowman and a street light are listed", ours.record(FILE_COLONY, street, "winter_festival", 0, spot,
+                SeasonsBlocks.SNOWMAN.get().defaultBlockState(), false) && ours.record(FILE_COLONY, lights, "winter_festival", 0,
+                FILE_ANCHOR.offset(-12, 2, 0), SeasonsBlocks.STREET_LIGHTS.get().defaultBlockState(), false), "");
+        ours.plan(FILE_COLONY, street, "winter_festival", 0, "snowman_a");
+        ours.setDecorated(FILE_COLONY, street, 12);
+        ours.charge(FILE_COLONY, street.budgetKey(), 12);
+        final CompoundTag tag = ours.save(new CompoundTag(), provider);
+        checkEq("files: Q11 still version 3", tag.getInt("version"), 3);
+        final DecorLedger back = DecorLedger.load(tag, provider);
+        checkEq("files: Q11 every group round trips, the two new kinds included", canonAll(back, FILE_COLONY), canonAll(ours, FILE_COLONY));
+        checkEq("files: Q11 the marks round trip", back.marks(FILE_COLONY), List.of(mark));
+        check("files: Q11 the street's slot of the budget round trips", back.chargedOn(FILE_COLONY, DecorLedger.Owner.STREET_BUDGET, 12)
+                && back.budgetUsed(FILE_COLONY, 12) == ours.budgetUsed(FILE_COLONY, 12), "");
+        final int old = me.lovkar.seasons.cssquarelife.v010.DecorLedger.newerVersionWarnings();
+        me.lovkar.seasons.cssquarelife.v010.DecorLedger reader = null;
+        try {
+            reader = me.lovkar.seasons.cssquarelife.v010.DecorLedger.load(tag, provider);
+        } catch (final RuntimeException thrown) {
+            check("files: Q11 the 0.1.0 reader loads the file", false, thrown.getClass().getSimpleName());
+            return;
+        }
+        checkEq("files: Q11 the 0.1.0 reader warns once", me.lovkar.seasons.cssquarelife.v010.DecorLedger.newerVersionWarnings() - old, 1);
+        final List<String> others = ours.groups(FILE_COLONY).stream().filter(g -> g.owner().kind() != DecorLedger.Kind.STREET
+                && g.owner().kind() != DecorLedger.Kind.LIGHTS && g.owner().kind() != DecorLedger.Kind.TOUCHES).map(CsSquareLife::canon).toList();
+        checkEq("files: Q11 the 0.1.0 reader skips the marked spot's and the lights' groups and has every other group as written",
+                reader.groups(FILE_COLONY).stream().map(CsSquareLife::canon010).toList(), others);
+        check("files: Q11 the 0.1.0 reader lists their two entries nowhere, the marker and the day's count as written",
+                reader.count(FILE_COLONY) == ours.count(FILE_COLONY) - 2 && FILE_MARKER.equals(reader.marker(FILE_COLONY))
+                        && reader.budgetUsed(FILE_COLONY, 12) == ours.budgetUsed(FILE_COLONY, 12),
+                reader.count(FILE_COLONY) + " of " + ours.count(FILE_COLONY));
+        final CompoundTag down = reader.save(new CompoundTag(), provider);
+        check("files: Q11 what the 0.1.0 reader saves again has no marks and loads here with none", DecorLedger.load(down, provider).marks(FILE_COLONY).isEmpty(), "");
     }
 
     // ================================================================ the plans

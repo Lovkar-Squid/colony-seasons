@@ -84,7 +84,7 @@ Every decoration block also has an item and a crafting-table recipe, so players 
 
 - [B] Place only where the world block `isAir()`. Not "replaceable": grass, flowers, snow and water stay.
 - [B] Place only in loaded chunks, inside this colony's claim, never inside another colony.
-- [B] Nothing with collision is ever placed automatically, except at a `festival_marker` the player put down.
+- [B] Nothing with collision is ever placed automatically, except at a `festival_marker` the player put down (0.2.0: or inside the footprint of a Town Square the player built, or at a spot the player marked with the Decorator's wand; the owner's answers of 20 Nov 2026).
 - [B] Never break, replace or move a block that the ledger does not list.
 - [B] Every placed block is written to the ledger before the next one is placed: position, exact block state, festival, the building or marker it belongs to.
 - [B] Skip a building while `isPendingConstruction()` or while it has an open work order, and take our decorations off it first (the Builder's CLEAR_NON_SOLIDS stage would set them to air during an upgrade or repair).
@@ -120,7 +120,7 @@ Amounts by hut level [A]:
 | 4 | garland and lights 4 each side | village spruce, full size, more ornaments |
 | 5 | up to 6 each side, second door too | the grand tiered tree with the large star |
 
-Roads are not decorated in 0.1.0: MineColonies has no road graph (only the `#minecolonies:pathblocks` tag), and solid things on streets can block colonists. [A] Later: lantern posts at extra markers.
+Roads are not decorated in 0.1.0: MineColonies has no road graph (only the `#minecolonies:pathblocks` tag), and solid things on streets can block colonists. 0.2.0 (Q11): the player marks spots with the Decorator's wand (snowmen, lantern posts, a garland across a street, planters), and the server switch `decorator.streetLights` (off by default) lets the Decorator hang thin lights without collision on fences and walls beside path blocks.
 
 ### 3.5 The square
 
@@ -215,7 +215,7 @@ Server (`colony_seasons-server.toml`, `ModConfigSpec` SERVER, getters that fall 
 |---|---|
 | `calendar` | `yearLengthDays` (48), `startSeason` (auto), `useSereneSeasons` (true), `timeZone` (system) |
 | `festivals` | per festival: `enabled` (true), `decorFrom`, `decorUntil`, `daysFrom`, `daysUntil` (month-day strings) |
-| `decorator` | `needsMaterials` (true), `buildingsPerDayBase` (2), `buildingsPerDayPerLevel` (2), `maxPerSide` (6), `storeroomDressing` (true, S10g2) |
+| `decorator` | `needsMaterials` (true), `buildingsPerDayBase` (2), `buildingsPerDayPerLevel` (2), `maxPerSide` (6), `storeroomDressing` (true, S10g2), `streetLights` (false, 0.2.0 Q11) |
 | `events` | `gatherFromTick` (8500), `gatherUntilTick` (10500), `whoComes` (everyone_once_a_day), `midnightShow` (true), `giftsPerPlayerPerDay` (1) |
 | `effects` | `festivalHappiness` (false), `winterCropSlowdown` (false), `winterFoodNeed` (false), with their strengths |
 

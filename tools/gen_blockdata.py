@@ -15,6 +15,12 @@ no log tag (MineColonies' Forester takes a #minecraft:logs block for a tree).
 
 The storeroom pieces (storage_box, storage_coil, S10g1) get no data file at all: no item, no recipe, no loot table
 (their registration gives them noLootTable(); tools/check_blocks.py NO_DROP) and no tool tag (they break at once).
+
+0.2.0, Q11: the street pieces the Decorator puts on the spots marked with his wand, which players may craft too: the two
+snowmen (2 snow blocks, a carrot, 2 coal, 2 sticks; the top hat's black wool for B) and the festive lantern post (2
+polished blackstone, a lantern, spruce leaves; only its lower half drops it). The Decorator's wand is an item (a stick, a
+string, a red dye: ITEM_RECIPES). The garland across a street and the street lights are block only, like the storeroom
+pieces: no data file.
 """
 import json
 import os
@@ -27,7 +33,7 @@ NS = "colony_seasons"
 DATA = paths.res("data")
 
 BLOCKS = ["wreath", "garland", "lantern_string", "fairy_lights", "ornament_leaves", "tinsel_leaves", "tree_star",
-          "large_star", "gift_pile", "firework_crate", "festival_marker"]
+          "large_star", "gift_pile", "firework_crate", "festival_marker", "snowman", "snowman_b", "lantern_post"]
 
 # blocks with no item of their own: id -> the item their loot table drops
 TRUNK_DROPS = {"festival_trunk": "minecraft:spruce_log"}
@@ -50,6 +56,17 @@ RECIPES = {
                                    "G": "minecraft:green_dye", "B": "minecraft:blue_dye"}, 1),
     "firework_crate": ([" F ", "FBF"], {"F": "minecraft:firework_rocket", "B": "minecraft:barrel"}, 1),
     "festival_marker": (["W", "S", "S"], {"W": "#minecraft:wool", "S": "minecraft:stick"}, 1),
+    "snowman": (["CKC", "SBS", " B "], {"C": "minecraft:coal", "K": "minecraft:carrot", "S": "minecraft:stick",
+                                        "B": "minecraft:snow_block"}, 1),
+    "snowman_b": (["CWC", "SBS", " BK"], {"C": "minecraft:coal", "W": "minecraft:black_wool", "S": "minecraft:stick",
+                                          "B": "minecraft:snow_block", "K": "minecraft:carrot"}, 1),
+    "lantern_post": (["PL", "PF"], {"P": "minecraft:polished_blackstone", "L": "minecraft:lantern",
+                                    "F": "minecraft:spruce_leaves"}, 1),
+}
+
+# items that are no block (Q11: the Decorator's wand): id -> (pattern, key, count)
+ITEM_RECIPES = {
+    "decorators_wand": (["  D", " T ", "S  "], {"D": "minecraft:red_dye", "T": "minecraft:string", "S": "minecraft:stick"}, 1),
 }
 
 # block tag -> our blocks in it
@@ -57,10 +74,12 @@ TAGS = {
     "leaves": ["ornament_leaves", "tinsel_leaves"],
     "mineable/hoe": ["ornament_leaves", "tinsel_leaves"],
     "mineable/axe": ["firework_crate", "festival_marker", "festival_trunk"],
+    "mineable/shovel": ["snowman", "snowman_b"],
+    "mineable/pickaxe": ["lantern_post"],
 }
 
 # only the lower half of the two-block star drops the item
-HALF_LOWER = {"large_star"}
+HALF_LOWER = {"large_star", "lantern_post"}
 
 
 def write(rel, data):
@@ -87,7 +106,7 @@ def ingredient(value):
 
 
 def recipe(block):
-    pattern, key, count = RECIPES[block]
+    pattern, key, count = RECIPES[block] if block in RECIPES else ITEM_RECIPES[block]
     return {"type": "minecraft:crafting_shaped", "category": "misc", "group": f"{NS}:decorations",
             "pattern": pattern, "key": {k: ingredient(v) for k, v in key.items()},
             "result": {"id": f"{NS}:{block}", "count": count}}
@@ -99,6 +118,9 @@ def main():
         write(f"{NS}/loot_table/blocks/{b}.json", loot(b))
         write(f"{NS}/recipe/{b}.json", recipe(b))
         n += 2
+    for item in ITEM_RECIPES:
+        write(f"{NS}/recipe/{item}.json", recipe(item))
+        n += 1
     for b in TRUNK_DROPS:
         write(f"{NS}/loot_table/blocks/{b}.json", loot(b))
         n += 1

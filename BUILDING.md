@@ -45,7 +45,8 @@ bash tools/probe.sh csconfig seeded       # a config file with a non-default val
                                          # of 0.1.0-beta.1 (showParticles still in it) loads, keeps showClothes, loses the old key
 bash tools/probe.sh csclient              # the client config is registered, not loaded on a server, answers its defaults; the season packet clamps a bad id
                                          # Q5: the Town Square's pages and the Calendar page read back their empty packets through their views, and no
-                                         # window class of the client package has been loaded (asked of the class loader, with a positive control)
+                                         # window class of the client package has been loaded (asked of the class loader, with a positive control);
+                                         # Q11: nor the wand's outline view (client/WandMarks), and the marks' packet reads back without it
 ```
 
 ```bash
@@ -204,6 +205,40 @@ bash tools/restart.sh cstradepost             # restart-save (sales short of the
                                               # back, selling on stops at the cap with both runs together), restart-gone (the Trade Post jar
                                               # taken out first: the world loads with no error line, the statistic and the ledger's keys stay,
                                               # nothing is paid)
+```
+
+The Decorator's wand and the street (0.2.0, Q11). `cswand` builds a colony with a town hall, the Workshop, a house and an open
+field plot (a building's box with no walls), and a street: flat grass, a three-wide dirt-path road along x, fences on its north side,
+a cobblestone wall on its south side, a column of four fences beside it, fences away from any path and one fence inside the field
+plot. The marks are made the way a player makes them (`DecoratorWandItem.click` with a fake player, the garland by two clicks);
+the date is fixed in the Winter Festival's decoration window.
+
+```bash
+bash tools/probe.sh cswand            # marking all five types (a body in a cell is no reason to refuse), every refusal with its key
+                                      # (outside the claim, a stranger, not air, listed, another mark's cell, a building's box, near the
+                                      # festival marker, no ground, a post on a fence, a planter on a dirt path, a garland of the wrong
+                                      # posts), the cap of 64; the marks' packet (sent to a wand's holder only when the marks changed, a
+                                      # round trip, a list of 100 read as 64); a forced window: the town hall first, then a mark, every
+                                      # piece in its own group by the exact state, one slot of the day's budget for all the marks, a body
+                                      # in a snowman's cell and in a post's upper cell (neither half), filled the next day; the ledger's
+                                      # file (save, load, save the same; an unknown mark type warns once; a file without marks); a dirt
+                                      # path under a snowman and a post stays one after a neighbour update (a control turns to dirt); a
+                                      # sweep that removes nothing; no street lights with the switch off; tending (a broken snowman, a
+                                      # finished snowman whose ground went is looked at once a day and the day's tending ends, a
+                                      # broken post half taking its garland down, then all back, a body in one garland cell keeping
+                                      # that thin cell open); a season change swapping only the
+                                      # planter; a mark removed mid-window by a shift-click (a hand-changed cell stays, the garland goes
+                                      # with its post); decor list and decor remove (the marks stay); the Decorator's own AI putting
+                                      # every mark up and taking it down after the window on one slot; the sweep with no Decorator
+bash tools/probe.sh cswand lights     # rigconfig-lights (decorator.streetLights = true): after the buildings the lights are the next
+                                      # target; lights on every third post of the fence and the wall beside the path and nowhere else
+                                      # (not on the far fence, the column of four or the fence in the field plot), each thin, unlit,
+                                      # free, at most 48; a state with collision refused for the lights' owner; the lights kind off
+                                      # (tending then notes the day and the day's tending ends); a light broken by hand back the next
+                                      # day; the switch off and the sweep; the take-down
+bash tools/restart.sh cswand          # restart-save (seven marks and their pieces, the ledger file on disk before any autosave) and
+                                      # restart-load (the same marks and entries, nothing open, a visit to every mark places nothing,
+                                      # the take-down keeps the marks)
 ```
 
 The supply order and the storage room (S10e). `csstorage` builds a colony with a town hall, two houses, the Workshop pasted

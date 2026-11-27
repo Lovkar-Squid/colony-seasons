@@ -19,10 +19,12 @@ Two named exceptions:
 
   * NO_ITEM: the festival tree's trunk (S10c) has no item of its own (it stands for a spruce log), so it has no item
     model and no recipe, and its loot table drops that item instead of itself.
-  * NO_DROP: the storeroom pieces (S10g1, docs/storage-look-design.md section 5) are block only: no item (no item
-    model, no item registered for them anywhere under src/), no recipe, and no loot table file; their registration
-    gives them noLootTable(), so the game drops nothing for them and looks for no file. Every other block must not
-    have noLootTable() (it would drop nothing without a word).
+  * NO_DROP: the storeroom pieces (S10g1, docs/storage-look-design.md section 5) and the Decorator's street garland and
+    street lights (0.2.0, Q11) are block only: no item (no item model, no item registered for them anywhere under
+    src/), no recipe, and no loot table file; their registration gives them noLootTable(), so the game drops nothing
+    for them and looks for no file. Every other block must not have noLootTable() (it would drop nothing without a word).
+
+A recipe may also make an item that is no block (Q11: the Decorator's wand): one registered with ITEMS.register("id", ...).
 
 Run:  python -I tools/check_blocks.py   (needs the client assets jar, see tools/paths.py)
 """
@@ -46,7 +48,7 @@ RENDER_TYPES = {"minecraft:solid", "minecraft:cutout", "minecraft:cutout_mipped"
 NO_ITEM = {"festival_trunk": "minecraft:spruce_log"}
 # blocks with no item and no drop at all: no item model, no item registered, no recipe, no loot table file, and
 # noLootTable() in their registration (the Decorator's storeroom pieces, S10g1)
-NO_DROP = {"storage_box", "storage_coil"}
+NO_DROP = {"storage_box", "storage_coil", "street_garland", "street_lights"}
 
 problems = []
 
@@ -103,6 +105,15 @@ def registrations():
 def registered_blocks():
     """Every block id registered anywhere under src/ (see registrations)."""
     return list(registrations())
+
+
+def plain_items():
+    """Items registered as items of their own (not a block's), anywhere under src/: ITEMS.register("id", ...)."""
+    found = set()
+    for p in sorted(glob.glob(os.path.join(SRC, "**", "*.java"), recursive=True)):
+        with open(p, encoding="utf-8") as f:
+            found.update(re.findall(r'\bITEMS\.register\(\s*"([a-z0-9_]+)"', f.read()))
+    return found
 
 
 def item_fields():
@@ -192,6 +203,7 @@ def main():
     blocks = list(regs)
     with_item = item_fields()
     mod_items = ModItems()
+    items = plain_items()
     if not blocks:
         print("no blocks registered - nothing to check")
         return 0
@@ -281,7 +293,7 @@ def main():
                     if ns != "minecraft" or not vanilla.has(f"data/minecraft/tags/item/{path}.json"):
                         bad(f"recipe {name}: '{k}' = tag #{one['tag']} is not a vanilla item tag")
         res = r.get("result", {}).get("id", "")
-        if split(res)[0] == NS and split(res)[1] not in blocks:
+        if split(res)[0] == NS and split(res)[1] not in blocks and split(res)[1] not in items:
             bad(f"recipe {name}: makes {res}, which is not registered")
 
     for p in glob.glob(os.path.join(DATA, "*", "tags", "block", "**", "*.json"), recursive=True):

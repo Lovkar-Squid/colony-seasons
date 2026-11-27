@@ -3,6 +3,7 @@ package me.lovkar.seasons.decor;
 import me.lovkar.seasons.ColonySeasons;
 import me.lovkar.seasons.block.Lights;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.HolderGetter;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.Registries;
@@ -79,6 +80,15 @@ public final class DecorLedger extends SavedData {
      * seasonal touches in the main Town Square's planters. Versions 1, 2 and 3 without it load unchanged. A build that
      * knows only version 2 (0.1.0) reads a file with touches with its one warning and skips that group (its kind is
      * unknown there): the touches' few vanilla blocks then stand in the planters unlisted, as plain blocks.</p>
+     *
+     * <p>0.2.0, Q11 adds, by the same rule and again without a new version number, two group kinds and one key:
+     * {@link Kind#STREET} (one group per spot the player marked with the Decorator's wand, its pieces may have collision),
+     * {@link Kind#LIGHTS} (the colony's thin street lights on fences, {@code decorator.streetLights}), and per colony the
+     * {@code marks} list ({@link StreetMarks.Mark}: {@code pos}, {@code type}, {@code facing}, and {@code to} for a garland),
+     * written only when a colony has marks. Versions 1, 2 and 3 without them load unchanged; a mark of a type this build
+     * does not know is skipped and counted in the one warning about unknown entries. A build that knows only version 2
+     * (0.1.0) skips the two kinds with its one warning and ignores the key: the street pieces then stand unlisted, and the
+     * thin lights pop off with their fence as before.</p>
      */
     static final int VERSION = 3;
 
@@ -90,8 +100,12 @@ public final class DecorLedger extends SavedData {
      * {@link #TOUCHES} (0.2.0, Q12): the seasonal touches in the planters of the main Town Square, a group of its own at
      * the same position as the square's group (the centrepiece cell). Like the storeroom it is no "decoration up": the
      * Decorator's phase, his take-down and the day's budget never see it; it swaps with the in-game season instead.
+     * {@link #STREET} (0.2.0, Q11): the pieces at one spot the player marked with the Decorator's wand, at the mark's
+     * first cell; all marks of a colony share one slot of the day's budget ({@link Owner#STREET_BUDGET}). {@link #LIGHTS}
+     * (Q11): the colony's thin street lights on fences beside its paths, one group at the colony's centre, only while
+     * {@code decorator.streetLights} is on. Both are festival decorations outside, like a building's.
      */
-    public enum Kind { BUILDING, SQUARE, STOREROOM, TOUCHES }
+    public enum Kind { BUILDING, SQUARE, STOREROOM, TOUCHES, STREET, LIGHTS }
 
     public record Owner(Kind kind, BlockPos pos) {
         public Owner {
@@ -116,17 +130,39 @@ public final class DecorLedger extends SavedData {
             return new Owner(Kind.TOUCHES, anchor);
         }
 
-        /** A building's or the square's: the festival decorations outside (not the storeroom, not the seasonal touches). */
-        public boolean outdoor() {
-            return kind == Kind.BUILDING || kind == Kind.SQUARE;
+        /** The pieces at a spot the player marked with the Decorator's wand; {@code mark} is the mark's first cell (Q11). */
+        public static Owner street(final BlockPos mark) {
+            return new Owner(Kind.STREET, mark);
+        }
+
+        /** The colony's thin street lights on fences, one group at the colony's centre (Q11, {@code decorator.streetLights}). */
+        public static Owner lights(final BlockPos colonyCentre) {
+            return new Owner(Kind.LIGHTS, colonyCentre);
+        }
+
+        /** The one slot of the day's budget every mark of a colony shares (Q11); only ever a member of the day's count. */
+        public static final Owner STREET_BUDGET = new Owner(Kind.STREET, BlockPos.ZERO);
+
+        /** What the day's budget counts for this owner: {@link #STREET_BUDGET} for a mark's group, else the owner itself. */
+        public Owner budgetKey() {
+            return kind == Kind.STREET ? STREET_BUDGET : this;
         }
 
         /**
-         * May its blocks have collision: the square's set and the touches, both only at a place the player chose (a
-         * festival marker he put down, a Town Square he built; the owner's answer of 20 Nov 2026).
+         * A building's, the square's, a marked spot's or the street lights': the festival decorations outside (not the
+         * storeroom, not the seasonal touches).
+         */
+        public boolean outdoor() {
+            return kind == Kind.BUILDING || kind == Kind.SQUARE || kind == Kind.STREET || kind == Kind.LIGHTS;
+        }
+
+        /**
+         * May its blocks have collision: the square's set, the touches and the pieces at a marked spot, all only at a
+         * place the player chose (a festival marker he put down, a Town Square he built, a spot he marked with the
+         * Decorator's wand; the owner's answers of 20 Nov 2026). Never the street lights.
          */
         public boolean collides() {
-            return kind == Kind.SQUARE || kind == Kind.TOUCHES;
+            return kind == Kind.SQUARE || kind == Kind.TOUCHES || kind == Kind.STREET;
         }
 
         @Override
@@ -197,6 +233,8 @@ public final class DecorLedger extends SavedData {
         long noticeDay = -1;
         boolean squareProblem;
         final LinkedHashMap<Owner, Group> groups = new LinkedHashMap<>();
+        /** The spots the player marked with the Decorator's wand, by their first cell (Q11). */
+        final LinkedHashMap<BlockPos, StreetMarks.Mark> marks = new LinkedHashMap<>();
     }
 
     private record Slot(int colony, Owner owner) {
@@ -785,6 +823,90 @@ public final class DecorLedger extends SavedData {
         return true;
     }
 
+    // ---------------------------------------------------------------- the wand's marks (Q11)
+
+    /** Bumped on every change of a colony's marks, in memory only (the wand's view asks whether it is still current). */
+    private final Map<Integer, Integer> marksRevision = new HashMap<>();
+
+    /** The colony's marks in the order they were made (a copy). */
+    public List<StreetMarks.Mark> marks(final int colony) {
+        final ColonyRecord record = colonies.get(colony);
+        return record == null ? List.of() : List.copyOf(record.marks.values());
+    }
+
+    /** The mark whose first cell is {@code pos}, or {@code null}. */
+    public StreetMarks.Mark markAt(final int colony, final BlockPos pos) {
+        final ColonyRecord record = colonies.get(colony);
+        return record == null ? null : record.marks.get(pos);
+    }
+
+    /** The mark one of whose cells is {@code cell}, or {@code null} (at most {@link StreetMarks#MAX_MARKS} marks are looked at). */
+    public StreetMarks.Mark markCovering(final int colony, final BlockPos cell) {
+        final ColonyRecord record = colonies.get(colony);
+        if (record == null) {
+            return null;
+        }
+        final StreetMarks.Mark direct = record.marks.get(cell);
+        if (direct != null) {
+            return direct;
+        }
+        for (final StreetMarks.Mark mark : record.marks.values()) {
+            if (StreetPieces.cells(mark).contains(cell)) {
+                return mark;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Stores a mark (makes the colony's record if there is none). False, and nothing changes, when a mark already has that
+     * first cell or the colony has {@link StreetMarks#MAX_MARKS} marks; the other rules are {@link StreetMarks#add}'s.
+     */
+    public boolean addMark(final int colony, final StreetMarks.Mark mark) {
+        ColonyRecord record = colonies.get(colony);
+        if (record != null && (record.marks.containsKey(mark.pos()) || record.marks.size() >= StreetMarks.MAX_MARKS)) {
+            return false;
+        }
+        if (record == null) {
+            record = new ColonyRecord();
+            colonies.put(colony, record);
+        }
+        record.marks.put(mark.pos(), mark);
+        marksChanged(colony);
+        return true;
+    }
+
+    /** Forgets the mark whose first cell is {@code pos}; returns it, or {@code null} when there was none. Its group stays as it is. */
+    public StreetMarks.Mark removeMark(final int colony, final BlockPos pos) {
+        final ColonyRecord record = colonies.get(colony);
+        final StreetMarks.Mark gone = record == null ? null : record.marks.remove(pos);
+        if (gone != null) {
+            marksChanged(colony);
+        }
+        return gone;
+    }
+
+    /** Forgets every mark of a colony (a colony that is gone); true when there were any. */
+    public boolean clearMarks(final int colony) {
+        final ColonyRecord record = colonies.get(colony);
+        if (record == null || record.marks.isEmpty()) {
+            return false;
+        }
+        record.marks.clear();
+        marksChanged(colony);
+        return true;
+    }
+
+    /** The colony's marks revision: changes whenever a mark is added or removed (0 for a colony never changed here). */
+    public int marksRevision(final int colony) {
+        return marksRevision.getOrDefault(colony, 0);
+    }
+
+    private void marksChanged(final int colony) {
+        marksRevision.merge(colony, 1, Integer::sum);
+        setDirty();
+    }
+
     // ---------------------------------------------------------------- the blocks tell the ledger
 
     /**
@@ -946,10 +1068,42 @@ public final class DecorLedger extends SavedData {
                 groups.add(saveGroup(group));
             }
             one.put("groups", groups);
+            if (!record.marks.isEmpty()) {
+                final ListTag marks = new ListTag();
+                for (final StreetMarks.Mark mark : record.marks.values()) {
+                    marks.add(saveMark(mark));
+                }
+                one.put("marks", marks);           // Q11: only with marks, so a colony without them writes what Q10 wrote
+            }
             all.add(one);
         }
         tag.put("colonies", all);
         return tag;
+    }
+
+    private static CompoundTag saveMark(final StreetMarks.Mark mark) {
+        final CompoundTag tag = new CompoundTag();
+        tag.putLong("pos", mark.pos().asLong());
+        tag.putString("type", mark.type().id());
+        tag.putByte("facing", (byte) mark.facing().get3DDataValue());
+        if (mark.to() != null) {
+            tag.putLong("to", mark.to().asLong());
+        }
+        return tag;
+    }
+
+    /** A saved mark, or {@code null} when its type is unknown here or it is not whole (a garland without its end). */
+    private static StreetMarks.Mark loadMark(final CompoundTag tag) {
+        final StreetMarks.Type type = StreetMarks.Type.byId(tag.getString("type"));
+        if (type == null || !tag.contains("pos", Tag.TAG_LONG)) {
+            return null;
+        }
+        final BlockPos to = tag.contains("to", Tag.TAG_LONG) ? BlockPos.of(tag.getLong("to")) : null;
+        if (type == StreetMarks.Type.GARLAND && to == null) {
+            return null;
+        }
+        final Direction facing = Direction.from3DDataValue(tag.getByte("facing"));
+        return new StreetMarks.Mark(BlockPos.of(tag.getLong("pos")), type, facing, type == StreetMarks.Type.GARLAND ? to : null);
     }
 
     private static CompoundTag saveGroup(final Group group) {
@@ -1000,6 +1154,13 @@ public final class DecorLedger extends SavedData {
         return newerVersionWarnings;
     }
 
+    /** Loads since the server started that skipped entries or marks of an unknown kind (each warned about once; the probe counts them). */
+    private static int unknownWarnings;
+
+    public static int unknownWarnings() {
+        return unknownWarnings;
+    }
+
     /**
      * Reads a ledger. The file's {@code version} is read first (a file without one is version 1; versions 1, 2 and 3
      * share one layout, so all read the same way, a version 3 file with its square marks): a newer one than
@@ -1040,6 +1201,15 @@ public final class DecorLedger extends SavedData {
             record.noticeDay = one.contains("noticeDay") ? one.getLong("noticeDay") : -1;
             record.squareProblem = one.getBoolean("squareProblem");
             ledger.colonies.put(id, record);
+            // Q11: the wand's marks; a type this build does not know is skipped and counted with the unknown entries
+            for (final Tag m : one.getList("marks", Tag.TAG_COMPOUND)) {
+                final StreetMarks.Mark mark = loadMark((CompoundTag) m);
+                if (mark == null || record.marks.containsKey(mark.pos()) || record.marks.size() >= StreetMarks.MAX_MARKS) {
+                    unknown++;
+                    continue;
+                }
+                record.marks.put(mark.pos(), mark);
+            }
             for (final Tag g : one.getList("groups", Tag.TAG_COMPOUND)) {
                 final CompoundTag group = (CompoundTag) g;
                 if (!knownKind(group.getString("kind"))) {
@@ -1049,12 +1219,15 @@ public final class DecorLedger extends SavedData {
                 dropped += ledger.loadGroup(id, record, group, blocks, oldFile);
             }
         }
+        if (unknown > 0) {
+            unknownWarnings++;
+        }
         if (version > VERSION) {
             newerVersionWarnings++;
             ColonySeasons.LOGGER.warn("Decoration ledger: the file was written by a newer version of the mod (file version {}, this version reads {}); "
                     + "what this version knows is loaded{}", version, VERSION, unknown > 0 ? ", " + unknown + " entries of kinds it does not know are skipped" : "");
         } else if (unknown > 0) {
-            ColonySeasons.LOGGER.warn("Decoration ledger: {} entries of an unknown kind skipped on load", unknown);
+            ColonySeasons.LOGGER.warn("Decoration ledger: {} entries or marks of an unknown kind skipped on load", unknown);
         }
         if (dropped > 0) {
             ColonySeasons.LOGGER.warn("Decoration ledger: {} entries dropped on load (their block no longer exists)", dropped);

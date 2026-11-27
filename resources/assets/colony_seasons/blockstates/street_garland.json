@@ -1,0 +1,11 @@
+{
+  "variants": {
+    "axis=x": {
+      "model": "colony_seasons:block/street_garland"
+    },
+    "axis=z": {
+      "model": "colony_seasons:block/street_garland",
+      "y": 90
+    }
+  }
+}
