@@ -9,7 +9,7 @@ build chunk.
 ### Build notes
 
 - **Q13, the Decorator makes the firework rockets and the firework crates.** The owner's answer of 27 Nov 2026
-  ("Decorator izdeluje oboje"). Two more kits, `firework_rocket` (1 paper and 1 gunpowder make 3 rockets, cap 24: the
+  ("the Decorator makes both"). Two more kits, `firework_rocket` (1 paper and 1 gunpowder make 3 rockets, cap 24: the
   midnight show's 24 is the biggest single show and eight whole batches, the dusk show of 16 fits inside) and
   `firework_crate` (1 barrel and 3 rockets make 1 crate, cap 2). A kit file may name a `"cap"` (1 to 999): that kit's
   stock limit is the lower of it and the Workshop's cap (`Kits.limit`); a file without it keeps the Workshop's, the six

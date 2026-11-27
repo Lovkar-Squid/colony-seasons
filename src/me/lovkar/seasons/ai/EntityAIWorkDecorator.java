@@ -540,7 +540,8 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
     /**
      * Once a pass: every open request of his for a finished kit output that the player or the retrying resolver
      * holds is cancelled (it was handed on after its warehouse emptied, or was never taken). Requests a warehouse or
-     * a courier holds are left alone, and so are the ingredient, rocket and square requests.
+     * a courier holds are left alone, and so are the ingredient and square requests. Since Q13 a firework rocket is a
+     * kit output too, so an old open rocket request of a saved world is cancelled here like any other.
      */
     private void dropPlayerFinished() {
         final ICitizenData data = worker.getCitizenData();

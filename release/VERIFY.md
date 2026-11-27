@@ -497,7 +497,7 @@ in `release/curseforge-0.2.0-changes.md`; the README's "What it does not do" car
 
 ## Added by Q13 (the Decorator makes both the firework rockets and the firework crates)
 
-The owner's answer of 27 Nov 2026 ("Decorator izdeluje oboje"). Before this, no job made rockets and the Decorator asked the
+The owner's answer of 27 Nov 2026 ("the Decorator makes both"). Before this, no job made rockets and the Decorator asked the
 colony for them, a request only the player could fill.
 
 | # | Claim | Proof (code, probe) | Seen |
