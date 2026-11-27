@@ -256,7 +256,7 @@
   "com.colony_seasons.gui.info.progress": "%1$s decorations up, %2$s buildings done.",
   "com.colony_seasons.gui.info.today_quota": "Today: %1$s of %2$s buildings started.",
   "com.colony_seasons.gui.info.stock.none": "No decoration kits are loaded.",
-  "com.colony_seasons.gui.info.stock.head": "Stock (the hut keeps at most %1$s of each, a few goods fewer):",
+  "com.colony_seasons.gui.info.stock.head": "Stock (at most %1$s of each, some goods fewer):",
   "com.colony_seasons.gui.info.stock.row": "%1$s: %2$s of %3$s",
   "com.colony_seasons.gui.info.stock.row.over": "%1$s: %2$s of %3$s (the rest is kept for crates)",
   "com.colony_seasons.gui.info.missing": "%1$s still needs %2$s.",

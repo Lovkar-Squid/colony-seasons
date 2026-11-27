@@ -114,6 +114,7 @@ public class DecoratorInfoModule extends AbstractBuildingModule implements ITick
             buf.writeUtf(row.item());
             buf.writeVarInt(row.have());
             buf.writeVarInt(row.cap());
+            buf.writeBoolean(row.reserve());
         }
         // what the next kit still lacks
         buf.writeUtf(info.nextKit());
@@ -132,8 +133,11 @@ public class DecoratorInfoModule extends AbstractBuildingModule implements ITick
         buf.writeBoolean(info.winter());
     }
 
-    /** One kit: the item it makes (an id), how many are in the hut and the worker's pack, and the most he makes of it (Q13: per kit). */
-    public record StockRow(String item, int have, int cap) {
+    /**
+     * One kit: the item it makes (an id), how many are in the hut and the worker's pack, the most he makes of it (Q13:
+     * per kit), and whether another kit takes it, so that a stock above the cap is kept for that kit (the rockets for a crate).
+     */
+    public record StockRow(String item, int have, int cap, boolean reserve) {
     }
 
     /** One ingredient the next kit lacks: {@code item:<id>} or {@code tag:<id>} and how many. */
@@ -247,7 +251,8 @@ public class DecoratorInfoModule extends AbstractBuildingModule implements ITick
             for (final Kits.Kit kit : kits) {
                 final int have = hut.stock(kit.output());
                 if (stock.size() < MAX_ROWS) {
-                    stock.add(new StockRow(BuiltInRegistries.ITEM.getKey(kit.output()).toString(), have, Kits.limit(kit, shared)));
+                    final int limit = Kits.limit(kit, shared);
+                    stock.add(new StockRow(BuiltInRegistries.ITEM.getKey(kit.output()).toString(), have, limit, Kits.keep(kit, kits, shared) > limit));
                 }
                 // a kit that would take a stock below its reserve (the crate: the show's rockets) is not the next one
                 if (!Kits.wantedNow(kit, kits, shared, haveOf) || !Kits.mayTake(kit, kits, shared, haveOf)) {
