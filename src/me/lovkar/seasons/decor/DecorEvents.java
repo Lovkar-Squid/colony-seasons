@@ -55,7 +55,9 @@ import java.util.concurrent.atomic.AtomicInteger;
  *   <li>a colony MineColonies no longer has (deleted): its marker and its wand's marks (Q11) are taken off at once, and
  *       its record here and its festival state are dropped once it lists no entry (S9, H12: a new colony may get its id);</li>
  *   <li>the street (0.2.0, Q11): a marked spot's group goes when its mark was removed, when its cell left the claim or
- *       a building's box covers it now; the street lights' group goes when {@code decorator.streetLights} is off.</li>
+ *       a building's box covers it now; the street lights' group goes when {@code decorator.streetLights} is off. A mark
+ *       whose loaded cell left its colony's claim goes itself too (Q7, H25), as the wand's removal takes it: its group
+ *       down by the exact-state rule, a post's garlands with it, and the colony's count of marks one lower.</li>
  * </ul>
  * Events only enqueue; the queue is drained with {@code poll()} and never iterated.
  */
@@ -472,6 +474,9 @@ public final class DecorEvents {
             final boolean noDecorator = colony == null || !DecorWork.staffed(colony);
             // the colony's one centrepiece now (0.2.0): every square group anywhere else goes; the main square's mark follows
             final Squares.Square square = colony == null ? null : Squares.refresh(level, colony, ledger);
+            if (colony != null) {
+                budget -= dropMarksOutOfClaim(level, ledger, colony);
+            }
             for (final DecorLedger.GroupView group : ledger.groups(id)) {
                 if (budget <= 0) {
                     break;
@@ -507,6 +512,24 @@ public final class DecorEvents {
             ledger.flush(level);
         }
         return before - budget;
+    }
+
+    /**
+     * Q7, H25: every mark of the colony with a loaded cell outside its claim is removed as the wand's shift-click removes
+     * one ({@link StreetMarks#remove}): the mark dropped, its pieces down by the exact-state rule (items to the Workshop),
+     * a post's garlands with it. Without this such a mark stayed in the colony's record for good, counted against its cap
+     * of {@link StreetMarks#MAX_MARKS}, and no click could reach it. Returns the marks removed.
+     */
+    private static int dropMarksOutOfClaim(final ServerLevel level, final DecorLedger ledger, final IColony colony) {
+        final int id = colony.getID();
+        int removed = 0;
+        for (final StreetMarks.Mark mark : List.copyOf(ledger.marks(id))) {
+            if (ledger.markAt(id, mark.pos()) != null && StreetWork.outOfClaim(level, colony, mark) && StreetMarks.remove(level, id, mark.pos())) {
+                removed++;
+                ColonySeasons.LOGGER.info("A street mark of colony {} at {} lies outside the colony's claim now: removed", id, mark.pos().toShortString());
+            }
+        }
+        return removed;
     }
 
     /**

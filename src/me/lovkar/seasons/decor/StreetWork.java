@@ -391,6 +391,21 @@ public final class StreetWork {
         return false;
     }
 
+    /**
+     * True when a loaded cell of the mark lies outside its colony's claim now (the claim shrank or moved under it; Q7,
+     * H25). A cell in an unloaded chunk never counts. Such a mark can no longer be served, nor removed with the wand
+     * (a click there belongs to the colony that claims the cell, or to none), so the sweep drops it
+     * ({@link DecorEvents#sweep}).
+     */
+    static boolean outOfClaim(final ServerLevel level, final IColony colony, final StreetMarks.Mark mark) {
+        for (final BlockPos cell : StreetPieces.cells(mark)) {
+            if (level.hasChunkAt(cell) && DecorPlacer.colonyAt(level, cell) != colony.getID()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** For the probe: every mark's group of a colony in one map (mark position, entries). */
     public static Map<BlockPos, Integer> sizes(final DecorLedger ledger, final int colony) {
         final Map<BlockPos, Integer> out = new java.util.LinkedHashMap<>();

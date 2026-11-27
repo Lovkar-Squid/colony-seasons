@@ -774,7 +774,7 @@ final class HostileSquare {
     private int aBorder;
 
     private void planForeign() {
-        now("H24: colony B next door, the claims touching; H25: a mark of A in the chunk only A's stonemason claims", () -> {
+        now("H24: colony B next door, the claims touching; H25: a mark of A near the border", () -> {
             for (int cx = 3; cx <= 14; cx++) {
                 for (int cz = -6; cz <= 6; cz++) {
                     p.level.setChunkForced(cx, cz, true);
