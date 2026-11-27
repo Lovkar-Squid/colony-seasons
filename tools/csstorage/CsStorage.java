@@ -1339,6 +1339,146 @@ public class CsStorage {
                         job().status());
             }
         });
+        planFireworks();
+    }
+
+    // ---------------------------------------------------------------- (f) Q13: the rocket kit and the crate kit
+
+    private Item crateItem() {
+        return BuiltInRegistries.ITEM.get(ResourceLocation.fromNamespaceAndPath("colony_seasons", "firework_crate"));
+    }
+
+    /** Pure rows: the per-kit cap, the making order, the demand rule and the crate's gate. */
+    private void fireworkRows() {
+        final Item rocket = Items.FIREWORK_ROCKET;
+        final Item crate = crateItem();
+        final Kits.Kit rocketKit = kitOf(rocket);
+        final Kits.Kit crateKit = kitOf(crate);
+        check("the rocket kit and the crate kit are loaded", rocketKit != null && crateKit != null, rocketKit + " / " + crateKit);
+        if (rocketKit == null || crateKit == null) {
+            return;
+        }
+        final List<Kits.Kit> kits = Kits.all();
+        check("the rocket kit makes 3 rockets from paper and gunpowder, the crate kit 1 crate from a barrel and 3 rockets",
+                rocketKit.count() == 3 && rocketKit.ingredients().size() == 2 && crateKit.count() == 1 && crateKit.ingredients().size() == 2,
+                rocketKit + " / " + crateKit);
+        check("the rocket kit comes before the crate kit in the making order", kits.indexOf(rocketKit) < kits.indexOf(crateKit),
+                kits.indexOf(rocketKit) + " / " + kits.indexOf(crateKit));
+        checkEq("the rocket kit's own cap", rocketKit.cap(), 24);
+        checkEq("the crate kit's own cap", crateKit.cap(), 2);
+        checkEq("the rocket limit at level 5", Kits.limit(rocketKit, 48), 24);
+        checkEq("the rocket limit at level 2 (the hut's cap is the same)", Kits.limit(rocketKit, 24), 24);
+        checkEq("the rocket limit at level 1 (the hut's cap is lower)", Kits.limit(rocketKit, 16), 16);
+        checkEq("the crate limit at level 1", Kits.limit(crateKit, 16), 2);
+        int plain = 0;
+        for (final Kits.Kit kit : kits) {
+            if (kit != rocketKit && kit != crateKit && kit.cap() == 0 && Kits.limit(kit, 48) == 48 && Kits.limit(kit, 16) == 16) {
+                plain++;
+            }
+        }
+        checkEq("the six 0.1.0 kits have no cap of their own: the hut's cap alone", plain, kits.size() - 2);
+        final java.util.function.BiFunction<Integer, Integer, java.util.function.ToIntFunction<Item>> stocks =
+                (r, c) -> item -> item == rocket ? r : item == crate ? c : 0;
+        checkEq("nothing takes a wreath: no demand on it", Kits.demand(kitOf(wreath), kits, 48, stocks.apply(0, 0)), 0);
+        check("rockets are wanted at 0 and 21 (the plain rule), not at 24 with the crates full",
+                Kits.wantedNow(rocketKit, kits, 48, stocks.apply(0, 2)) && Kits.wantedNow(rocketKit, kits, 48, stocks.apply(21, 2))
+                        && !Kits.wantedNow(rocketKit, kits, 48, stocks.apply(24, 2)), "");
+        check("a crate is wanted: the rockets go on above 24 up to the crate's room, never past the hut's cap",
+                Kits.wantedNow(rocketKit, kits, 48, stocks.apply(24, 0)) && Kits.wantedNow(rocketKit, kits, 48, stocks.apply(26, 0))
+                        && !Kits.wantedNow(rocketKit, kits, 48, stocks.apply(27, 0)) && !Kits.wantedNow(rocketKit, kits, 24, stocks.apply(24, 0)), "");
+        check("a stock that is not whole batches (a show took 16) still goes on to the crate's level",
+                Kits.wantedNow(rocketKit, kits, 48, stocks.apply(23, 0)), "");
+        check("the crate takes rockets only while 24 are left after the batch",
+                !Kits.mayTake(crateKit, kits, 48, stocks.apply(24, 0)) && !Kits.mayTake(crateKit, kits, 48, stocks.apply(26, 0))
+                        && Kits.mayTake(crateKit, kits, 48, stocks.apply(27, 0)) && Kits.mayTake(crateKit, kits, 48, stocks.apply(40, 0)), "");
+        check("hut level 1 and 2: no crate (the hut's cap leaves no rocket above the reserve)",
+                !Kits.wantedNow(rocketKit, kits, 24, stocks.apply(24, 0)) && !Kits.mayTake(crateKit, kits, 24, stocks.apply(24, 0))
+                        && !Kits.mayTake(crateKit, kits, 16, stocks.apply(16, 0)), "");
+        check("two crates stop the crate kit", !Kits.wantedNow(crateKit, kits, 48, stocks.apply(27, 2)), "");
+        checkEq("what couriers must leave for the rockets (24, the crate's room and a batch's overshoot)", Kits.keep(rocketKit, kits, 48), 29);
+        checkEq("what couriers must leave for the crates", Kits.keep(crateKit, kits, 48), 2);
+        checkEq("what couriers must leave for a wreath: the hut's cap", Kits.keep(kitOf(wreath), kits, 48), 48);
+    }
+
+    /**
+     * Q13: with paper, gunpowder and barrels in the warehouse, he makes rockets up to their cap of 24 and then at most two
+     * crates, no crate ever taking the rockets below 24; no request for the rockets themselves is ever open. The second run
+     * starts after a show took most of them (11 left, not a whole number of batches).
+     */
+    private void planFireworks() {
+        final Item rocket = Items.FIREWORK_ROCKET;
+        final Item crate = crateItem();
+        now("(f) the kits' rows", this::fireworkRows);
+        for (final int from : new int[] {0, 11}) {
+            final String name = from == 0 ? "(f1) paper, gunpowder and barrels in the warehouse: rockets to the cap, then two crates"
+                    : "(f2) a show took the rockets (11 left): back to the cap, no crate eats the reserve";
+            step(new Step(name, 16000) {
+                int maxRockets;
+                int maxCrates;
+                int firstCrateRockets = -1;
+                int lowestAfterCrate = Integer.MAX_VALUE;
+                int rocketRequestTicks;
+                int doneAt = -1;
+                int lastCrates;
+
+                @Override
+                void start() {
+                    cancelAll();
+                    for (final Item item : outputs()) {
+                        if (item != rocket && item != crate) {
+                            ownTo(item, hut.stockCap());
+                        }
+                    }
+                    ownTo(rocket, from);
+                    ownTo(crate, 0);
+                    warehouseTo(Items.PAPER, 16);
+                    warehouseTo(Items.GUNPOWDER, 16);
+                    warehouseTo(Items.BARREL, 6);
+                    lastCrates = 0;
+                }
+
+                @Override
+                boolean tick() {
+                    final int r = ownStock(rocket);
+                    final int c = ownStock(crate);
+                    maxRockets = Math.max(maxRockets, r);
+                    maxCrates = Math.max(maxCrates, c);
+                    if (c > lastCrates) {
+                        if (firstCrateRockets < 0) {
+                            firstCrateRockets = r;
+                        }
+                        lowestAfterCrate = Math.min(lowestAfterCrate, r);
+                    }
+                    lastCrates = c;
+                    for (final IRequest<?> request : openRequests()) {
+                        if (request.getRequest() instanceof Stack stack && stack.getStack().is(rocket)) {
+                            rocketRequestTicks++;
+                        }
+                    }
+                    if (c == 2 && doneAt < 0) {
+                        doneAt = t;
+                    }
+                    return doneAt >= 0 && t - doneAt >= 600;
+                }
+
+                @Override
+                void end(final boolean done) {
+                    check(name + ": two crates stand, the stock settled", done && ownStock(crate) == 2, "crates " + ownStock(crate) + ", rockets "
+                            + ownStock(rocket) + " after " + t + " ticks");
+                    check(name + ": the first crate left 24 or more rockets", firstCrateRockets >= 24, "rockets after the first crate " + firstCrateRockets);
+                    check(name + ": no crate left the rockets below the cap", lowestAfterCrate >= 24, "lowest after a crate " + lowestAfterCrate);
+                    check(name + ": at most two crates, the rockets at most 29", maxCrates <= 2 && maxRockets <= 29,
+                            "crates " + maxCrates + ", rockets at most " + maxRockets);
+                    check(name + ": the rockets end at 24 to 29", ownStock(rocket) >= 24 && ownStock(rocket) <= 29, "rockets " + ownStock(rocket));
+                    checkEq(name + ": no request for the rockets themselves was ever open", rocketRequestTicks, 0);
+                    check(name + ": no request for a finished rocket or crate is left", finishedRequests(rocket).isEmpty() && finishedRequests(crate).isEmpty(),
+                            finishedRequests(null).size() + " open");
+                    // what he made counts as made, so the colony-wide count of (d) still holds
+                    madeNet.put(rocket, ownStock(rocket) - probeNet.getOrDefault(rocket, 0));
+                    madeNet.put(crate, ownStock(crate) - probeNet.getOrDefault(crate, 0));
+                }
+            });
+        }
     }
 
     // ---------------------------------------------------------------- (a) and (d): the decorating and the take-down

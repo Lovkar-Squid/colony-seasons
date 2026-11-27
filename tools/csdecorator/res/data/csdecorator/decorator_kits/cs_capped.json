@@ -1,0 +1,7 @@
+{
+  "output": {"item": "minecraft:stick", "count": 2},
+  "cap": 5,
+  "ingredients": [
+    {"item": "minecraft:flint", "count": 1}
+  ]
+}

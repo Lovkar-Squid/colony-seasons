@@ -17,12 +17,14 @@ import me.lovkar.seasons.decor.Squares;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.item.Item;
 import org.jetbrains.annotations.NotNull;
 
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.ToIntFunction;
 
 /**
  * The Decorator's page in the hut window (chunk S8): today's season and day of the year, the festival that is on (or
@@ -111,6 +113,7 @@ public class DecoratorInfoModule extends AbstractBuildingModule implements ITick
         for (final StockRow row : info.stock()) {
             buf.writeUtf(row.item());
             buf.writeVarInt(row.have());
+            buf.writeVarInt(row.cap());
         }
         // what the next kit still lacks
         buf.writeUtf(info.nextKit());
@@ -129,8 +132,8 @@ public class DecoratorInfoModule extends AbstractBuildingModule implements ITick
         buf.writeBoolean(info.winter());
     }
 
-    /** One kit: the item it makes (an id) and how many are in the hut and the worker's pack. */
-    public record StockRow(String item, int have) {
+    /** One kit: the item it makes (an id), how many are in the hut and the worker's pack, and the most he makes of it (Q13: per kit). */
+    public record StockRow(String item, int have, int cap) {
     }
 
     /** One ingredient the next kit lacks: {@code item:<id>} or {@code tag:<id>} and how many. */
@@ -236,15 +239,18 @@ public class DecoratorInfoModule extends AbstractBuildingModule implements ITick
         String nextKit = "";
         final List<MissingRow> missing = new ArrayList<>();
         if (hut != null) {
-            final int cap = hut.stockCap();
+            final int shared = hut.stockCap();
+            final List<Kits.Kit> kits = Kits.all();
+            final ToIntFunction<Item> haveOf = hut::stock;
             Kits.Kit pick = null;
             List<MissingRow> pickMissing = List.of();
-            for (final Kits.Kit kit : Kits.all()) {
+            for (final Kits.Kit kit : kits) {
                 final int have = hut.stock(kit.output());
                 if (stock.size() < MAX_ROWS) {
-                    stock.add(new StockRow(BuiltInRegistries.ITEM.getKey(kit.output()).toString(), have));
+                    stock.add(new StockRow(BuiltInRegistries.ITEM.getKey(kit.output()).toString(), have, Kits.limit(kit, shared)));
                 }
-                if (!Kits.wanted(have, kit.count(), cap)) {
+                // a kit that would take a stock below its reserve (the crate: the show's rockets) is not the next one
+                if (!Kits.wantedNow(kit, kits, shared, haveOf) || !Kits.mayTake(kit, kits, shared, haveOf)) {
                     continue;
                 }
                 final List<MissingRow> lacks = new ArrayList<>();

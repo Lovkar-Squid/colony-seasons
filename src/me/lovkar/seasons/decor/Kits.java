@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
+import java.util.function.ToIntFunction;
 
 /**
  * The Decorator's kits: what one batch of a decoration takes and makes. A kit is a JSON file in a datapack under
@@ -40,7 +41,9 @@ import java.util.TreeMap;
  * {"output": {"item": "colony_seasons:wreath", "count": 2},
  *  "ingredients": [{"tag": "minecraft:leaves", "count": 4}, {"item": "minecraft:string", "count": 1}]}
  * </pre>
- * Counts are 1 to 64, a kit has 1 to 9 ingredients, each names exactly one of {@code item} or {@code tag}.
+ * Counts are 1 to 64, a kit has 1 to 9 ingredients, each names exactly one of {@code item} or {@code tag}. A kit may
+ * also say {@code "cap": 24}: its own stock cap, lowered below the hut's shared one (a kit without it keeps the
+ * hut's cap, exactly as before).
  *
  * <p>Our own folder, our own reload listener: MineColonies throws its whole datapack away over a single unknown
  * item id, so the kits never go near it. A kit that cannot be used (a file that is not JSON, the wrong shape, an
@@ -59,6 +62,8 @@ public final class Kits {
     public static final String FOLDER = "decorator_kits";
     public static final int MAX_COUNT = 64;
     public static final int MAX_INGREDIENTS = 9;
+    /** The largest "cap" a kit file may name (the hut's own cap is 48 at level 5, so a bigger one never counts). */
+    public static final int MAX_CAP = 999;
     static final String REASON_NOT_JSON = "the file is not valid JSON";
 
     /** One ingredient: an item or an item tag, and how many of it one batch takes. */
@@ -90,15 +95,22 @@ public final class Kits {
         }
     }
 
-    /** One kit: one batch takes the ingredients and makes {@code count} of {@code output}. */
-    public record Kit(ResourceLocation id, Item output, int count, List<Ingredient> ingredients) {
+    /**
+     * One kit: one batch takes the ingredients and makes {@code count} of {@code output}. {@code cap} is the kit's own
+     * stock cap (0: none, the hut's cap alone), see {@link #limit}.
+     */
+    public record Kit(ResourceLocation id, Item output, int count, List<Ingredient> ingredients, int cap) {
         public Kit {
             ingredients = List.copyOf(ingredients);
+        }
+
+        public Kit(final ResourceLocation id, final Item output, final int count, final List<Ingredient> ingredients) {
+            this(id, output, count, ingredients, 0);
         }
     }
 
     /** A kit file as read, before its ids are looked up. */
-    private record Parsed(ResourceLocation output, int count, List<RawIngredient> ingredients) {
+    private record Parsed(ResourceLocation output, int count, List<RawIngredient> ingredients, int cap) {
     }
 
     private record RawIngredient(ResourceLocation id, boolean tag, int count) {
@@ -115,7 +127,10 @@ public final class Kits {
     private Kits() {
     }
 
-    /** Every usable kit, sorted by id. */
+    /**
+     * Every usable kit, sorted by id, except that a kit which takes another kit's output as an ingredient comes after
+     * the kit that makes it (the crate after the rockets): the order he plans and assembles in.
+     */
     public static List<Kit> all() {
         return loaded;
     }
@@ -164,6 +179,98 @@ public final class Kits {
      */
     public static boolean wanted(final int stock, final int count, final int cap) {
         return stock + count <= cap || count > cap && stock < cap;
+    }
+
+    /**
+     * The stock limit of one kit's output: the hut's shared cap, or the kit's own {@code cap} when that is lower. A kit
+     * without a {@code cap} keeps the shared one.
+     */
+    public static int limit(final Kit kit, final int shared) {
+        return kit.cap() > 0 ? Math.min(shared, kit.cap()) : shared;
+    }
+
+    /** True when {@code ingredient} takes {@code item} (an item, or a tag the item is in). */
+    private static boolean takes(final Ingredient ingredient, final Item item) {
+        return ingredient.matches(new ItemStack(item));
+    }
+
+    /**
+     * How much of {@code kit}'s output the other kits that take it still want right now, one batch each: for every
+     * other kit that is {@link #wanted} (counting {@code own}, what it has and has on its way) and has an ingredient
+     * that {@code kit}'s output satisfies, that ingredient's count. Zero for a kit nobody takes the output of, which
+     * is every one of the six 0.1.0 kits.
+     */
+    public static int demand(final Kit kit, final List<Kit> kits, final int shared, final ToIntFunction<Item> own) {
+        int total = 0;
+        for (final Kit other : kits) {
+            if (other.id().equals(kit.id()) || !wanted(own.applyAsInt(other.output()), other.count(), limit(other, shared))) {
+                continue;
+            }
+            for (final Ingredient ingredient : other.ingredients()) {
+                if (takes(ingredient, kit.output())) {
+                    total += ingredient.count();
+                }
+            }
+        }
+        return total;
+    }
+
+    /**
+     * Whether {@code kit} is worth a batch now, at this stock ({@code own}: what he has and has on its way): the plain
+     * rule at its {@link #limit} ({@link #wanted}), or, while another kit that takes its output is wanted, until the
+     * stock has risen {@link #demand} above the limit (the rockets above the show's reserve, for a crate) without ever
+     * passing the hut's shared cap. A batch that overshoots the target by less than itself is made, so a stock that is
+     * not a whole number of batches (a show took 16 rockets) still gets there.
+     */
+    public static boolean wantedNow(final Kit kit, final List<Kit> kits, final int shared, final ToIntFunction<Item> own) {
+        final int stock = own.applyAsInt(kit.output());
+        final int limit = limit(kit, shared);
+        if (wanted(stock, kit.count(), limit)) {
+            return true;
+        }
+        final int demand = demand(kit, kits, shared, own);
+        return demand > 0 && stock < limit + demand && stock + kit.count() <= shared;
+    }
+
+    /**
+     * The most of {@code kit}'s output that is worth keeping in the hut (what couriers must leave there): its limit,
+     * and the room the kits that take it need above that (one batch's worth of each, and a batch's overshoot), never
+     * more than the hut's shared cap.
+     */
+    public static int keep(final Kit kit, final List<Kit> kits, final int shared) {
+        final int limit = limit(kit, shared);
+        int extra = 0;
+        for (final Kit other : kits) {
+            if (other.id().equals(kit.id())) {
+                continue;
+            }
+            for (final Ingredient ingredient : other.ingredients()) {
+                if (takes(ingredient, kit.output())) {
+                    extra += ingredient.count();
+                }
+            }
+        }
+        return extra == 0 ? limit : Math.min(shared, Math.max(limit, limit + extra + kit.count() - 1));
+    }
+
+    /**
+     * Whether {@code kit} may take its batch of ingredients now. An ingredient that is another kit's output is a made
+     * one: it may only be taken while that kit's stock stays at or above its own {@link #limit} after the batch, so a
+     * kit that makes use of a stock never eats the reserve that stock is for (a crate never takes the New Year show's
+     * rockets). {@code have} is what is in his hands now (stock, not what is on its way).
+     */
+    public static boolean mayTake(final Kit kit, final List<Kit> kits, final int shared, final ToIntFunction<Item> have) {
+        for (final Ingredient ingredient : kit.ingredients()) {
+            for (final Kit maker : kits) {
+                if (maker.id().equals(kit.id()) || !takes(ingredient, maker.output())) {
+                    continue;
+                }
+                if (have.applyAsInt(maker.output()) - ingredient.count() < limit(maker, shared)) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     /** True when the inventory holds one whole batch of every ingredient of the kit. */
@@ -261,13 +368,14 @@ public final class Kits {
                 }
             }
             skipped = Collections.unmodifiableMap(new LinkedHashMap<>(skip));
-            loaded = List.copyOf(kits);
+            loaded = inMakingOrder(kits);
             reloads++;
             final int firstCap = BuildingDecorator.STOCK_CAP_BASE + BuildingDecorator.STOCK_CAP_PER_LEVEL;
             for (final Kit kit : kits) {
-                if (kit.count() > firstCap) {
+                final int first = limit(kit, firstCap);
+                if (kit.count() > first) {
                     ColonySeasons.LOGGER.warn("Decorator kit {} makes {} at a time, more than a level-1 hut keeps ({}): "
-                            + "it is made one batch at a time while the stock is below the cap", kit.id(), kit.count(), firstCap);
+                            + "it is made one batch at a time while the stock is below the cap", kit.id(), kit.count(), first);
                 }
             }
             ColonySeasons.LOGGER.info("Decorator kits: {} loaded, {} skipped", kits.size(), skip.size());
@@ -334,7 +442,61 @@ public final class Kits {
             }
             ingredients.add(new RawIngredient(id, hasTag, count));
         }
-        return new Read(new Parsed(outputId, outputCount, ingredients), null);
+        int cap = 0;
+        if (root.has("cap")) {
+            cap = capOf(root.get("cap"));
+            if (cap < 1) {
+                return new Read(null, "the cap must be a whole number from 1 to " + MAX_CAP);
+            }
+        }
+        return new Read(new Parsed(outputId, outputCount, ingredients, cap), null);
+    }
+
+    /** The "cap" of a kit, or 0 when it is not a whole number from 1 to {@link #MAX_CAP}. */
+    private static int capOf(final JsonElement cap) {
+        if (!cap.isJsonPrimitive() || !cap.getAsJsonPrimitive().isNumber()) {
+            return 0;
+        }
+        final double value = cap.getAsDouble();
+        if (value != Math.rint(value) || value < 1 || value > MAX_CAP) {
+            return 0;
+        }
+        return (int) value;
+    }
+
+    /**
+     * Sorted by id, except that a kit goes after every kit whose output it takes as an ingredient (level by level; a
+     * datapack with a loop of kits is not looped on: the passes stop at the number of kits).
+     */
+    static List<Kit> inMakingOrder(final List<Kit> kits) {
+        final List<Kit> sorted = new ArrayList<>(kits);
+        sorted.sort(java.util.Comparator.comparing(Kit::id));
+        final Map<ResourceLocation, Integer> depth = new LinkedHashMap<>();
+        for (final Kit kit : sorted) {
+            depth.put(kit.id(), 0);
+        }
+        for (int pass = 0; pass < sorted.size(); pass++) {
+            boolean changed = false;
+            for (final Kit kit : sorted) {
+                for (final Kit maker : sorted) {
+                    if (maker.id().equals(kit.id())) {
+                        continue;
+                    }
+                    for (final Ingredient ingredient : kit.ingredients()) {
+                        if (takes(ingredient, maker.output()) && depth.get(kit.id()) <= depth.get(maker.id())
+                                && depth.get(maker.id()) < sorted.size()) {
+                            depth.put(kit.id(), depth.get(maker.id()) + 1);
+                            changed = true;
+                        }
+                    }
+                }
+            }
+            if (!changed) {
+                break;
+            }
+        }
+        sorted.sort(java.util.Comparator.<Kit>comparingInt(kit -> depth.get(kit.id())).thenComparing(Kit::id));
+        return List.copyOf(sorted);
     }
 
     private static ResourceLocation idOf(final JsonObject object, final String key) {
@@ -386,7 +548,7 @@ public final class Kits {
         if (!missing.isEmpty()) {
             return null;
         }
-        return new Kit(id, output, parsed.count(), ingredients);
+        return new Kit(id, output, parsed.count(), ingredients, parsed.cap());
     }
 
     /** The item with this id, or {@code null} (never air for a missing id). */

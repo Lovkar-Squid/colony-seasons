@@ -196,7 +196,9 @@ public class DecoratorInfoWindow extends AbstractModuleWindow<DecoratorInfoModul
         } else {
             out.add(Component.translatable("com.colony_seasons.gui.info.stock.head", info.stockCap()));
             for (final DecoratorInfoModule.StockRow row : info.stock()) {
-                out.add(Component.translatable("com.colony_seasons.gui.info.stock.row", itemName(row.item()), row.have(), info.stockCap()));
+                // a kit's own cap, not the hut's (Q13); a stock above it is the rockets kept for a crate
+                out.add(Component.translatable(row.have() > row.cap() ? "com.colony_seasons.gui.info.stock.row.over"
+                        : "com.colony_seasons.gui.info.stock.row", itemName(row.item()), row.have(), row.cap()));
             }
         }
 

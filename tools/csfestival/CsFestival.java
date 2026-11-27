@@ -2370,10 +2370,99 @@ public class CsFestival {
         });
         asleep("(b)", NY_B, true);
         asleep("(c)", NY_C, false);
+        fromTheKit();
         step(new Step("newyear: the end", 1) {
             @Override
             void start() {
                 CalendarManager.setForcedFestival(server, "");
+                needsMaterials(true);
+            }
+        });
+    }
+
+    /** Every open request of every citizen's work building in the colony that asks for firework rockets (any kind of request). */
+    private int rocketRequests() {
+        int n = 0;
+        for (final com.minecolonies.api.colony.ICitizenData c : colony.getCitizenManager().getCitizens()) {
+            final com.minecolonies.api.colony.buildings.IBuilding work = c.getWorkBuilding();
+            if (work == null) {
+                continue;
+            }
+            for (final com.minecolonies.api.colony.requestsystem.request.IRequest<?> r : work.getOpenRequests(c.getId())) {
+                if (r.getRequest() instanceof com.minecolonies.api.colony.requestsystem.requestable.Stack s && s.getStack().is(Items.FIREWORK_ROCKET)) {
+                    n++;
+                }
+            }
+        }
+        return n;
+    }
+
+    /**
+     * Q13: with decorations from stock, nothing but paper and gunpowder in the hut and no rockets, his own kit makes the
+     * show's rockets; the show flies them (16, the big one of a new real day) and no request for the rockets themselves is
+     * ever open in the colony (nobody could fill one). The kit stops at its cap.
+     */
+    private void fromTheKit() {
+        step(new Step("newyear (d): decorations from stock, paper and gunpowder, no rockets: the show's rockets are his own kit's", 14500, true) {
+            int byHim0;
+            int byServer0;
+            int rockets0;
+            int assembled0;
+            int paper0;
+            int gunpowder0;
+            int heldBeforeShow;
+            int batchesAtShow;
+            int lastHeld;
+            int maxHeld;
+            int requestTicks;
+            long launchedAt = -1;
+
+            @Override
+            void start() {
+                setDate(LocalDate.of(2027, 1, 3));
+                needsMaterials(true);
+                rocketsInHut(0);
+                check("the paper fits in the hut", ItemHandlerHelper.insertItemStacked(hut.getItemHandlerCap(), new ItemStack(Items.PAPER, 16), false).isEmpty(), "");
+                check("the gunpowder fits in the hut", ItemHandlerHelper.insertItemStacked(hut.getItemHandlerCap(), new ItemStack(Items.GUNPOWDER, 16), false).isEmpty(), "");
+                paper0 = hut.stock(Items.PAPER);
+                gunpowder0 = hut.stock(Items.GUNPOWDER);
+                nextDayAt(1000);
+                byHim0 = Fireworks.decoratorShows();
+                byServer0 = Fireworks.serverShows();
+                rockets0 = Fireworks.rockets();
+                assembled0 = hut.assembled();
+                checkEq("no rockets in his stock to start with", rocketsInStock(), 0);
+            }
+
+            @Override
+            boolean tick() {
+                requestTicks += rocketRequests();
+                final int held = rocketsInStock();           // the hut's count already includes his pack
+                maxHeld = Math.max(maxHeld, held);
+                if (launchedAt < 0 && Fireworks.decoratorShows() + Fireworks.serverShows() > byHim0 + byServer0) {
+                    launchedAt = timeOfDay();
+                    heldBeforeShow = lastHeld;
+                    batchesAtShow = hut.assembled() - assembled0;
+                }
+                lastHeld = held;
+                return launchedAt >= 0 && timeOfDay() >= launchedAt + 300 || launchedAt < 0 && timeOfDay() >= Fireworks.DUSK_UNTIL;
+            }
+
+            @Override
+            void end(final boolean done) {
+                check("the show went up at dusk", launchedAt >= Fireworks.DUSK_FROM && launchedAt < Fireworks.DUSK_UNTIL, "at " + launchedAt);
+                final int batches = hut.assembled() - assembled0;
+                check("he made the rockets himself: whole batches of 3 from paper and gunpowder, at least what the show needs",
+                        batches >= 6 && batches <= 9, batches + " batches");
+                checkEq("each batch took one paper", paper0 - hut.stock(Items.PAPER), batches);
+                checkEq("each batch took one gunpowder", gunpowder0 - hut.stock(Items.GUNPOWDER), batches);
+                check("the stock before the show was exactly what the kit made, enough for the show, within its cap and a crate's room",
+                        heldBeforeShow == 3 * batchesAtShow && heldBeforeShow >= Fireworks.SHOW_ROCKETS && heldBeforeShow <= 29,
+                        "held " + heldBeforeShow + " after " + batchesAtShow + " batches");
+                checkEq("the big show flew the show's rockets", Fireworks.rockets() - rockets0, Fireworks.SHOW_ROCKETS);
+                check("the kit stopped at its cap (24, and a crate's room)", maxHeld <= 29, "most held " + maxHeld);
+                checkEq("no request for the rockets themselves was ever open in the colony", requestTicks, 0);
+                checkEq("none is open now", rocketRequests(), 0);
                 needsMaterials(true);
             }
         });

@@ -16,7 +16,8 @@ import java.util.List;
 
 /**
  * The crate of rockets by the tree, the launch point of the New Year show (hut level 3 and up). A plain block for
- * now: the show is a later chunk.
+ * now: the show is a later chunk. The one on the square is a fixture and costs nothing; the Decorator also makes the
+ * crate as an item (the firework_crate kit, Q13), which the stalls do not sell.
  */
 public class FireworkCrateBlock extends Block {
     public static final MapCodec<FireworkCrateBlock> CODEC = simpleCodec(FireworkCrateBlock::new);
