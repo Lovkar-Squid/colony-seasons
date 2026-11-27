@@ -96,7 +96,11 @@ public final class Fireworks {
     public static final int LAUNCH_GAP_TICKS = 6;
     private static final int[] COLOURS = {0xD8322E, 0xF0C030, 0x3FA34D, 0xF4F1EA, 0x3B6FD0, 0xC75BC2};
 
-    private record Pending(ResourceKey<Level> dimension, BlockPos at, ItemStack rocket, int delay) {
+    /**
+     * One rocket of a running show. {@code paid} is the rocket taken from the Decorator's stock for it (empty for a free
+     * one), so a rocket that never takes off goes back to {@code colony}'s Workshop ({@link #refund}).
+     */
+    private record Pending(ResourceKey<Level> dimension, BlockPos at, ItemStack rocket, int delay, ItemStack paid, int colony) {
     }
 
     /**
@@ -176,6 +180,49 @@ public final class Fireworks {
         presence = test;
     }
 
+    /**
+     * The server is stopping (Q7, H29): the rockets of a show still queued have been taken from the Decorator's stock but
+     * have not flown; they go back to the colony's Workshop now, while the world is still there to save them. Before,
+     * a restart in the middle of a dusk show lost up to {@link #SHOW_ROCKETS} of them.
+     */
+    static void returnQueued(final MinecraftServer server) {
+        for (final Pending p : QUEUE) {
+            refund(server, p);
+        }
+        QUEUE.clear();
+    }
+
+    /**
+     * One queued rocket that will not fly: the rocket taken from the stock for it goes back to its colony's Workshop. Never
+     * throws: a failure here must neither stop the server's stop (and its world save) nor keep the rocket in the queue,
+     * where the next tick would give it back again.
+     */
+    private static void refund(final MinecraftServer server, final Pending p) {
+        if (p.paid().isEmpty()) {
+            return;                                   // a free rocket: nothing was taken
+        }
+        try {
+            final ServerLevel level = server.getLevel(p.dimension());
+            final IColony colony = level == null ? null : IColonyManager.getInstance().getColonyByWorld(p.colony(), level);
+            final int[] lost = new int[1];
+            DecorWork.sinkOf(colony, lost).give(p.paid().copy());
+            if (lost[0] > 0) {
+                ColonySeasons.LOGGER.info("A queued firework rocket of colony {} did not fly and had no Workshop to go back to: lost", p.colony());
+            } else {
+                refunded++;
+            }
+        } catch (final RuntimeException failed) {
+            ColonySeasons.LOGGER.warn("A queued firework rocket of colony {} could not go back to its Workshop: lost", p.colony(), failed);
+        }
+    }
+
+    private static int refunded;
+
+    /** Queued rockets given back to a Workshop since the server started (the probe reads it). */
+    public static int refunded() {
+        return refunded;
+    }
+
     static void reset() {
         QUEUE.clear();
         WAITING.clear();
@@ -195,11 +242,13 @@ public final class Fireworks {
         while (it.hasNext()) {
             final Pending p = it.next();
             if (p.delay() > 0) {
-                next.add(new Pending(p.dimension(), p.at(), p.rocket(), p.delay() - 1));
+                next.add(new Pending(p.dimension(), p.at(), p.rocket(), p.delay() - 1, p.paid(), p.colony()));
                 continue;
             }
             final ServerLevel level = server.getLevel(p.dimension());
-            if (level != null && level.hasChunkAt(p.at())) {
+            if (level == null || !level.hasChunkAt(p.at())) {
+                refund(server, p);                    // it cannot take off: the rocket it was made of goes back
+            } else {
                 final RandomSource random = level.getRandom();
                 final FireworkRocketEntity entity = new FireworkRocketEntity(level, p.at().getX() + 0.5 + (random.nextDouble() - 0.5) * 1.5,
                         p.at().getY() + 1.1, p.at().getZ() + 0.5 + (random.nextDouble() - 0.5) * 1.5, p.rocket());
@@ -573,7 +622,7 @@ public final class Fireworks {
             if (!free && rocket.isEmpty()) {
                 break;
             }
-            queue(level, site, festive(rocket, level.getRandom()), i * LAUNCH_GAP_TICKS);
+            queue(level, site, festive(rocket, level.getRandom()), i * LAUNCH_GAP_TICKS, rocket, colony.getID());
             queued++;
         }
         if (queued > 0) {
@@ -597,12 +646,13 @@ public final class Fireworks {
             return;
         }
         for (int i = 0; i < count; i++) {
-            queue(level, site, festive(ItemStack.EMPTY, level.getRandom()), i * LAUNCH_GAP_TICKS * 2);
+            queue(level, site, festive(ItemStack.EMPTY, level.getRandom()), i * LAUNCH_GAP_TICKS * 2, ItemStack.EMPTY, colonyId);
         }
     }
 
-    private static void queue(final ServerLevel level, final BlockPos at, final ItemStack rocket, final int delay) {
-        QUEUE.add(new Pending(level.dimension(), at.immutable(), rocket, delay));
+    private static void queue(final ServerLevel level, final BlockPos at, final ItemStack rocket, final int delay, final ItemStack paid,
+                              final int colony) {
+        QUEUE.add(new Pending(level.dimension(), at.immutable(), rocket, delay, paid.copy(), colony));
     }
 
     /** One rocket out of a handler, with its components (a rocket somebody made with stars keeps them). */

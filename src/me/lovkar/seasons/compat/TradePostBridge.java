@@ -157,8 +157,13 @@ public class TradePostBridge {
     /**
      * Pays the colony {@code amount} points. False, with nothing written, when the bridge is not active, the self-test
      * has not passed, the call is not on the server thread (no fall-back for that), the amount is 0 or less or more than
-     * {@link MarketMath#clamp} allows on the colony's balance (the bridge stays on). A throw, or a balance that did not
-     * move by exactly the amount, writes one WARN line, turns the bridge off for the session and answers false.
+     * {@link MarketMath#clamp} allows on the colony's balance (the bridge stays on). A write that throws, or a balance that
+     * did not rise, writes one WARN line, turns the bridge off for the session and answers false: nothing was paid.
+     *
+     * <p>Once the write went through and the balance rose, the colony has been paid, so the answer is true (the caller
+     * keeps the sale: the good stays sold and the paid record stays), also when the read-back shows another amount than
+     * asked or cannot be read at all; those still write the one WARN line and turn the bridge off (Q7, H26: an answer of
+     * false there gave the good back after the money was in, money from nothing).</p>
      */
     public boolean credit(final IColony colony, final int amount) {
         if (!active() || colony == null || !selfTest(colony)) {
@@ -179,17 +184,24 @@ public class TradePostBridge {
         }
         try {
             write(colony, amount);
-            colony.markDirty();
-            final long moved = (long) read(colony) - before;
-            if (moved != amount) {
-                fallBack("the balance moved by " + moved + " instead of " + amount + ", so " + STAT + " no longer means what it did", null);
-                return false;
-            }
-            return true;
         } catch (final Throwable failed) {
             fallBack("paying the colony failed (" + describe(failed) + ")", failed);
             return false;
         }
+        colony.markDirty();
+        final long moved;
+        try {
+            moved = (long) read(colony) - before;
+        } catch (final Throwable failed) {
+            // the write went through: the colony is paid, so the sale stands; the bridge stops here
+            fallBack("reading the colony's balance back after a payment failed (" + describe(failed) + ")", failed);
+            return true;
+        }
+        if (moved != amount) {
+            fallBack("the balance moved by " + moved + " instead of " + amount + ", so " + STAT + " no longer means what it did", null);
+            return moved > 0;                         // paid (another amount): the sale stands; nothing moved: no sale
+        }
+        return true;
     }
 
     /** The one write: MineColonies' own statistic, on the colony's day. The probe overrides it to make it throw. */

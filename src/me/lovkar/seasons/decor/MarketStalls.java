@@ -415,7 +415,8 @@ public final class MarketStalls {
      * day's cap ({@link MarketMath#canSell}), the goods taken in turn. In this order: (1) one good out of the Workshop's
      * own item handler, (2) the price added to the day's paid record and the ledger saved, (3) the colony paid
      * ({@link TradePostBridge#credit}) only once that save went through. If (2) or (3) fails or anything throws, the good
-     * goes back and the record is taken back (after a payment that failed, the bridge has fallen back by then).
+     * goes back and the record is taken back (after a payment that failed, the bridge has fallen back by then). Once the
+     * money is in, {@link TradePostBridge#credit} answers true, so a paid good is never given back (Q7, H26).
      * {@code null} when nothing was sold.
      *
      * @param day the colony day ({@code colony.getDay()}) the cap and the paid record are counted on
