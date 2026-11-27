@@ -8,12 +8,14 @@ import net.minecraft.world.item.ItemStack;
 import org.apache.logging.log4j.util.TriConsumer;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Predicate;
 
 /**
  * Tells MineColonies what the Decorator's hut keeps, so couriers do not carry his stock away: every kit's output
- * up to the hut's stock cap (kept in the building), and every ingredient up to one batch (kept in his own pack too,
+ * up to the kit's stock limit, the hut's cap or the kit's own lower one, and a little more for the kits that take it
+ * ({@link Kits#keep}; kept in the building), and every ingredient up to one batch (kept in his own pack too,
  * the way MineColonies keeps a worker's food). Re-read on every call, so it follows the hut's level and the kits of
  * the last datapack reload. Server only; it has no window tab.
  */
@@ -24,12 +26,13 @@ public class DecoratorStockModule extends AbstractBuildingModule implements IAlt
         if (!(building instanceof BuildingDecorator decorator)) {
             return;
         }
-        final int cap = decorator.stockCap();
+        final int shared = decorator.stockCap();
+        final List<Kits.Kit> kits = Kits.all();
         final Map<String, Kits.Ingredient> ingredients = new LinkedHashMap<>();
         final Map<String, Integer> amounts = new LinkedHashMap<>();
-        for (final Kits.Kit kit : Kits.all()) {
+        for (final Kits.Kit kit : kits) {
             final Item output = kit.output();
-            consumer.accept(stack -> stack.is(output), cap, false);
+            consumer.accept(stack -> stack.is(output), Kits.keep(kit, kits, shared), false);
             for (final Kits.Ingredient ingredient : kit.ingredients()) {
                 ingredients.putIfAbsent(ingredient.key(), ingredient);
                 amounts.merge(ingredient.key(), ingredient.count(), Math::max);

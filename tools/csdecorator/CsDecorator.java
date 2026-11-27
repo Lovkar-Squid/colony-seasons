@@ -104,8 +104,13 @@ public class CsDecorator {
     private static final List<ResourceLocation> BAD_KITS = List.of(
             ResourceLocation.fromNamespaceAndPath("csdecorator", "cs_bad_item"),
             ResourceLocation.fromNamespaceAndPath("csdecorator", "cs_bad_json"),
-            ResourceLocation.fromNamespaceAndPath("csdecorator", "cs_bad_tag"));
-    private static final List<String> SHIPPED = List.of("fairy_lights", "garland", "lantern_string", "ornament_leaves", "tree_star", "wreath");
+            ResourceLocation.fromNamespaceAndPath("csdecorator", "cs_bad_tag"),
+            ResourceLocation.fromNamespaceAndPath("csdecorator", "cs_bad_cap_zero"),
+            ResourceLocation.fromNamespaceAndPath("csdecorator", "cs_bad_cap_text"),
+            ResourceLocation.fromNamespaceAndPath("csdecorator", "cs_bad_cap_fraction"));
+    private static final ResourceLocation CAPPED_KIT = ResourceLocation.fromNamespaceAndPath("csdecorator", "cs_capped");
+    private static final List<String> SHIPPED = List.of("fairy_lights", "garland", "lantern_string", "ornament_leaves", "tree_star", "wreath",
+            "firework_rocket", "firework_crate");
     private static final BlockPos HUT_OFFSET = new BlockPos(8, 0, 0);
     private static final LocalDate SUMMER = LocalDate.of(2026, 7, 15);
     private static final LocalDate DECOR_DAY = LocalDate.of(2026, 12, 10);
@@ -482,6 +487,27 @@ public class CsDecorator {
             check("shipped kit " + name + " is loaded exactly when its items exist", loaded == all && (loaded || Kits.skipped().containsKey(id)),
                     (loaded ? "loaded" : "skipped") + ", items " + (all ? "all there" : "not all there"));
         }
+        // Q13: a kit's own cap (an optional "cap" in the file)
+        final Kits.Kit capped = Kits.byId(CAPPED_KIT);
+        check("a kit with a cap of 5 is loaded with it", capped != null && capped.cap() == 5, String.valueOf(capped));
+        if (capped != null) {
+            checkEq("its limit under the hut's cap of 16", Kits.limit(capped, 16), 5);
+            checkEq("its limit when the hut's cap is lower still", Kits.limit(capped, 3), 3);
+        }
+        check("the test kit has no cap: the hut's cap alone", test != null && test.cap() == 0 && Kits.limit(test, 16) == 16, String.valueOf(test));
+        for (final String name : List.of("fairy_lights", "garland", "lantern_string", "ornament_leaves", "tree_star", "wreath")) {
+            final Kits.Kit old = Kits.byId(ResourceLocation.fromNamespaceAndPath("colony_seasons", name));
+            check("the 0.1.0 kit " + name + " has no cap of its own", old != null && old.cap() == 0 && Kits.limit(old, 48) == 48, String.valueOf(old));
+        }
+        final Kits.Kit rocketKit = Kits.byId(ResourceLocation.fromNamespaceAndPath("colony_seasons", "firework_rocket"));
+        final Kits.Kit crateKit = Kits.byId(ResourceLocation.fromNamespaceAndPath("colony_seasons", "firework_crate"));
+        check("the rocket kit: 3 rockets from 1 paper and 1 gunpowder, a cap of 24", rocketKit != null && rocketKit.output() == Items.FIREWORK_ROCKET
+                && rocketKit.count() == 3 && rocketKit.cap() == 24 && rocketKit.ingredients().size() == 2
+                && rocketKit.ingredients().get(0).count() == 1 && rocketKit.ingredients().get(1).count() == 1, String.valueOf(rocketKit));
+        check("the crate kit: 1 crate from 1 barrel and 3 rockets, a cap of 2", crateKit != null && crateKit.count() == 1 && crateKit.cap() == 2
+                && crateKit.ingredients().size() == 2 && crateKit.ingredients().stream().anyMatch(i -> i.item() == Items.FIREWORK_ROCKET && i.count() == 3)
+                && crateKit.ingredients().stream().anyMatch(i -> i.item() == Items.BARREL && i.count() == 1), String.valueOf(crateKit));
+        check("the rocket kit comes before the crate kit", rocketKit != null && crateKit != null && Kits.all().indexOf(rocketKit) < Kits.all().indexOf(crateKit), "");
         final Set<String> testKeys = new LinkedHashSet<>();
         if (test != null) {
             test.ingredients().forEach(i -> testKeys.add(i.key()));

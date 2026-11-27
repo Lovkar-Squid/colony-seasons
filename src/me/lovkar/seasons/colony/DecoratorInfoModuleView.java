@@ -48,7 +48,7 @@ public class DecoratorInfoModuleView extends AbstractBuildingModuleView {
         final int kits = buf.readVarInt();
         final List<DecoratorInfoModule.StockRow> stock = new ArrayList<>();
         for (int i = 0; i < kits; i++) {
-            stock.add(new DecoratorInfoModule.StockRow(buf.readUtf(), buf.readVarInt()));
+            stock.add(new DecoratorInfoModule.StockRow(buf.readUtf(), buf.readVarInt(), buf.readVarInt(), buf.readBoolean()));
         }
         final String nextKit = buf.readUtf();
         final int lacks = buf.readVarInt();

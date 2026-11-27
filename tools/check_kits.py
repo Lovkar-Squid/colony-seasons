@@ -5,7 +5,9 @@ would never show up as a failure in game: the Decorator would just never make th
 files in resources/data/*/decorator_kits/ before they ship:
 
   * the file is JSON with {"output": {"item", "count"}, "ingredients": [{"item" | "tag", "count"}, ...]}, counts
-    1 to 64, 1 to 9 ingredients, each with exactly one of item or tag;
+    1 to 64, 1 to 9 ingredients, each with exactly one of item or tag, and optionally "cap": the kit's own stock cap,
+    a whole number from 1 to 999 (Q13: the firework rocket kit keeps 24, the crate kit 2; a file without it keeps the
+    hut's cap, as the six 0.1.0 kits do);
   * every item is one of our decorations (colony_seasons:<a name below>) or a vanilla item, and every tag is a
     vanilla item tag (both read from the client assets jar, found like tools/check_models.py finds it);
   * no shipped kit takes an ingredient of the csdecorator probe's test kit (#minecraft:wool, minecraft:clay_ball),
@@ -26,7 +28,8 @@ import zipfile
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import paths  # noqa: E402
 
-OUR_ITEMS = {"wreath", "garland", "lantern_string", "fairy_lights", "ornament_leaves", "tree_star"}
+OUR_ITEMS = {"wreath", "garland", "lantern_string", "fairy_lights", "ornament_leaves", "tree_star", "firework_crate"}
+MAX_CAP = 999   # decor/Kits.MAX_CAP
 PROBE_INGREDIENTS = {"tag:minecraft:wool", "item:minecraft:clay_ball"}
 MC_ASSET_PATTERN = os.environ.get("MC_ASSETS_JAR", "client-*-extra.jar")
 
@@ -196,7 +199,11 @@ def check_file(path, items, tags):
                 problems.append(f"unknown item tag #{tag}")
         if key in PROBE_INGREDIENTS:
             problems.append(f"uses {key[key.index(':') + 1:]}, an ingredient of the probe's test kit")
-    for extra in set(kit) - {"output", "ingredients"}:
+    if "cap" in kit:
+        cap = kit["cap"]
+        if not isinstance(cap, int) or isinstance(cap, bool) or not 1 <= cap <= MAX_CAP:
+            problems.append(f"cap must be a whole number from 1 to {MAX_CAP}, got {cap!r}")
+    for extra in set(kit) - {"output", "ingredients", "cap"}:
         problems.append(f"unknown key {extra}")
     return problems
 

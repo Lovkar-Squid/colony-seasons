@@ -57,6 +57,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.ToIntFunction;
 
 /**
  * The Decorator's day (design section 4). Every 20 ticks {@link #decide()} looks at the calendar and the hut:
@@ -73,7 +74,8 @@ import java.util.Map;
  *       per decorated group). Taking down clears one group per visit by the removal rule and puts the items back in
  *       the hut. Hosting (S7): in the gathering hours of the Winter Festival days he stands at the tree and hands the
  *       colonists there gifts (hearts and a thank-you line, no item moves); on the New Year days he goes Launching
- *       (to the square, and asks the warehouse for firework rockets; in the evening the mixin keeps him up past
+ *       (to the square; the rockets are his own stock, made by the firework_rocket kit like every other decoration, so
+ *       he asks for none there; in the evening the mixin keeps him up past
  *       bedtime, he waits at the square and launches the show at dusk, then goes to bed); at any other hour of a
  *       festival day the upkeep goes on;</li>
  *   <li>Preparing goes on in every phase when the hut's "prepare all year" is on, and only while a window is open
@@ -371,28 +373,47 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
      * One look at every kit below the cap, in the owner's supply order (S10e, {@link Supply}): what his own storage
      * holds counts first; for the gap he asks the warehouse for finished pieces it holds; only for what is still
      * missing are the kit's ingredients asked for. Then he assembles the first kit a whole batch of which is in his pack.
+     *
+     * <p>Each kit's limit is the hut's cap or the kit's own lower one ({@link Kits#limit}). The kits are looked at in
+     * {@link Kits#all()} order, a kit that makes something before the kits that take it (the rockets before the crate).
+     * A kit that takes another kit's output (the crate takes three rockets) takes it only while that stock stays at its
+     * own limit afterwards ({@link Kits#mayTake}), and the kit that makes it keeps on above its limit for that
+     * ({@link Kits#wantedNow}). What goes above the limit comes from the ingredients only, never from the warehouse.</p>
      */
     private IAIState prepare() {
         final IItemHandler pack = worker.getInventoryCitizen();
-        final int cap = building.stockCap();
+        final int shared = building.stockCap();
+        final List<Kits.Kit> kits = Kits.all();
+        final Map<Item, Integer> haveNow = new HashMap<>();
+        final Map<Item, Integer> ownNow = new HashMap<>();
+        for (final Kits.Kit kit : kits) {
+            final int have = building.stock(kit.output());
+            haveNow.put(kit.output(), have);
+            ownNow.put(kit.output(), have + openFinished(kit.output()));
+        }
+        final ToIntFunction<Item> haveOf = item -> haveNow.getOrDefault(item, 0);
+        final ToIntFunction<Item> ownOf = item -> ownNow.getOrDefault(item, 0);
         final List<Kits.Kit> wanted = new ArrayList<>();
         boolean below = false;
         Item fetching = null;
         int fetchingCount = 0;
-        for (final Kits.Kit kit : Kits.all()) {
+        for (final Kits.Kit kit : kits) {
             final Item output = kit.output();
-            final int have = building.stock(output);
-            final int inflight = openFinished(output);
-            if (!Kits.wanted(have + inflight, kit.count(), cap)) {
+            final int have = haveOf.applyAsInt(output);
+            final int inflight = ownOf.applyAsInt(output) - have;
+            if (!Kits.wantedNow(kit, kits, shared, ownOf)) {
                 if (inflight > 0 && fetching == null) {
                     fetching = output;                        // the whole gap is on its way: say so, not "stock full"
                     fetchingCount = inflight;
                 }
                 continue;
             }
-            below = true;
-            // with one request open the plan asks for no more (one at a time), so the warehouses need no count then
-            final Supply.Plan plan = Supply.plan(have, inflight, inflight > 0 ? 0 : heldInWarehouses(output), kit.count(), cap);
+            // with one request open the plan asks for no more (one at a time), so the warehouses need no count then;
+            // above its limit (rockets for a crate) a kit is made from its ingredients only
+            final int limit = Kits.limit(kit, shared);
+            final Supply.Plan plan = Kits.wanted(have + inflight, kit.count(), limit)
+                    ? Supply.plan(have, inflight, inflight > 0 ? 0 : heldInWarehouses(output), kit.count(), limit)
+                    : new Supply.Plan(0, true);
             final boolean requested = plan.finished() > 0 && requestFinished(output, plan.finished());
             if (requested) {
                 fetching = output;
@@ -401,8 +422,14 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
                 fetching = output;
                 fetchingCount = inflight;
             }
+            // a kit that would take a stock below its reserve (a crate: the show's rockets) waits; nothing to make, nothing to ask
+            final boolean may = Kits.mayTake(kit, kits, shared, haveOf);
+            if (!may && !requested && inflight == 0) {
+                continue;
+            }
+            below = true;
             // a finished request the warehouse did not take (cancelled at once) leaves the gap to the ingredients
-            if (plan.ingredients() || plan.finished() > 0 && !requested) {
+            if (may && (plan.ingredients() || plan.finished() > 0 && !requested)) {
                 wanted.add(kit);
             }
         }
@@ -607,8 +634,11 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
         final IItemHandler pack = worker.getInventoryCitizen();
         final IItemHandler hut = building.getItemHandlerCap();
         // what is on its way from the warehouse counts as stock here too (S10e): the batch is made only for the rest
+        final List<Kits.Kit> kits = Kits.all();
+        final int shared = building.stockCap();
         if (!SeasonsConfig.needsMaterials() || !Kits.hasBatch(pack, kit)
-                || !Kits.wanted(building.stock(kit.output()) + openFinished(kit.output()), kit.count(), building.stockCap())) {
+                || !Kits.wantedNow(kit, kits, shared, item -> building.stock(item) + openFinished(item))
+                || !Kits.mayTake(kit, kits, shared, building::stock)) {
             return AIWorkerState.START_WORKING;
         }
         final ItemStack output = new ItemStack(kit.output(), kit.count());
@@ -1015,8 +1045,8 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
     }
 
     /**
-     * Launching, on the New Year days: he walks to the square and makes sure the show has its rockets, asking the
-     * warehouse for the missing ones. By day he then goes back to the upkeep. Past bedtime he is only up because the
+     * Launching, on the New Year days: he walks to the square, where the show's rockets are the rockets in his own stock
+     * (made by his rocket kit, through the supply order of {@link #prepare}; Q13). By day he then goes back to the upkeep. Past bedtime he is only up because the
      * mixin keeps him for the show ({@link Fireworks#keepUp}): he stays at the square, launches the dusk show there
      * when the sky is dark ({@link Fireworks#launchDusk}) and stays until MineColonies sends him to bed. The midnight
      * show comes at a real hour and goes up from the server.
@@ -1030,10 +1060,9 @@ public class EntityAIWorkDecorator extends AbstractEntityAIInteract<JobDecorator
             job.setStatus(DecoratorTexts.NO_SQUARE_SHOW);
             return upkeep();
         }
+        // the rockets are his own stock, made by the firework_rocket kit through the supply order of prepare() (Q13); he asks
+        // for none here: the colony has no job that could fill a request for the rockets themselves
         final int rockets = building.stock(Items.FIREWORK_ROCKET);
-        if (SeasonsConfig.needsMaterials() && rockets < Fireworks.SHOW_ROCKETS) {
-            checkIfRequestForItemExistOrCreateAsync(new ItemStack(Items.FIREWORK_ROCKET), Fireworks.SHOW_ROCKETS, 1);
-        }
         final BlockPos stand = launchStand(level, site);
         if (stand != null && !walkToSafePos(stand) && ++walkAttempts < WALK_ATTEMPTS_OUT) {
             job.setStatus(DecoratorTexts.ON_WAY_SHOW);

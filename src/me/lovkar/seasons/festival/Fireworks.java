@@ -56,7 +56,8 @@ import java.util.function.BiPredicate;
  * a smaller sparkle, so the rockets last. If the server runs through real midnight inside the New Year days
  * ({@code events.midnightShow}), the colony's players see a countdown on the action bar and the big show starts at
  * 00:00. Every show uses the firework rockets in the Decorator's stock (his pack, then his hut; a rocket with its
- * own explosions flies as it is, a plain one gets the festival's colours); with {@code decorator.needsMaterials}
+ * own explosions flies as it is, a plain one gets the festival's colours); the Decorator makes the rockets himself (the
+ * firework_rocket kit: paper and gunpowder, up to 24, the biggest single show), and with {@code decorator.needsMaterials}
  * off they are free. The rockets of a lit tree are a free greeting.
  *
  * <p>Who launches the dusk show (design 4, Hosting: he "launches the fireworks"): the dusk is after the colonists'

@@ -49,6 +49,26 @@ goods there (each sale takes one good from his Workshop above one batch of it), 
 Post's balance, at most one Trade Coin per stall per day. The mod keeps no money of its own. `compat.tradePostBridge =
 false` turns the stalls off. Without Trade Post nothing changes.
 
+## NEW: in "The Decorator", the rockets and the crates (Q13, the owner's answer of 27 Nov 2026)
+
+In the first paragraph, the materials list gains "gunpowder" (old: `string, dye, paper, torches and glowstone dust`, new:
+`string, dye, paper, torches, gunpowder and glowstone dust`), and after the sentence that ends "and makes them at his
+hut." comes: `He also makes the New Year show's firework rockets (paper and gunpowder, up to 24) and up to two firework
+crates (a barrel and three rockets, from Workshop level 3, never from the show's rockets), so the show needs no rockets
+from you.`
+
+Why: today no job could make the rockets the New Year show uses, and the Decorator asked the colony for them, a request
+only the player could fill. Now the Decorator makes both, like every other decoration, and asks for paper and gunpowder.
+
+## CHANGED: in "Festival stalls", what the stalls sell
+
+Old: `On festival days colonists buy the Decorator's festival goods there (each sale`
+
+New: `On festival days colonists buy the Decorator's festival goods there (the decorations, never the rockets or the
+crates; each sale`
+
+Why: the rockets and the crates are made for the colony's own use and have no price; the stalls never sell them.
+
 ## NEW: two rows in the config table, after `decorator.storeroomDressing`
 
 | `decorator.streetLights` | false | true: thin fairy lights beside paths in the festival windows |

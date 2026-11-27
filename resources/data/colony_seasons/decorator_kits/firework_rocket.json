@@ -1,0 +1,17 @@
+{
+  "output": {
+    "item": "minecraft:firework_rocket",
+    "count": 3
+  },
+  "cap": 24,
+  "ingredients": [
+    {
+      "item": "minecraft:paper",
+      "count": 1
+    },
+    {
+      "item": "minecraft:gunpowder",
+      "count": 1
+    }
+  ]
+}

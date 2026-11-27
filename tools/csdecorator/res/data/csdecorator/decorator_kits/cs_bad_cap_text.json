@@ -1,0 +1,7 @@
+{
+  "output": {"item": "minecraft:flint", "count": 1},
+  "cap": "many",
+  "ingredients": [
+    {"item": "minecraft:gravel", "count": 1}
+  ]
+}

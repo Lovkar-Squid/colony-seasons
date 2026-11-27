@@ -920,6 +920,12 @@ public class CsTradePost {
                 }
                 final Map<Item, Integer> prices = MarketStalls.prices();
                 checkEq("six goods are priced", prices.size(), 6);
+                // Q13: the Decorator also makes firework rockets and firework crates, but the stalls sell neither
+                check("the Workshop's kits are eight now, and the rocket and the crate are among them",
+                        Kits.all().size() >= 8 && goods().contains(Items.FIREWORK_ROCKET) && goods().contains(SeasonsBlocks.FIREWORK_CRATE_ITEM.get()),
+                        String.valueOf(Kits.all().size()));
+                check("neither the firework rocket nor the firework crate has a price", !prices.containsKey(Items.FIREWORK_ROCKET)
+                        && !prices.containsKey(SeasonsBlocks.FIREWORK_CRATE_ITEM.get()), prices.keySet().toString());
                 try {
                     for (final Map.Entry<Item, Integer> e : prices.entrySet()) {
                         final int market = tpMarketValue(new ItemStack(e.getKey()));
@@ -1327,6 +1333,10 @@ public class CsTradePost {
                 final int cap = MarketMath.cap(4, coin);
                 final int cash0 = balance();
                 final int paid0 = paidToday();
+                final Item crate = SeasonsBlocks.FIREWORK_CRATE_ITEM.get();
+                final int rockets0 = held(Items.FIREWORK_ROCKET);
+                final int crates0 = held(crate);
+                check("the Workshop holds rockets and crates (neither is for sale)", rockets0 > 8 && crates0 > 8, rockets0 + " rockets, " + crates0 + " crates");
                 int sold = 0;
                 int sum = 0;
                 int stepsOver = 0;
@@ -1336,6 +1346,8 @@ public class CsTradePost {
                     sum += sale.price();
                     stepsOver += paidToday() > cap ? 1 : 0;
                 }
+                checkEq("no firework rocket was sold in " + sold + " sales", held(Items.FIREWORK_ROCKET), rockets0);
+                checkEq("no firework crate was sold in " + sold + " sales", held(crate), crates0);
                 note("{} sales to the cap, {} points", sold, sum);
                 checkEq("the paid record never passed the cap", stepsOver, 0);
                 check("the record ends below the cap and above the cap less the cheapest good", paidToday() <= cap && paidToday() > cap - 500, paidToday() + " of " + cap);

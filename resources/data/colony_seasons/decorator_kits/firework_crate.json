@@ -1,0 +1,17 @@
+{
+  "output": {
+    "item": "colony_seasons:firework_crate",
+    "count": 1
+  },
+  "cap": 2,
+  "ingredients": [
+    {
+      "item": "minecraft:barrel",
+      "count": 1
+    },
+    {
+      "item": "minecraft:firework_rocket",
+      "count": 3
+    }
+  ]
+}

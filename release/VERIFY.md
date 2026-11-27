@@ -37,7 +37,7 @@ the screenshots go into the project's gallery, see the end of this file).
 | P5 | Requires NeoForge 1.21.1, MineColonies 1.1.1420 or newer in 1.1, Structurize and Domum Ornamentum; Serene Seasons optional; server and every client | `resources/META-INF/neoforge.mods.toml:15-51` (every dependency `side="BOTH"`, Serene Seasons not listed); csboot, `tools/packboot.sh` (item 25) | the client side: yes |
 | P6 | A new job, the Decorator's Workshop, levels 1 to 5 | `colony/BuildingDecorator.java:38,130`, `colony/DecoratorModules.java:25-28`; csdecorator, cspaste | |
 | P7 | All year (with "Prepare all year" on) a stock of the decorations he makes; supply order: his own storage, then finished pieces from the warehouse, then materials; with materials off he needs no stock | `ai/EntityAIWorkDecorator.java:248-258` (free: nothing to prepare; "Prepare all year" off: only in a window), `colony/DecoratorModules.java:37` (the setting on by default), `decor/Supply.java:44-52` (`plan`), `ai/EntityAIWorkDecorator.java:311-377` (`prepare`); csstorage (a warehouse and a real courier), `restart.sh csstorage` | |
-| P8 | Materials such as leaves, string, dye, paper, torches and glowstone dust | `resources/data/colony_seasons/decorator_kits/*.json` (glass panes and gold nuggets too, hence "such as") | |
+| P8 | Materials such as leaves, string, dye, paper, torches, gunpowder and glowstone dust | `resources/data/colony_seasons/decorator_kits/*.json` (glass panes and gold nuggets too, hence "such as"; paper and gunpowder make the rockets, Q13: T26) | |
 | P9 | `decorator.needsMaterials = false` makes his work free | `SeasonsConfig.java:164-167`, `ai/EntityAIWorkDecorator.java:248-252`; csdecorator mode free, csfullcycle hostile-free | |
 | P10 | Town hall first | `decor/DecorWork.java:181` (`nextToDecorate`: the town hall, then the square, then the nearest building); csfullcycle base | |
 | P11 | Level 1: a wreath above the main door; higher levels garland beside it and lights above it; the grand tree with the large star at 5 | `decor/DecorPlanner.java:20-27,84-93`, `decor/PieceLoader.java:107-114`; csdecorgate styles and setup, cspaste | yes: a level 1 and a level 5 hut (item 1) |
@@ -152,7 +152,7 @@ README:
 - The Decorator: what his two skills do (`ai/EntityAIWorkDecorator.java:126-128,148-155`); the stock cap, 16 at level
   1 to 48 at level 5 (`colony/BuildingDecorator.java:42-46,135-137`); the supply order (S10e, P7); every kit
   ingredient named after "such as"; kits in `data/<namespace>/decorator_kits/` (`decor/Kits.java:59`); what the tree
-  and the show ask the warehouse for (`ai/EntityAIWorkDecorator.java:690-703,903-905`); with "Prepare all year" off he
+  asks the warehouse for (`ai/EntityAIWorkDecorator.java:690-703`; the show's rockets are no longer asked for, since Q13 the rocket kit makes them: T26); with "Prepare all year" off he
   waits for the window (`ai/EntityAIWorkDecorator.java:254`).
 - His round: the town hall, then the square, then the building nearest his Workshop, and the day's number of
   buildings, 2 and 2 more per level (`decor/DecorWork.java:44-45,131-133`).
@@ -494,3 +494,18 @@ claims that only an in-game look can prove are marked "Look" (Q8, the lead's in-
 Replaces item P34 ("Streets are not decorated"): since 0.2.0 streets are decorated where the player marks them with the
 wand (T17 to T20). The Decorator still never picks a street spot himself. The CurseForge sentence is the one CHANGED entry
 in `release/curseforge-0.2.0-changes.md`; the README's "What it does not do" carries the same change.
+
+## Added by Q13 (the Decorator makes both the firework rockets and the firework crates)
+
+The owner's answer of 27 Nov 2026 ("Decorator izdeluje oboje"). Before this, no job made rockets and the Decorator asked the
+colony for them, a request only the player could fill.
+
+| # | Claim | Proof (code, probe) | Seen |
+|---|---|---|---|
+| T26 | The Decorator makes firework rockets (1 paper and 1 gunpowder make 3) and firework crates (1 barrel and 3 rockets make 1) as two more kits; the supply order is the same as for every decoration (his own stock, finished pieces from a warehouse, then the materials); with `decorator.needsMaterials` off nothing changes (free rockets) | `resources/data/colony_seasons/decorator_kits/firework_rocket.json`, `firework_crate.json`; `ai/EntityAIWorkDecorator.java` `prepare()`; `csdecorator` (both shipped kits loaded with their ingredients), `csstorage` (f1: paper, gunpowder and barrels in a warehouse, a courier brings them), `csfestival newyear` (d) | |
+| T27 | A kit file may name a `"cap"`: that kit's stock is limited to it when it is below the Workshop's cap (rockets 24, crates 2); a file without it keeps the Workshop's cap (the six 0.1.0 kits); a bad cap skips the kit with one warning | `decor/Kits.java` `limit`, `parse`; `tools/check_kits.py`; `csdecorator` (cap 5 loaded, caps 0, 2.5 and "many" skipped, the six 0.1.0 kits have none), `csstorage` (f rows) | |
+| T28 | 24 rockets is the cap because the midnight show (24) is the biggest single show and 24 is eight whole batches; the dusk show of 16 and the sparkles of 3 fit inside it | `festival/Fireworks.java:79-82`; `csstorage` (f1 ends at 24 rockets) | |
+| T29 | A crate takes rockets only while 24 are left after the batch; the rocket kit goes on above 24 (up to 29, never past the Workshop's cap) only while a crate is wanted; at most 2 crates; rockets before the crate in the making order; no crate below Workshop level 3 | `decor/Kits.java` `wantedNow`, `mayTake`, `keep`; `csstorage` (f rows; f1 from empty and f2 from 11 rockets: the first crate leaves 24 or more, the lowest after any crate is 24, at most 2 crates, rockets at most 29) | |
+| T30 | The New Year show's rockets are his own kit's: with paper and gunpowder in the hut and no rockets, the big dusk show flies 16 rockets made that day, and no request for the rockets themselves is ever open in the colony | `ai/EntityAIWorkDecorator.java` `launching()` (the direct request is gone); `csfestival newyear` (d: batches counted, paper and gunpowder used one for one, requests counted every tick) | |
+| T31 | The crate on the square still costs nothing, though the crate is now a kit output; the Trade Post stalls sell neither rockets nor crates (no price, so they are never picked) | `decor/PieceLoader.java` `costsItem`; `tools/check_market.py` (neither is priced), `cstradepost with` (20 rockets and 20 crates in the Workshop, none sold in 39 sales, `prices` has six goods), `csstorage` (a), `csfullcycle` | |
+| T32 | The hut window's stock rows show each kit's own cap (a stock above it reads "the rest is kept for crates" only for a kit whose output another kit takes, the rockets); couriers leave what the kits keep (rockets up to 29) | `colony/DecoratorInfoModule.java`, `DecoratorInfoModuleView.java`, `client/DecoratorInfoWindow.java`, `colony/DecoratorStockModule.java`; `tools/check_packets.py`, `cseffects` | yes: the hut window at level 3 or more with rockets and crates in stock |

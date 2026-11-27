@@ -2,9 +2,10 @@
 
 resources/data/mctradepost/item_values.json is read by Trade Post for MineColonies (and by nothing else). It must:
   - never set "replace" to true (that would wipe the player's whole price list), and be a plain "values" map;
-  - list exactly the outputs of the six kits in resources/data/colony_seasons/decorator_kits, and nothing else: no
-    gift, gift pile, firework crate, festival marker, large star, tinsel leaves or hut block (a price on a fixture would
-    turn a set swap into money);
+  - list exactly the outputs of the kits in resources/data/colony_seasons/decorator_kits that are for sale (the six
+    decorations), and nothing else: no firework rocket or firework crate (Q13: the Decorator makes both, the stalls
+    sell neither), no gift, gift pile, festival marker, large star, tinsel leaves or hut block (a price on a fixture
+    would turn a set swap into money);
   - give each good an integer price of at least 1 and below 1000 (a Trade Coin is 1000 points).
 When the Trade Post jar is there (the TRADEPOST_JAR environment variable names it) each price is also held against that
 jar's own list: price x kit count must not be more than 1.25 x the summed value of the kit's ingredients (a tag
@@ -21,6 +22,8 @@ import zipfile
 
 NOT_PRICED = ("gift", "gift_pile", "firework_crate", "festival_marker", "large_star", "tinsel_leaves", "storage", "hut")
 MAX_MARKUP = 1.25
+# kits whose output is made for the colony's own use and is never sold at a stall (Q13): no price, so MarketStalls never picks them
+NOT_FOR_SALE = ("minecraft:firework_rocket", "colony_seasons:firework_crate")
 
 
 def tag_members(tag, values):
@@ -50,8 +53,14 @@ def check(repo):
         data = json.loads(kit.read_text(encoding="utf-8"))
         outputs[data["output"]["item"]] = data["output"].get("count", 1)
         kits[data["output"]["item"]] = data
+    for key in NOT_FOR_SALE:
+        if key in values:
+            errors.append(f"{key}: the Decorator makes it for the colony's own use, the stalls do not sell it")
+    for key in NOT_FOR_SALE:
+        outputs.pop(key, None)
+        kits.pop(key, None)
     if set(values) != set(outputs):
-        errors.append(f"the keys must be exactly the kits' outputs: extra {sorted(set(values) - set(outputs))}, "
+        errors.append(f"the keys must be exactly the sold kits' outputs: extra {sorted(set(values) - set(outputs))}, "
                       f"missing {sorted(set(outputs) - set(values))}")
     for key, price in values.items():
         if not key.startswith("colony_seasons:"):

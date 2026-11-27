@@ -58,10 +58,18 @@ with a free place first. While other huts have free places, hire the Decorator i
 you can also hire a colonist who works at another hut, however far away that hut is; he leaves his old job.
 
 While decorations need materials and the Workshop's "Prepare all year" setting is on (both are the default), he
-keeps a stock of each of the six decorations he makes (wreath, garland, lantern string, fairy lights, ornament
+keeps a stock of each of the decorations he makes (wreath, garland, lantern string, fairy lights, ornament
 leaves and tree star) ready at his Workshop all year, up to a cap of 8 plus 8 for each Workshop level (16 of each at
-level 1, 48 at level 5). The tinsel leaves, the large star, the gift pile and the firework crate cost nothing and are
-never stocked. For a decoration below the cap he looks in this order:
+level 1, 48 at level 5). He also makes the New Year show's firework rockets (paper and gunpowder make 3 rockets) and
+firework crates (a barrel and 3 rockets make a crate), each with a cap of its own: 24 rockets (the biggest single show,
+the midnight one, and the dusk show of 16 fits inside it) and 2 crates, or the Workshop's cap when that is lower. A
+recipe file may name such a cap of its own (`"cap"`); the six decorations above have none. A crate never takes the
+show's rockets: he makes one only while 24 rockets are left after it, and he makes the 3 extra rockets for it only
+while a crate is wanted, so crates come from Workshop level 3 (at level 1 the Workshop's own cap of 16 limits the
+rockets, which come in threes, to 15). The
+tinsel leaves, the large star, the gift pile and the firework crate that stands on the square cost nothing and are
+never stocked; the crates he makes are items for you to take, the Trade Post market does not sell them (nor the
+rockets). For a decoration below the cap he looks in this order:
 
 1. his own storage: the Workshop's racks, the hut block and his pack, where last year's decorations went after
    the take-down;
@@ -73,7 +81,9 @@ never stocked. For a decoration below the cap he looks in this order:
 The recipes are datapack files in `data/<namespace>/decorator_kits/` (the mod's own are in
 `data/colony_seasons/decorator_kits/`), so a pack maker can change them. The hut window lists what he is
 missing. For the tree he also asks the warehouse for spruce logs and leaves (and at level 5 for the stone bricks,
-podzol and lanterns of its planter), and for the New Year show for firework rockets. With the Workshop's "Prepare
+podzol and lanterns of its planter). The New Year show's rockets are his own stock like every other decoration:
+finished rockets from a warehouse first, otherwise paper and gunpowder; he never puts a request for the rockets
+themselves, which no worker could fill. With the Workshop's "Prepare
 all year" setting off he only starts once a decoration window is open. If you would rather not run a supply chain,
 set `decorator.needsMaterials` to false and decorating is free.
 

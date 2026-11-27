@@ -59,7 +59,9 @@ bash tools/probe.sh cscalendar bridge-off     # calendar.useSereneSeasons = fals
 bash tools/probe.sh csblocks                  # the decoration blocks: placed by hand in every facing, collision, drops,
                                               # popping off a removed wall, light when lit, block entity NBT
 bash tools/restart.sh cscalendar              # two server runs on one kept world: saved state is read back
-bash tools/probe.sh csdecorator               # the Decorator on a real colony: 3 game days, a night, rain, AI resets
+bash tools/probe.sh csdecorator               # the Decorator on a real colony: 3 game days, a night, rain, AI resets; Q13: the kit
+                                              # files' optional "cap" (loaded, or skipped with a reason when 0, 2.5 or text), the
+                                              # shipped rocket and crate kits and their order, the six 0.1.0 kits without a cap
 bash tools/probe.sh csdecorator free          # decorator.needsMaterials = false: no request, nothing used, nothing made
 bash tools/restart.sh csdecorator             # stock, cs_assembled, cs_decorations_up and the setting survive a restart
 bash tools/probe.sh cspaste                   # every blueprint of the pack loaded and pasted through Structurize, the
@@ -98,7 +100,9 @@ bash tools/probe.sh csfestival voyager        # Voyager 0.4.0 next to it: both m
                                               # (left for the day after 3 empty visits, the tree ready and lit anyway)
 bash tools/probe.sh csfestival newyear        # the New Year dusk of the in-game test replayed (sprinted from 11800), and the
                                               # Decorator asleep in the rain: the server launches the show from the crate,
-                                              # from his stock and free
+                                              # from his stock and free; Q13 (d): decorations from stock with paper and gunpowder
+                                              # in the hut and no rockets, the dusk show flies rockets his own kit made (one paper
+                                              # and one gunpowder a batch of 3) and no request for the rockets is ever open
 bash tools/probe.sh csfestival square         # Q4: the same colony with a Town Square instead of the marker (its blueprint pasted
                                               # and registered as the main square, level 3, the Decorator assigned): the tree on
                                               # its tree cell, lit by a player and by the Decorator, the gifts, the gathering
@@ -201,7 +205,8 @@ bash tools/probe.sh cstradepost without       # no Trade Post: the mod boots, no
                                               # cell listed, no market set), a festival day in the hours with a buyer at a stall sells nothing,
                                               # current_balance never written, no market key in the saved ledger, no market line; the two ledger
                                               # keys survive a save and a load, a tag without them reads as never paid
-bash tools/probe.sh cstradepost with          # Trade Post 1.06.012 next to the mod: one version line, the coin value, our six prices against its
+bash tools/probe.sh cstradepost with          # Trade Post 1.06.012 next to the mod: one version line, the coin value, our six prices (the rocket and the crate
+                                              # have none, and 39 sales sell none of the 20 of each in the Workshop) against its
                                               # own list (marketplaceValue above 0 for each, 0 for the gift and the fixtures, each price within
                                               # its ingredients + 25 %), four stalls up (every cell listed, the vendor's column and the lamp
                                               # cells free, the four fronts), one sale pays exactly its price and takes one good, every "nothing
@@ -266,7 +271,10 @@ bash tools/probe.sh csstorage    # S0 the pasted racks are the Workshop's contai
                                  # courier refill and the take-down; (e2, S10h) the Storage tab's state and its module view, fed
                                  # the module's own bytes, through every click: the new step at once, the count the server left,
                                  # the wait ended by the server's step (a second click without reopening) or after 60 client
-                                 # ticks for a refused click
+                                 # ticks for a refused click; Q13 (f): the per-kit caps, the making order, the crate's gate as rows,
+                                 # then with paper, gunpowder and barrels in the warehouse from none and from 11 rockets: rockets to
+                                 # 24, then at most two crates, the first crate leaving 24 or more, none ever below 24, and no
+                                 # request for the rockets themselves
 bash tools/restart.sh csstorage  # two steps (the first in creative, free) and the stock at the cap, a restart: the step, the 12 racks
                                  # at 45 slots and the stock are back, no request, a third step works
 ```

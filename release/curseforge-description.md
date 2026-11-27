@@ -18,8 +18,10 @@ The Decorator is a new MineColonies job with his own building, the Decorator's W
 he keeps a stock of the decorations he makes ready (if you switch off the Workshop's "Prepare all year", only once
 the decoration window is open). He takes them first from his own storage (last year's, taken down), then asks the
 warehouse for finished decorations the colony already has, and only for the rest orders materials such as leaves,
-string, dye, paper, torches and glowstone dust and makes them at his hut. If you would rather not run a supply
-chain, `decorator.needsMaterials = false` makes his work free, and he needs no stock.
+string, dye, paper, torches, gunpowder and glowstone dust and makes them at his hut. He also makes the New Year show's
+firework rockets (paper and gunpowder, up to 24) and up to two firework crates (a barrel and three rockets, from
+Workshop level 3, never from the show's rockets), so the show needs no rockets from you. If you would rather not run a
+supply chain, `decorator.needsMaterials = false` makes his work free, and he needs no stock.
 
 When the festival window opens he walks from building to building, town hall first, and puts up what his level
 allows. A level 1 Workshop gives each building a wreath above its main door. Higher levels add garland beside the
@@ -87,7 +89,7 @@ a path.
 
 New in 0.2.0, optional. With Trade Post for MineColonies installed, a Town Square of level 4 or 5 puts up festival
 market stalls with striped awnings while a festival set stands. On festival days colonists buy the Decorator's festival
-goods there (each sale takes one good from his Workshop above one batch of it), and each sale pays the colony into Trade
+goods there (the decorations, never the rockets or the crates; each sale takes one good from his Workshop above one batch of it), and each sale pays the colony into Trade
 Post's balance, at most one Trade Coin per stall per day. The mod keeps no money of its own. `compat.tradePostBridge =
 false` turns the stalls off. Without Trade Post nothing changes.
 

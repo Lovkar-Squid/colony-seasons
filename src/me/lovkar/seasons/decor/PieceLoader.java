@@ -432,8 +432,8 @@ public final class PieceLoader {
     /** A square cell costs one item of its block if that item is vanilla or a kit's output; our other blocks are free in 0.1.0. */
     public static boolean costsItem(final BlockState state) {
         final Item item = DecorPlacer.itemOf(state);
-        if (item == null) {
-            return false;
+        if (item == null || state.getBlock() instanceof FireworkCrateBlock) {
+            return false;                             // the square's crate is a fixture: it costs nothing, though the Decorator also makes crates (Q13)
         }
         if ("minecraft".equals(BuiltInRegistries.ITEM.getKey(item).getNamespace())) {
             return true;
