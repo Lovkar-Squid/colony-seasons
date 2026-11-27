@@ -373,6 +373,8 @@ Built with /ekipa-agentov as 0.1.0 was (worktree per chunk, independent verify, 
 | Q12 Seasonal touches and the tree's foot (added by Q9) | the [B] "small seasonal touches" answer; the tree's foot in the `tree` cell | `decor/DecorWork` and `SquareSets` (the touches), ledger kind `TOUCHES`, `pieces/bed_<season>.blueprint`, `festival_trunk` in the centre cell | probe `cssquarelife` extended and its restart, `csdecorgate square` | Sonnet, high | 1.5 |
 | Q7b Small fixes from Q7's verify (added by Q9) | the street-mark sweep, the throwing `markDirty`, the rocket-refund counter, probe lines for H28 | `decor/DecorEvents`, `compat/TradePostBridge`, `csfullcycle` `hostile-square`, `cswand` | `csfullcycle hostile-square`, `cswand` | Sonnet, normal | 0.5 |
 
+| Q13 Rockets and crates (owner's answer of 27 Nov 2026, "Decorator izdeluje oboje"; added by Q13) | the Decorator makes firework rockets and firework crates as two more kits, each with its own stock cap; a crate never takes the show's rockets; the New Year show's rockets are his own stock, no request for them | `decor/Kits` (`cap`, `limit`, `wantedNow`, `mayTake`), `ai/EntityAIWorkDecorator`, `decor/PieceLoader.costsItem`, the two kit files | `csstorage`, `csfestival newyear`, `csdecorator`, `cstradepost with` | Sonnet, normal | 0.5 |
+
 **Total: about 19.5 points (range 14.5 to 26)**, of which Q10 is 2 (1.5 to 3). Order: Q0 and Q1 first (Q1 runs on a
 placeholder blueprint), then Q2, then Q3 and Q4; Q5 and Q6 beside them once Q1 is in; Q10 once Q3 and Q5 are in (it
 needs the sets and the info page); Q7, Q8, Q9 last. Not included: the next festival's own set, blocks and events (its

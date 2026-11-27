@@ -24,6 +24,9 @@ a colony with only a festival marker behaves as before.
 - The square's window has an info page: its level, the order, the set that is wanted and the one that stands and its
   state, the next change of set, the Decorator, and what the next level adds. The Workshop's Calendar page has a line
   about the square.
+- The Decorator makes the New Year show's firework rockets himself (paper and gunpowder, up to 24) and up to two firework
+  crates (a barrel and 3 rockets, from Workshop level 3; a crate never takes the show's rockets), and asks the colony
+  for no rockets any more. The market stalls sell neither.
 - Small seasonal touches in the square's planters between the festivals: flowering azalea in spring, azalea leaves in
   summer, a pumpkin in autumn, spruce boughs in winter.
 - Moving from the festival marker: when a Town Square is built, the marker's tree comes down (the items go back to the

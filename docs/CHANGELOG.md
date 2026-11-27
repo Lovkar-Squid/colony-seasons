@@ -8,6 +8,20 @@ build chunk.
 
 ### Build notes
 
+- **Q13, the Decorator makes the firework rockets and the firework crates.** The owner's answer of 27 Nov 2026
+  ("Decorator izdeluje oboje"). Two more kits, `firework_rocket` (1 paper and 1 gunpowder make 3 rockets, cap 24: the
+  midnight show's 24 is the biggest single show and eight whole batches, the dusk show of 16 fits inside) and
+  `firework_crate` (1 barrel and 3 rockets make 1 crate, cap 2). A kit file may name a `"cap"` (1 to 999): that kit's
+  stock limit is the lower of it and the Workshop's cap (`Kits.limit`); a file without it keeps the Workshop's, the six
+  0.1.0 kits are unchanged. A kit that takes another kit's output goes after it in `Kits.all()`. The crate takes rockets
+  only while the stock stays at or above the rocket kit's limit after the batch (`Kits.mayTake`); because the rocket kit
+  alone never exceeds its limit, it goes on above it only while a crate is wanted, by the crate's 3, and a batch's
+  overshoot when a show left an odd stock (`Kits.wantedNow`, rockets end at 24 to 29; the Workshop's cap bounds it, so
+  crates come from level 3 and at level 1 the rockets stop at 15). What goes above the limit comes from the ingredients
+  only, never from the warehouse. The direct request for rockets in `launching()` is gone. The square's own crate stays
+  free (`PieceLoader.costsItem`). The info page's stock rows carry each kit's own cap (packet field added), the stock
+  module keeps what the kits keep. `check_kits.py` knows `cap` and the crate; `check_market.py` says neither is for sale.
+  Probes: `csstorage` (f), `csfestival newyear` (d), `csdecorator`, `cstradepost with`.
 - **Q1, the Town Square building and its Decorator.** New hut `colony_seasons:townsquare` (the notice board,
   one placeholder level 21 x 21 with every square tag); one Decorator is assigned to it by window or auto-hire
   and stays employed at his Workshop; dead or re-jobbed Decorators drop off at once (their saved ids within one
